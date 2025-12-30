@@ -1,6 +1,19 @@
-# Goost - Contract-Based Persistence for OpenCode
+<p align="center">
+  <img src="assets/goost-logo.svg" alt="Goost Logo" width="128" height="128">
+</p>
 
-**Goost** (Goal + Boost) is a lightweight persistence mechanism for long-running AI agent tasks. It solves the fundamental problem of LLM task completion: agents declaring "done" before work is actually complete.
+<h1 align="center">Goost</h1>
+
+<p align="center">
+  <strong>Contract-Based Persistence for OpenCode</strong>
+</p>
+
+<p align="center">
+  A lightweight persistence mechanism for long-running AI agent tasks.<br>
+  Solves the fundamental problem of LLM task completion: agents declaring "done" before work is actually complete.
+</p>
+
+---
 
 ## The Problem
 

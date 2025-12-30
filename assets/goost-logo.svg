@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128">
+  <!-- Pixel art goose with rocket boosters flying to top-right -->
+  <!-- Each "pixel" is a 4x4 rect -->
+  
+  <!-- Rocket flames (orange/yellow) -->
+  <rect x="4" y="44" width="4" height="4" fill="#FF6B00"/>
+  <rect x="8" y="48" width="4" height="4" fill="#FF6B00"/>
+  <rect x="0" y="48" width="4" height="4" fill="#FFB800"/>
+  <rect x="4" y="52" width="4" height="4" fill="#FFB800"/>
+  <rect x="8" y="52" width="4" height="4" fill="#FF6B00"/>
+  <rect x="4" y="56" width="4" height="4" fill="#FF4500"/>
+  
+  <rect x="12" y="52" width="4" height="4" fill="#FF6B00"/>
+  <rect x="16" y="56" width="4" height="4" fill="#FFB800"/>
+  <rect x="12" y="56" width="4" height="4" fill="#FF6B00"/>
+  <rect x="8" y="60" width="4" height="4" fill="#FF4500"/>
+  
+  <!-- Rocket booster (gray) - left -->
+  <rect x="8" y="40" width="4" height="8" fill="#5C6370"/>
+  <rect x="12" y="44" width="4" height="4" fill="#5C6370"/>
+  
+  <!-- Rocket booster (gray) - right -->
+  <rect x="20" y="48" width="4" height="4" fill="#5C6370"/>
+  <rect x="24" y="44" width="4" height="8" fill="#5C6370"/>
+  
+  <!-- Goose body (white/cream) -->
+  <rect x="16" y="24" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="20" y="20" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="20" y="24" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="24" y="16" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="24" y="20" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="24" y="24" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="28" y="12" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="28" y="16" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="28" y="20" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="28" y="24" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="32" y="8" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="32" y="12" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="32" y="16" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="32" y="20" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="36" y="4" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="36" y="8" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="36" y="12" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="36" y="16" width="4" height="4" fill="#F5F5F5"/>
+  
+  <!-- Goose belly (connects to boosters) -->
+  <rect x="16" y="28" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="16" y="32" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="16" y="36" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="20" y="28" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="20" y="32" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="20" y="36" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="20" y="40" width="4" height="4" fill="#F5F5F5"/>
+  
+  <!-- Goose neck extension -->
+  <rect x="40" y="0" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="40" y="4" width="4" height="4" fill="#F5F5F5"/>
+  <rect x="40" y="8" width="4" height="4" fill="#FFFFFF"/>
+  
+  <!-- Goose head -->
+  <rect x="44" y="0" width="4" height="4" fill="#FFFFFF"/>
+  <rect x="48" y="0" width="4" height="4" fill="#F5F5F5"/>
+  
+  <!-- Goose beak (orange) -->
+  <rect x="52" y="0" width="4" height="4" fill="#FF8C00"/>
+  <rect x="56" y="0" width="4" height="4" fill="#FFA500"/>
+  <rect x="56" y="4" width="4" height="4" fill="#FF8C00"/>
+  
+  <!-- Goose eye -->
+  <rect x="48" y="0" width="2" height="2" fill="#1a1a1a"/>
+  
+  <!-- Wing -->
+  <rect x="24" y="28" width="4" height="4" fill="#E8E8E8"/>
+  <rect x="28" y="28" width="4" height="4" fill="#D0D0D0"/>
+  <rect x="28" y="32" width="4" height="4" fill="#E8E8E8"/>
+  <rect x="32" y="24" width="4" height="4" fill="#E8E8E8"/>
+  <rect x="32" y="28" width="4" height="4" fill="#D0D0D0"/>
+  
+  <!-- Speed lines -->
+  <rect x="0" y="16" width="8" height="2" fill="#87CEEB" opacity="0.6"/>
+  <rect x="4" y="24" width="6" height="2" fill="#87CEEB" opacity="0.5"/>
+  <rect x="0" y="32" width="10" height="2" fill="#87CEEB" opacity="0.4"/>
+</svg>
