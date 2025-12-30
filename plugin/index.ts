@@ -353,8 +353,10 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
       try {
         const { event } = input
         
+        // SDK type: EventSessionStatus = { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
+        // SessionStatus = { type: "idle" } | { type: "retry"; ... } | { type: "busy" }
         if (event.type === "session.status") {
-          const status = (event.properties as { status: { type: string } }).status
+          const { status } = event.properties as { sessionID: string; status: { type: string } }
           
           if (status.type === "idle") {
             currentIcon = STATUS_EMOJIS.earth
@@ -378,16 +380,17 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
         }
 
         // Listen for message events to track contract state
+        // SDK type: EventMessageUpdated = { type: "message.updated"; properties: { info: Message } }
         if (event.type === "message.updated") {
           const props = event.properties as { 
-            message?: { 
+            info?: { 
               role?: string
               parts?: Array<{ type: string; text?: string }>
             } 
           }
           
-          if (props.message?.role === "assistant" && props.message.parts) {
-            for (const part of props.message.parts) {
+          if (props.info?.role === "assistant" && props.info.parts) {
+            for (const part of props.info.parts) {
               if (part.type === "text" && part.text) {
                 processMessageContent(part.text)
               }
