@@ -6,6 +6,7 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 ## Tech Stack
 - TypeScript (plugin implementation)
 - OpenCode Plugin SDK (`@opencode-ai/plugin`)
+- Zod (runtime validation of SDK event properties)
 - Markdown (slash commands, instructions, rules)
 - OSC escape sequences (terminal tab color/title control)
 - tmux passthrough support
@@ -20,9 +21,15 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 - Defensive error handling with try/catch in all hooks
 
 ### Architecture Patterns
-- **Plugin Architecture**: Single entry point (`plugin/index.ts`) with hook-based event handling
+- **Modular Plugin Architecture**: Split across 4 files for separation of concerns:
+  - `plugin/index.ts` - Entry point, event dispatch map, hook wiring
+  - `plugin/types.ts` - Types, constants, Zod schemas for runtime validation
+  - `plugin/terminal.ts` - OSC escape sequences, tab color/title functions
+  - `plugin/contract.ts` - Contract parsing, state management, preservation
+- **Event Dispatch Pattern**: Map of event type → handler function for clean event routing
+- **Immutable State Updates**: State changes return new objects via factory functions
+- **Runtime Validation**: Zod schemas validate SDK event properties before type assertions
 - **Prompt Engineering**: Instructions in markdown files guide AI behavior
-- **State Management**: In-memory state for contract and sub-agent tracking
 - **Slash Commands**: Markdown files in `.opencode/command/` define user-invokable commands
 
 ### Testing Strategy
@@ -58,6 +65,7 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 - Parent agent must propagate contract context in sub-agent prompts
 - For implementation tasks, sub-agents should verify patterns via documentation tools
 - Plugin tracks active sub-agent count
+- Sub-agent failure tracking per criterion (doom loop detection after 3 failures)
 
 ## Important Constraints
 - Must work in non-interactive shell environments

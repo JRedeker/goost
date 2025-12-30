@@ -189,11 +189,22 @@ const handlePermissionReplied: EventHandler = (_properties, ctx) => {
 }
 
 /**
+ * Handle session.deleted event.
+ * Cleans up terminal state when session ends (e.g., /exit command).
+ */
+const handleSessionDeleted: EventHandler = (_properties, ctx) => {
+  ctx.log("Session deleted - cleaning up terminal state")
+  cleanupTerminal()
+  return ctx.state
+}
+
+/**
  * Event handler dispatch map.
  * Maps event type strings to handler functions.
  */
 const eventHandlers: Partial<Record<string, EventHandler>> = {
   [EVENT_TYPES.SESSION_STATUS]: handleSessionStatus,
+  [EVENT_TYPES.SESSION_DELETED]: handleSessionDeleted,
   [EVENT_TYPES.MESSAGE_UPDATED]: handleMessageUpdated,
   [EVENT_TYPES.SESSION_COMPACTED]: handleSessionCompacted,
   [EVENT_TYPES.PERMISSION_UPDATED]: handlePermissionUpdated,

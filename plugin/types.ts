@@ -123,6 +123,7 @@ export const CONTRACT_PATTERNS = {
  */
 export const EVENT_TYPES = {
   SESSION_STATUS: "session.status",
+  SESSION_DELETED: "session.deleted",
   MESSAGE_UPDATED: "message.updated",
   SESSION_COMPACTED: "session.compacted",
   PERMISSION_UPDATED: "permission.updated",

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Enhance openspec-roadmap spec with edge cases, verification steps, and schema (d414eb4)
+
+### Changed
+- Refactor plugin into modular architecture (types.ts, terminal.ts, contract.ts, index.ts) (71f604d)
+- Add Zod runtime validation for SDK event properties (71f604d)
+- Add event handler dispatch map pattern for cleaner event routing (71f604d)
+- Add sub-agent failure tracking for doom loop detection (71f604d)
+- Add GitHub Actions CI workflow with linting, type-checking, and formatting (71f604d)
 - Add gap analysis phase to /openspec-review command (199af04)
 - Enhance sub-agent contract propagation with security notes and conflict resolution (bd14e8b)
 - Add automatic commit and changelog on contract completion (c698dd2)

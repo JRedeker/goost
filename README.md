@@ -250,7 +250,36 @@ Enable `GOOST_DEBUG=1` to see sub-agent tracking:
 [Goost] Sub-agent starting: Search for deprecated APIs (active: 1)
 [Goost] Warning: Sub-agent prompt may lack contract context
 [Goost] Sub-agent finished: Search for deprecated APIs (active: 0)
+[Goost] Doom loop threshold reached for: Search for deprecated APIs
 ```
+
+---
+
+## 🏗️ Plugin Architecture
+
+The Goost plugin follows a modular architecture for maintainability:
+
+```
+plugin/
+├── index.ts       # Entry point, event dispatch, hook wiring
+├── types.ts       # Types, constants, Zod schemas for validation
+├── terminal.ts    # OSC escape sequences, tab color/title
+└── contract.ts    # Contract parsing, state management
+```
+
+| Module | Responsibility |
+|--------|----------------|
+| **types.ts** | Type definitions, constants (STATUS_EMOJIS, TAB_COLORS, EVENT_TYPES), Zod schemas for runtime validation |
+| **terminal.ts** | OSC escape sequence handling, tmux passthrough, tab color/title updates |
+| **contract.ts** | Contract parsing, state factory functions, status detection, preservation context |
+| **index.ts** | Plugin initialization, event handler dispatch map, hook implementations |
+
+### Key Design Decisions
+
+- **Runtime Validation**: Uses Zod schemas to validate SDK event properties before processing
+- **Immutable State Updates**: State changes return new objects rather than mutating
+- **Event Dispatch Map**: Clean separation of event handlers by type
+- **Factory Functions**: Consistent state initialization via `createInitialState()`, `createEmptyContract()`, etc.
 
 ---
 
