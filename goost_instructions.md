@@ -61,6 +61,7 @@ Every response when a contract is active MUST end with:
 CONTRACT STATUS:
 - [x] Criterion (evidence: ...)
 - [ ] Criterion (status: pending|in progress|blocked)
+- [?] Criterion (status: conflict - needs resolution)
 Phase: X of Y | Criteria: N/M complete
 ---
 ```
@@ -166,7 +167,7 @@ Do you want me to proceed?
 
 ## Sub-Agent Contract Propagation
 
-When spawning sub-agents (via the `task` tool) while a contract is active, you MUST propagate the contract context.
+When spawning sub-agents (via the `task` tool) while a contract is active, you SHOULD propagate the contract context. This is advisory - sub-agents will still work without it, but context helps ensure aligned work.
 
 ### When to Use Sub-Agents
 
@@ -182,10 +183,26 @@ Do NOT use sub-agents when:
 - Task requires back-and-forth iteration with user
 - Overhead of spawning outweighs benefit
 
+### Task Scoping
+
+Scope sub-agent tasks tightly:
+- **BAD**: "Search the entire codebase for issues"
+- **GOOD**: "Search src/auth/ for deprecated API calls"
+- **BAD**: "Implement the complete feature"  
+- **GOOD**: "Implement only the login endpoint"
+
 ### Contract-Aware Sub-Agent Prompts
 
-When spawning a sub-agent, include the relevant contract context in the prompt:
+When spawning a sub-agent, include the relevant contract context in the prompt.
 
+**Security Note**: Never include raw credentials, API keys, or secrets in sub-agent prompts. Reference sensitive values by name only (e.g., "uses the API key from .env").
+
+For implementation sub-agents using external libraries, add:
+```
+NOTE: Verify patterns against current docs (Context7, etc.) before implementing.
+```
+
+Template:
 ```
 You are working on a task that is part of an active contract.
 
@@ -208,6 +225,44 @@ When a sub-agent returns:
 2. **Update criterion status** if the sub-agent's work completes a criterion
 3. **Document evidence** from the sub-agent's output
 4. **Handle failures** - if sub-agent reports blockers, consider doom loop implications
+
+### Parallel Sub-Agent Coordination
+
+When spawning multiple sub-agents simultaneously:
+
+1. **Non-overlapping scope**: Each sub-agent should address a distinct criterion or area
+2. **Check for conflicts**: Before marking criteria complete, verify sub-agents didn't produce contradictory results
+3. **Partial success handling**: If some sub-agents succeed and others fail, update the successful criteria and track failures separately
+
+### Sub-Agent Failure Escalation
+
+Track failures per criterion. After 3 consecutive failures for the same criterion, escalate to doom loop (see [Doom Loop Detection](#doom-loop-detection)).
+
+| Failure # | Action |
+|-----------|--------|
+| 1st | Log reason, analyze cause, retry with adjusted prompt |
+| 2nd | Try different approach (change sub-agent type or scope), include previous failure context |
+| 3rd | Emit `[GOOST:DOOM_LOOP]`, output "SUB-AGENT DOOM LOOP DETECTED", present options to user |
+
+A sub-agent result is a **failure** if:
+- Output is empty or doesn't address the assigned criterion
+- Sub-agent explicitly reports a blocker
+- Sub-agent returns a clear error without useful partial results
+
+A result is **NOT a failure** if it provides useful partial results or discusses errors found in the codebase.
+
+### Conflict Resolution
+
+When sub-agents return conflicting results:
+
+1. **Flag with `[?]`**: Mark conflicting criteria with `[?]` in the status block instead of `[x]` or `[ ]`
+2. **List conflicts**: Note the contradiction explicitly
+3. **Resolve before completing**: Only mark `[x]` after independent verification or reconciliation
+
+Example status with conflict:
+```
+- [?] Criterion 2 (CONFLICT: sub-agent A says X, sub-agent B says Y)
+```
 
 ### Example Sub-Agent Invocation
 
@@ -373,3 +428,157 @@ You have tendencies toward:
 - **Context anxiety** (rushing when context feels full)
 
 Contracts counteract these. A completed contract builds trust. An abandoned one destroys it.
+
+## Contract Completion Protocol
+
+When ALL contract criteria are verified with evidence, you MUST follow this completion protocol before declaring CONTRACT FULFILLED.
+
+### Step 1: Verify Git State
+
+Before committing, check for invalid git states:
+
+```bash
+git status
+```
+
+**Blockers (do NOT proceed):**
+- **Merge conflicts**: Report "Cannot commit: unresolved merge conflicts" and list conflicted files
+- **Permission errors**: Report the specific error and suggest remediation
+
+**Warnings (prompt user):**
+- **Detached HEAD**: Warn user and ask whether to commit anyway or create a branch first
+
+### Step 2: Stage and Commit Changes
+
+If there are uncommitted changes related to the contract work:
+
+1. **Stage all relevant changes**: `git add <files>` or `git add .` if all changes are contract-related
+2. **Create atomic commit** with conventional commit message derived from the objective
+3. **Capture the commit hash** for the fulfillment block
+
+If the working tree is clean (no changes), skip the commit and note "No changes to commit" in the fulfillment block.
+
+### Step 3: Derive Conventional Commit Message
+
+Derive the commit type from the contract objective using these patterns:
+
+| Objective Pattern | Commit Type |
+|-------------------|-------------|
+| "Add", "Implement", "Create", "Introduce" | `feat:` |
+| "Fix", "Resolve", "Repair", "Correct", "Patch" | `fix:` |
+| "Refactor", "Restructure", "Reorganize", "Clean up", "Simplify" | `refactor:` |
+| "Optimize", "Improve performance", "Speed up" | `perf:` |
+| "Document", "Add docs", "Update README", "Write docs" | `docs:` |
+| "Test", "Add tests", "Improve coverage", "Write tests" | `test:` |
+| "Configure", "Setup", "Initialize", "Bootstrap" | `chore:` |
+| "Build", "Bundle", "Compile", "Package" | `build:` |
+| "CI", "Pipeline", "Workflow", "Deploy config" | `ci:` |
+| "Format", "Lint", "Style", "Prettify" | `style:` |
+| "Remove", "Delete", "Deprecate" | `refactor:` |
+| Default (no clear match) | `chore:` |
+
+**For "Update", "Modify", "Change", "Adjust" objectives:**
+- Contains bug context ("bug", "error", "issue", "broken", "failing", "crash", "wrong", "incorrect") → `fix:`
+- Contains feature context ("feature", "enhancement", "new", "capability", "support", "enable") → `feat:`
+- Ambiguous (neither context) → `chore:`
+
+**Commit message format:**
+```
+<type>: <objective in lowercase>
+```
+
+Example: Objective "Implement user authentication" → `feat: implement user authentication`
+
+### Step 4: Update CHANGELOG.md
+
+After successful commit, update the project root `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/) format.
+
+**Commit Type to Changelog Category:**
+
+| Commit Type | Changelog Category |
+|-------------|-------------------|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `refactor:`, `perf:`, `docs:`, `build:`, `ci:`, `style:`, `chore:`, `test:` | Changed |
+| Deprecation-related | Deprecated |
+| Removal-related | Removed |
+| Security-related | Security |
+
+**Entry format:**
+```markdown
+- <Objective description> (<short-commit-hash>)
+```
+
+**If CHANGELOG.md doesn't exist**, create it with:
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+- <entry>
+```
+
+**If `## [Unreleased]` section is missing**, add it below the header before inserting the entry.
+
+**Duplicate prevention**: Check if an entry with the same description and commit hash already exists. If so, skip and note "Changelog entry already exists".
+
+### Step 5: Output CONTRACT FULFILLED
+
+Only after successful commit (or confirming no changes) and CHANGELOG update:
+
+```
+============================================================
+                  CONTRACT FULFILLED
+============================================================
+OBJECTIVE: <objective>
+
+ALL CRITERIA MET:
+- [x] <criterion 1> (evidence: ...)
+- [x] <criterion 2> (evidence: ...)
+- [x] <criterion 3> (evidence: ...)
+
+COMMIT: <full-commit-hash>
+        <commit-message>
+
+CHANGELOG: Updated <category> section
+============================================================
+```
+
+If no changes were committed:
+```
+COMMIT: No changes to commit (working tree clean)
+CHANGELOG: No entry added
+```
+
+### Error Handling
+
+**Pre-commit hook rejection:**
+1. Report the hook failure with the error message
+2. Do NOT output CONTRACT FULFILLED
+3. Prompt user with options:
+   - Fix issues and retry
+   - Bypass hook with `git commit --no-verify` (if appropriate)
+   - Void contract
+
+**Git permission error:**
+1. Report the specific error
+2. Do NOT output CONTRACT FULFILLED
+3. Suggest remediation (check file permissions, git config)
+
+**Staging failure:**
+1. Report which files failed to stage
+2. Do NOT output CONTRACT FULFILLED
+3. Suggest checking file permissions or .gitignore rules
+
+### Voided Contracts
+
+When a contract is voided:
+- Do NOT create any commit
+- Do NOT add any CHANGELOG entry
+- Output CONTRACT VOIDED as normal
