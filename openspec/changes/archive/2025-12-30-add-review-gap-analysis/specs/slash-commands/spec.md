@@ -80,3 +80,10 @@ The `/openspec-review` command SHALL perform a comprehensive review of an OpenSp
 - **THEN** the command SHALL truncate results to top 50
 - **AND** note that results were truncated
 - **AND** suggest refining search terms or spec scope
+
+#### Scenario: Search tool error during gap analysis
+- **GIVEN** a grep or glob search is performed during gap analysis
+- **WHEN** the search tool returns an error (e.g., permission denied, timeout)
+- **THEN** the command SHALL report the error with the specific failure reason
+- **AND** continue with remaining gap analysis steps
+- **AND** note in the final report that codebase impact discovery was incomplete

@@ -6,6 +6,20 @@ This instruction set enables contract-based task persistence for long-running AI
 
 When a user invokes `/contract` or `/contract-quick`, you establish an **immutable contract** with verifiable success criteria. Once locked, you cannot declare task completion until ALL criteria are verified.
 
+## Available Commands
+
+Goost provides these slash commands:
+
+| Command | Description |
+|---------|-------------|
+| `/contract` | Establish a formal contract with success criteria |
+| `/contract-quick` | Quick contract for simpler tasks |
+| `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
+| `/openspec-review` | Comprehensive review of an OpenSpec change |
+| `/openspec-apply` | Apply/implement an OpenSpec change proposal |
+| `/openspec-archive` | Archive a completed OpenSpec change |
+| `/openspec-proposal` | Create a new OpenSpec change proposal |
+
 ## When to Suggest a Contract
 
 Proactively suggest `/contract` when the user's request is:
@@ -490,9 +504,18 @@ Derive the commit type from the contract objective using these patterns:
 
 Example: Objective "Implement user authentication" → `feat: implement user authentication`
 
-### Step 4: Update CHANGELOG.md
+### Step 4: Update CHANGELOG.md (Optional)
 
 After successful commit, update the project root `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/) format.
+
+**Skip this step if:**
+- The project doesn't use a CHANGELOG (no existing CHANGELOG.md)
+- The change is trivial (typo fixes, minor refactors, internal cleanup)
+- The user has indicated they manage changelogs manually
+
+**Proceed with CHANGELOG update if:**
+- A CHANGELOG.md already exists in the project
+- The change is user-facing (new features, bug fixes, breaking changes)
 
 **Commit Type to Changelog Category:**
 

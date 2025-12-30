@@ -137,13 +137,15 @@ When sub-agents return conflicting results, the agent SHALL resolve conflicts be
   2. List conflicts explicitly in status block
   3. Resolve conflicts one at a time, starting with highest priority criterion
 
-#### Scenario: Late conflict detection
+#### Scenario: Late conflict detection (best effort)
 - **GIVEN** a criterion was marked `[x]` complete
 - **WHEN** a later sub-agent returns evidence contradicting that criterion
-- **THEN** the agent SHALL:
+- **THEN** the agent SHOULD:
   1. Revert the criterion to `[?]` status
   2. Note the contradiction in the status block
   3. Re-verify before marking complete again
+
+**Note**: This scenario is aspirational. Detecting contradictions in later sub-agent output requires the agent to actively re-evaluate already-completed criteria, which may not always occur. The primary defense against late conflicts is thorough upfront verification before marking criteria complete.
 
 ### Requirement: Documentation Verification for Implementation Sub-Agents
 

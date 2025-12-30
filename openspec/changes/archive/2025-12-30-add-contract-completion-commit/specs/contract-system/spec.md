@@ -186,11 +186,20 @@ The commit message body MAY include:
 
 ---
 
-### Requirement: Changelog Entry
+### Requirement: Changelog Entry (Optional)
 
-When a contract is fulfilled, the agent SHALL append an entry to the project root `CHANGELOG.md` file following the [Keep a Changelog](https://keepachangelog.com/) format.
+When a contract is fulfilled, the agent SHOULD append an entry to the project root `CHANGELOG.md` file following the [Keep a Changelog](https://keepachangelog.com/) format.
 
-The entry MUST:
+**Skip CHANGELOG update when:**
+- No existing CHANGELOG.md file in project root (don't create for trivial changes)
+- The change is trivial (typo fixes, minor refactors, internal cleanup)
+- The user has indicated they manage changelogs manually
+
+**Proceed with CHANGELOG update when:**
+- A CHANGELOG.md already exists in the project
+- The change is user-facing (new features, bug fixes, breaking changes)
+
+When updating, the entry MUST:
 - Be added under the `## [Unreleased]` section (create if missing)
 - Use the appropriate category: Added, Changed, Fixed, Deprecated, Removed, Security
 - Include a concise description derived from the contract objective
@@ -234,13 +243,22 @@ The entry MUST NOT:
 - **THEN** entry is added under `### Fixed`
 - **AND** entry text is `- Fix login redirect loop (e4f5g6h)`
 
-#### Scenario: CHANGELOG.md does not exist
+#### Scenario: CHANGELOG.md does not exist - user-facing change
 
 - **GIVEN** no CHANGELOG.md file exists in project root
+- **AND** the contract represents a user-facing change (new feature, bug fix)
 - **WHEN** the agent completes a contract
 - **THEN** the agent creates CHANGELOG.md with standard Keep a Changelog header
 - **AND** adds the `## [Unreleased]` section
 - **AND** adds the entry under the appropriate category
+
+#### Scenario: CHANGELOG.md does not exist - trivial change
+
+- **GIVEN** no CHANGELOG.md file exists in project root
+- **AND** the contract represents a trivial change (typo fix, internal refactor)
+- **WHEN** the agent completes a contract
+- **THEN** the agent skips CHANGELOG creation
+- **AND** notes "No CHANGELOG update (trivial change)" in the fulfillment block
 
 #### Scenario: Unreleased section missing
 
