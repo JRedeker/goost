@@ -116,6 +116,7 @@ cp -r goost/.opencode /path/to/your/project/
 | `/contract` | Interactive contract creation with guided questions | Explicit |
 | `/contract-quick <task>` | Quick contract inferred from task description | Explicit |
 | `/openspec-apply <id>` | Implement an OpenSpec change under contract enforcement | Implicit (spec is approval) |
+| `/openspec-audit [scope]` | Project-wide spec/implementation drift detection | — |
 | `/openspec-review <id>` | Comprehensive spec review with gap analysis | — |
 | `/openspec-harden <id>` | Post-implementation hardening analysis | — |
 | `/openspec-roadmap` | Display tiered progress dashboard | — |
@@ -251,12 +252,70 @@ Total: 2 items | 8/15 tasks (53%)
 | Command | Description |
 |---------|-------------|
 | `/openspec-apply <id>` | Implement a change under contract enforcement (implicit approval) |
+| `/openspec-audit [scope]` | **Project-wide audit** for spec/implementation drift, orphaned code, conflicts |
 | `/openspec-review <id>` | Deep review with gap analysis, TDD readiness, rules compliance |
 | `/openspec-harden <id>` | Post-implementation hardening with **comprehensive AI-slop detection** |
 | `/openspec-archive <id>` | Archive a completed change |
 | `/openspec-proposal` | Create a new change proposal |
 
 **Note:** `/openspec-apply` uses **implicit approval** — the spec IS the contract. The agent displays a contract for visibility but proceeds immediately without waiting for confirmation.
+
+### Project Audit (`/openspec-audit`)
+
+The `/openspec-audit` command performs a **project-wide verification** that your codebase still matches its specifications. Run periodically to catch drift before it becomes technical debt.
+
+```text
+User: /openspec-audit
+
+============================================================
+               PROJECT AUDIT REPORT
+============================================================
+
+SCOPE: all
+OVERALL HEALTH: DRIFT_DETECTED
+
+SPECS AUDITED: 3 capabilities
+REQUIREMENTS CHECKED: 15
+SCENARIOS VERIFIED: 42
+
+DRIFT SUMMARY
+------------------------------------------------------------
+Constraint Drift: 1 issue
+Missing Implementation: 2 issues
+Stale References: 1 issue
+
+DETAILED FINDINGS
+------------------------------------------------------------
+## DRIFT: auth/1
+### Requirement: Session Management
+- **Spec**: "Sessions MUST expire after 30 minutes"
+- **Code**: expiresIn: 3600000 // 60 minutes
+- **Evidence**: src/auth/session.ts:23
+- **Severity**: HIGH
+- **Action**: Update code to match spec or update spec if 60 min is intentional
+...
+============================================================
+```
+
+**Analysis Phases:**
+
+| Phase | What It Detects |
+|-------|-----------------|
+| **Spec Discovery** | Inventories all requirements and scenarios from `openspec/specs/` |
+| **Implementation Mapping** | Maps specs to code files (explicit refs + inferred from names) |
+| **Drift Detection** | Constraint violations, missing implementations, test-spec misalignment |
+| **Orphan Detection** | Significant code modules without spec coverage |
+| **Conflict Analysis** | Contradictory requirements, stale references, overlapping scope |
+
+**Health Status:**
+- **ALIGNED**: No drift, no conflicts, <3 minor orphans
+- **DRIFT_DETECTED**: Any HIGH severity drift or >3 orphans
+- **MAJOR_DRIFT**: Any MUST/SHALL constraint violations
+
+**Scoped Audits:**
+```text
+User: /openspec-audit auth    # Audit only the auth capability
+```
 
 ### AI-Slop Detection (`/openspec-harden`)
 
