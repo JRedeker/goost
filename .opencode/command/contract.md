@@ -1,6 +1,5 @@
 ---
 description: Establish a binding task contract with verifiable success criteria
-agent: general
 ---
 
 # /contract - Establish a Binding Task Contract
@@ -9,14 +8,16 @@ You are establishing a **binding contract** with the user. This contract defines
 
 ## Contract Creation Process
 
-### Step 1: Gather Requirements
+### Step 1: Analyze the Request
 
-Ask the user these questions (adapt phrasing naturally):
+Parse the provided task description to extract:
 
-1. **Objective**: "What does 'done' look like in one sentence?"
-2. **Success Criteria**: "What 3-5 specific things must be true when this is complete? Be concrete - I need to verify these."
-3. **Constraints** (optional): "Any hard boundaries? Things that must NOT happen, or MUST happen regardless of approach?"
-4. **Checkpoints** (for complex tasks): "Should we define phase gates for long-running work?"
+1. **Objective**: The one-sentence definition of "done"
+2. **Success Criteria**: 3-5 specific, verifiable conditions that must be true when complete
+3. **Constraints**: Hard boundaries - things that MUST or MUST NOT happen
+4. **Checkpoints**: Phase gates for multi-step work (if applicable)
+
+If the request is ambiguous or missing critical information, ask clarifying questions before generating the contract. Otherwise, proceed directly to formatting.
 
 ### Step 2: Format the Contract
 
@@ -50,12 +51,10 @@ CHECKPOINTS:
 
 ### Step 3: Confirm and Lock
 
-Emit `[GOOST:MIC]` to signal you need user approval, then ask for confirmation:
+Present the contract and ask for confirmation:
 
 ```
-[GOOST:MIC]
-
-Contract ready. Do you accept these terms?
+Contract ready. Do you accept these terms? (yes/no or suggest changes)
 ```
 
 Only proceed with work after explicit confirmation (yes, confirmed, let's go, accept, etc.).
