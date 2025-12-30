@@ -182,7 +182,8 @@ const extractCriteria = (text: string): string[] => {
 const GoostStatusPlugin: Plugin = async () => {
   // State
   let currentIcon = STATUS_EMOJIS.idle
-  let currentStats = "Goost"
+  let currentStats = "Idle"
+  let activeSubAgents = 0  // Track running sub-agents
   
   let contract: ContractState = {
     active: false,
@@ -249,13 +250,16 @@ const GoostStatusPlugin: Plugin = async () => {
         currentStats = "Launching"
         break
       case "earth":
-        currentStats = contract.active ? "Ready" : "Complete"
+        currentStats = contract.active ? "Ready" : "Idle"
         break
       case "work":
-        currentStats = "Working"
+        currentStats = contract.active ? "Working" : "Busy"
+        break
+      case "idle":
+        currentStats = contract.active ? "Contract" : "Idle"
         break
       default:
-        currentStats = "Goost"
+        currentStats = contract.active ? "Contract" : "Idle"
     }
 
     updateTitle()
@@ -355,10 +359,11 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
           if (status.type === "idle") {
             currentIcon = STATUS_EMOJIS.earth
             setTabColor(TAB_COLORS.earth)
-            currentStats = contract.active ? "Contract" : "Goost"
+            currentStats = contract.active ? "Ready" : "Idle"
           } else if (status.type === "busy") {
             currentIcon = STATUS_EMOJIS.work
             setTabColor(TAB_COLORS.work)
+            currentStats = contract.active ? "Working" : "Busy"
           }
           updateTitle()
         }
@@ -395,12 +400,15 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
     },
 
     // Watch for task tool calls (sub-agent spawning)
+    // Before: show moon because sub-agent is about to run (we'll be waiting)
     "tool.execute.before": async (input, _output) => {
       try {
         if (input.tool === "task") {
-          currentIcon = STATUS_EMOJIS.rocket
-          setTabColor(TAB_COLORS.rocket)
-          currentStats = "Spawning"
+          activeSubAgents++
+          log(`Sub-agent starting (active: ${activeSubAgents})`)
+          currentIcon = STATUS_EMOJIS.moon
+          setTabColor(TAB_COLORS.moon)
+          currentStats = activeSubAgents > 1 ? `Waiting (${activeSubAgents})` : "Waiting"
           updateTitle()
         }
       } catch (error) {
@@ -408,10 +416,13 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
       }
     },
 
-    // After task tool, we're waiting for sub-agent
+    // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output) => {
       try {
         if (input.tool === "task") {
+          activeSubAgents = Math.max(0, activeSubAgents - 1)
+          log(`Sub-agent finished (active: ${activeSubAgents})`)
+          
           // Check for sub-agent failure indicators
           const taskOutput = output?.output || ""
           const failed = /error|failed|exception/i.test(taskOutput)
@@ -420,9 +431,17 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
             log(`Sub-agent may have failed: ${output?.title || 'Unknown task'}`)
           }
           
-          currentIcon = STATUS_EMOJIS.moon
-          setTabColor(TAB_COLORS.moon)
-          currentStats = "Waiting"
+          // If still have active sub-agents, stay in moon state
+          if (activeSubAgents > 0) {
+            currentIcon = STATUS_EMOJIS.moon
+            setTabColor(TAB_COLORS.moon)
+            currentStats = activeSubAgents > 1 ? `Waiting (${activeSubAgents})` : "Waiting"
+          } else {
+            // All sub-agents done, back to working state
+            currentIcon = STATUS_EMOJIS.work
+            setTabColor(TAB_COLORS.work)
+            currentStats = contract.active ? "Working" : "Busy"
+          }
           updateTitle()
         }
       } catch (error) {
