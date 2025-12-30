@@ -23,9 +23,8 @@ These gaps undermine Goost's core mission of preventing premature completion and
 - **ADDED**: Documentation verification reminder for implementation sub-agents
 
 ### Plugin Enhancements (`plugin/index.ts`)
-- **ADDED**: Failure tracking per criterion
-- **ADDED**: Doom loop trigger on 3rd failure
-- **MODIFIED**: Enhanced `tool.execute.after` hook for failure detection
+- **MODIFIED**: Enhanced `tool.execute.after` hook with improved failure detection logging
+- **NOTE**: Failure tracking per criterion and doom loop triggering are instruction-based (agent behavior), not plugin-enforced. The plugin provides debug logging only.
 
 ## Impact
 

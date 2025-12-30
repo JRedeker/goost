@@ -1,6 +1,6 @@
 # Slash Commands Capability
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: OpenSpec Review Command
 

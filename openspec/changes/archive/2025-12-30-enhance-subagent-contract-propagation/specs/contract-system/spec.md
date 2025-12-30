@@ -18,7 +18,7 @@ All enforcement is via instruction-based guidance that the LLM follows.
 
 ### Requirement: Contract Context Propagation
 
-When a Goost contract is active and the agent spawns a sub-agent via the `task` tool, the sub-agent prompt SHOULD include contract context to ensure aligned work. This is advisory guidance, not a hard requirement.
+When a Goost contract is active and the agent spawns a sub-agent via the `task` tool, the agent SHALL consider including contract context to ensure aligned work. This is advisory guidance - the sub-agent will function without context, but context improves alignment.
 
 #### Security Note
 
