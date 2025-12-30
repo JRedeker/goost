@@ -109,6 +109,19 @@ cp -r goost/.opencode /path/to/your/project/
 
 ## 🎮 Usage
 
+### Available Commands
+
+| Command | Description | Confirmation |
+|---------|-------------|--------------|
+| `/contract` | Interactive contract creation with guided questions | Explicit |
+| `/contract-quick <task>` | Quick contract inferred from task description | Explicit |
+| `/openspec-apply <id>` | Implement an OpenSpec change under contract enforcement | Implicit (spec is approval) |
+| `/openspec-review <id>` | Comprehensive spec review with gap analysis | — |
+| `/openspec-harden <id>` | Post-implementation hardening analysis | — |
+| `/openspec-roadmap` | Display tiered progress dashboard | — |
+| `/openspec-archive <id>` | Archive a completed OpenSpec change | — |
+| `/openspec-proposal` | Create a new OpenSpec change proposal | — |
+
 ### Starting a Contract
 
 Just type `/contract`. The agent will interview you to lock down the scope.
@@ -119,6 +132,16 @@ User: /contract
 Agent: Let's establish a contract.
        1. What does "done" look like in one sentence?
        ...
+```
+
+Or use `/contract-quick` for faster setup:
+
+```text
+User: /contract-quick Add JWT auth, don't break existing routes
+
+Agent: Based on your request, here's a proposed contract:
+       [CONTRACT ACTIVE block with inferred criteria]
+       Does this capture your requirements? Say "confirm" to lock.
 ```
 
 ### The Contract Artifact
@@ -223,14 +246,17 @@ Total: 2 items | 8/15 tasks (53%)
 - Graceful fallback when OpenSpec CLI isn't available
 - Progress bars with task completion counts
 
-### Other OpenSpec Commands
+### OpenSpec Commands
 
 | Command | Description |
 |---------|-------------|
-| `/openspec-review` | Deep review of a change with gap analysis |
-| `/openspec-apply` | Implement a change proposal |
-| `/openspec-archive` | Archive a completed change |
+| `/openspec-apply <id>` | Implement a change under contract enforcement (implicit approval) |
+| `/openspec-review <id>` | Deep review with gap analysis, TDD readiness, rules compliance |
+| `/openspec-harden <id>` | Post-implementation hardening: test coverage, code quality, docs, cleanup |
+| `/openspec-archive <id>` | Archive a completed change |
 | `/openspec-proposal` | Create a new change proposal |
+
+**Note:** `/openspec-apply` uses **implicit approval** — the spec IS the contract. The agent displays a contract for visibility but proceeds immediately without waiting for confirmation.
 
 ---
 
