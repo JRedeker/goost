@@ -8,10 +8,12 @@ The commit MUST:
 - Include all staged and unstaged changes related to the contract work
 - Use a conventional commit message derived from the contract objective
 - Be skipped if there are no changes to commit (clean working tree)
+- Exclude CHANGELOG.md (updated separately after commit to include correct hash)
 
 The commit MUST NOT:
 - Be created for voided or partially completed contracts
 - Include unrelated changes that were not part of the contract work
+- Include CHANGELOG.md (to avoid circular hash dependency)
 - Proceed if git state is invalid (e.g., merge conflict, detached HEAD)
 
 #### Scenario: Successful contract completion with changes

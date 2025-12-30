@@ -453,8 +453,9 @@ git status
 If there are uncommitted changes related to the contract work:
 
 1. **Stage all relevant changes**: `git add <files>` or `git add .` if all changes are contract-related
-2. **Create atomic commit** with conventional commit message derived from the objective
-3. **Capture the commit hash** for the fulfillment block
+2. **Do NOT include CHANGELOG.md** in this commit (it will be updated after with the correct hash)
+3. **Create atomic commit** with conventional commit message derived from the objective
+4. **Capture the commit hash** for the fulfillment block and CHANGELOG entry
 
 If the working tree is clean (no changes), skip the commit and note "No changes to commit" in the fulfillment block.
 
