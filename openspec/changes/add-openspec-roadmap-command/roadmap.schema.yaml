@@ -1,0 +1,114 @@
+# JSON Schema for roadmap.yaml validation
+# Use with js-yaml or ajv for runtime validation
+
+$schema: "http://json-schema.org/draft-07/schema#"
+title: Roadmap Configuration
+description: Schema for roadmap.yaml used by /openspec-roadmap command
+type: object
+
+properties:
+  items:
+    type: array
+    description: List of roadmap items
+    items:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the roadmap item
+          pattern: "^[a-z0-9-]+$"
+          examples:
+            - "add-oauth-support"
+            - "fix-session-timeout"
+        
+        title:
+          type: string
+          description: Human-readable title for display
+          minLength: 1
+          maxLength: 100
+          examples:
+            - "OAuth2 Authentication"
+            - "Session Timeout Fix"
+        
+        description:
+          type: string
+          description: Optional longer description
+          maxLength: 500
+        
+        status:
+          type: string
+          description: Current status determining tier placement
+          enum:
+            - in_progress    # → NOW tier
+            - proposed       # → NEXT tier
+            - ready          # → NEXT tier
+            - deferred       # → LATER tier
+            - completed      # → LATER tier (with DONE badge)
+            - archived       # → Excluded from display
+          default: proposed
+        
+        priority:
+          type: string
+          description: Priority level (critical overrides status for NOW tier)
+          enum:
+            - critical       # → NOW tier regardless of status
+            - high
+            - medium
+            - low
+          default: medium
+        
+        change_spec:
+          type: string
+          description: Link to OpenSpec change ID for progress sync
+          pattern: "^[a-z0-9-]+$"
+          examples:
+            - "add-openspec-roadmap-command"
+            - "enhance-subagent-contract-propagation"
+        
+        tasks_total:
+          type: integer
+          description: Manual task count (overridden by change_spec if linked)
+          minimum: 0
+          default: 0
+        
+        tasks_completed:
+          type: integer
+          description: Manual completed count (overridden by change_spec if linked)
+          minimum: 0
+          default: 0
+        
+        tags:
+          type: array
+          description: Optional tags for filtering/grouping
+          items:
+            type: string
+          examples:
+            - ["security", "auth"]
+            - ["performance"]
+
+      additionalProperties: false
+
+additionalProperties: false
+
+examples:
+  - items:
+      - id: add-oauth-support
+        title: OAuth2 Authentication
+        description: Add OAuth2 flow for third-party auth
+        status: in_progress
+        priority: high
+        change_spec: add-oauth-support
+      
+      - id: fix-session-timeout
+        title: Session Timeout Fix
+        status: completed
+        tasks_total: 10
+        tasks_completed: 10
+      
+      - id: add-rate-limiting
+        title: API Rate Limiting
+        status: proposed
+        priority: medium
