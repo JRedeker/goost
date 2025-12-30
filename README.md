@@ -187,6 +187,26 @@ This works through OpenCode's `permission.updated` and `permission.replied` even
 
 ---
 
+## 🤖 Sub-Agent Handling
+
+When a contract is active and you spawn sub-agents, Goost provides guidance for:
+
+- **Context Propagation**: Sub-agents SHOULD receive contract context (objective, criterion, constraints)
+- **Failure Escalation**: 3 consecutive failures for the same criterion triggers doom loop
+- **Conflict Resolution**: Contradictory results are flagged with `[?]` until resolved
+- **Tight Scoping**: Prefer narrow tasks ("Search src/auth/") over broad ones ("Search entire codebase")
+
+### Debug Logging
+
+Enable `GOOST_DEBUG=1` to see sub-agent tracking:
+```
+[Goost] Sub-agent starting: Search for deprecated APIs (active: 1)
+[Goost] Warning: Sub-agent prompt may lack contract context
+[Goost] Sub-agent finished: Search for deprecated APIs (active: 0)
+```
+
+---
+
 ## 🧠 Design Philosophy
 
 | Feature | Todo Lists | Goost Contracts |

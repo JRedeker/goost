@@ -485,11 +485,21 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
 
     // Watch for task tool calls (sub-agent spawning)
     // Before: show moon because sub-agent is about to run (we'll be waiting)
-    "tool.execute.before": async (input, _output) => {
+    "tool.execute.before": async (input, output) => {
       try {
         if (input.tool === "task") {
           activeSubAgents++
-          log(`Sub-agent starting (active: ${activeSubAgents})`)
+          const taskArgs = output.args as { description?: string; prompt?: string }
+          log(`Sub-agent starting: ${taskArgs?.description || 'Unknown'} (active: ${activeSubAgents})`)
+          
+          // Debug: warn if contract active but prompt lacks context
+          if (contract.active && taskArgs?.prompt) {
+            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(taskArgs.prompt)
+            if (!hasContractContext) {
+              log(`Warning: Sub-agent prompt may lack contract context`)
+            }
+          }
+          
           updateUIState("moon")
         }
       } catch (error) {
@@ -502,14 +512,21 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
       try {
         if (input.tool === "task") {
           activeSubAgents = Math.max(0, activeSubAgents - 1)
-          log(`Sub-agent finished (active: ${activeSubAgents})`)
+          const taskTitle = output?.title || "Unknown"
+          log(`Sub-agent finished: ${taskTitle} (active: ${activeSubAgents})`)
           
-          // Check for sub-agent failure indicators
+          // Check for sub-agent failure indicators (debug logging only)
           const taskOutput = output?.output || ""
-          const failed = /error|failed|exception/i.test(taskOutput)
+          const failurePatterns = /\berror:|cannot proceed|unable to complete|failed to/i
+          const failed = failurePatterns.test(taskOutput) || taskOutput.trim() === ""
           
           if (failed) {
-            log(`Sub-agent may have failed: ${output?.title || 'Unknown task'}`)
+            log(`Sub-agent may have failed: ${taskTitle}`)
+            if (taskOutput.trim() === "") {
+              log(`  Reason: Empty output`)
+            } else {
+              log(`  Reason: Output indicates failure`)
+            }
           }
           
           // If still have active sub-agents, stay in moon state
