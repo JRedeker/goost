@@ -1,421 +1,245 @@
-import { type Plugin } from "@opencode-ai/plugin"
-
 /**
  * Goost Status Plugin
- * 
+ *
  * Displays contract-aware status in Windows Terminal tab title.
  * Works standalone or alongside wsl-status-title.
  * Supports tmux passthrough for escape sequences.
- * 
+ *
  * Status Icons:
- * - Full Moon (🌕): Waiting for sub-agent tasks to complete
- * - Rocket (🚀): Setting up/spawning sub-agents OR actively working
- * - Earth (🌍): Complete, awaiting user input
- * - Loop (🔄): Doom loop detected - stuck in retry cycle
- * - Mic (🎤): Needs user approval - MAGENTA TAB (auto-detected via permission.updated)
- * 
+ * - Full Moon: Waiting for sub-agent tasks to complete
+ * - Rocket: Setting up/spawning sub-agents OR actively working
+ * - Earth: Complete, awaiting user input
+ * - Loop: Doom loop detected - stuck in retry cycle
+ * - Mic: Needs user approval - MAGENTA TAB (auto-detected via permission.updated)
+ *
  * Permission Detection:
  * - Automatically detects OpenCode permission.updated events (shell execution, etc.)
  * - Switches to bright magenta tab with ">>> APPROVAL NEEDED <<<" title
  * - Returns to normal state when permission.replied event fires
- * 
+ *
  * Contract Preservation:
  * - Stores full contract text when CONTRACT ACTIVE is detected
  * - Injects contract into compaction context via experimental.session.compacting
  * - Detects session.compacted events to ensure contract recovery
  */
 
+import type { Plugin } from "@opencode-ai/plugin"
+
+// Internal modules
+import {
+  type PluginState,
+  type GoostStatus,
+  EVENT_TYPES,
+  SessionStatusPropsSchema,
+  MessageUpdatedPropsSchema,
+  TaskArgsSchema,
+  TaskOutputSchema,
+} from "./types"
+import {
+  cleanupTerminal,
+  getProjectName,
+  updateTabColor,
+  updateTitle,
+} from "./terminal"
+import {
+  createInitialState,
+  processMessageContent,
+  getStatusText,
+  updateStateStatus,
+  buildPreservationContext,
+  isSubAgentFailure,
+  isSubAgentEmpty,
+  extractCriterionFromTask,
+  recordSubAgentFailure,
+  isDoomLoopReached,
+} from "./contract"
+
 // =============================================================================
-// Types
+// Debug Logging
 // =============================================================================
 
-type GoostStatus = "moon" | "rocket" | "earth" | "work" | "idle" | "doom_loop" | "mic"
-
-interface ContractState {
-  active: boolean
-  text: string | null
-  objective: string | null
-  criteriaStatus: string[]
-  progress: string
-}
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const STATUS_EMOJIS: Record<GoostStatus, string> = {
-  moon: "🌕",      // Waiting for sub-agents
-  rocket: "🚀",    // Setting up sub-agents / active work
-  earth: "🌍",     // Awaiting user input / complete
-  work: "🚀",      // Active work (default busy state)
-  idle: "🌍",      // Idle = same as awaiting input
-  doom_loop: "🔄", // Stuck in retry loop
-  mic: "🎤",       // Needs user approval for command
-}
-
-const TAB_COLORS: Record<GoostStatus, string> = {
-  moon: "#5865F2",      // Discord blurple - waiting for sub-agents
-  rocket: "#ED4245",    // Red - active work / launching
-  earth: "#57F287",     // Green - complete/ready for input
-  work: "#ED4245",      // Red - same as rocket (active work)
-  idle: "#57F287",      // Green - idle/ready for input
-  doom_loop: "#FFA500", // Orange - warning, stuck in loop
-  mic: "#FF00FF",       // Magenta/hot pink - URGENT: needs user approval (highly visible)
-}
-
-// Contract status patterns to detect in responses
-const GOOST_MARKERS: Record<GoostStatus, RegExp> = {
-  moon: /\[GOOST:MOON\]/,
-  rocket: /\[GOOST:ROCKET\]/,
-  earth: /\[GOOST:EARTH\]/,
-  work: /\[GOOST:WORK\]/,
-  idle: /\[GOOST:IDLE\]/,
-  doom_loop: /\[GOOST:DOOM_LOOP\]/,
-  mic: /\[GOOST:MIC\]/,
-}
-
-// Contract detection patterns
-const CONTRACT_ACTIVE = /CONTRACT ACTIVE/
-const CONTRACT_FULFILLED = /CONTRACT FULFILLED/
-const CONTRACT_VOIDED = /CONTRACT VOIDED/
-
-// Debug mode
 const DEBUG = process.env.GOOST_DEBUG === "1"
 
-// =============================================================================
-// Helpers
-// =============================================================================
-
-const log = (msg: string) => {
+/**
+ * Log debug message to stderr.
+ * Only outputs when GOOST_DEBUG=1 environment variable is set.
+ *
+ * @param msg - Message to log
+ */
+const log = (msg: string): void => {
   if (DEBUG) {
     console.error(`[Goost] ${msg}`)
   }
 }
 
-/**
- * Detect if running inside tmux
- */
-const isTmux = (): boolean => !!process.env.TMUX
+// =============================================================================
+// UI Update Helper
+// =============================================================================
 
 /**
- * Write OSC escape sequence with tmux passthrough support
- * 
- * When running inside tmux, escape sequences must be wrapped in DCS passthrough:
- * \x1bPtmux;\x1b<escaped_sequence>\x1b\\
- * 
- * Where <escaped_sequence> has all ESC (\x1b) characters doubled.
+ * Update all UI elements (tab color and title) based on current state.
+ *
+ * @param state - Current plugin state
+ * @param projectName - Project name for title
  */
-const writeOSC = (sequence: string): void => {
-  try {
-    if (isTmux()) {
-      // tmux passthrough: wrap sequence and double all ESC characters
-      const escaped = sequence.replace(/\x1b/g, '\x1b\x1b')
-      process.stdout.write(`\x1bPtmux;${escaped}\x1b\\`)
-    } else {
-      process.stdout.write(sequence)
-    }
-  } catch (error) {
-    log(`Error writing OSC sequence: ${error}`)
-  }
-}
-
-/**
- * Set Windows Terminal tab color using OSC 9;9
- * This is a Windows Terminal proprietary extension
- */
-const setTabColor = (color: string): void => {
-  if (color && /^#[0-9A-Fa-f]{6}$/.test(color)) {
-    writeOSC(`\x1b]9;9;${color}\x07`)
-  }
-}
-
-/**
- * Reset Windows Terminal tab color to default
- */
-const resetTabColor = (): void => {
-  // OSC 9;9; with empty/default resets the color
-  writeOSC(`\x1b]9;9;\x07`)
-}
-
-/**
- * Reset tab title to default (empty lets terminal use its default)
- */
-const resetTabTitle = (): void => {
-  // Set to empty string to let terminal use its default title
-  writeOSC(`\x1b]0;\x07`)
-}
-
-/**
- * Full cleanup - reset both title and color
- */
-const cleanupTerminal = (): void => {
-  log("Cleaning up terminal state")
-  resetTabTitle()
-  resetTabColor()
-}
-
-/**
- * Extract project name from directory path
- */
-const getProjectName = (directory: string): string => {
-  if (!directory) return "opencode"
-  // Get the last segment of the path
-  const segments = directory.replace(/\\/g, '/').split('/').filter(Boolean)
-  return segments[segments.length - 1] || "opencode"
-}
-
-/**
- * Parse contract status from text (e.g., "Criteria: 2/5 complete")
- */
-const parseContractStatus = (text: string): string => {
-  const match = text.match(/Criteria:\s*(\d+)\/(\d+)/i)
-  if (match) {
-    return `${match[1]}/${match[2]}`
-  }
-  return ""
-}
-
-/**
- * Extract contract block from message content
- * Matches from CONTRACT ACTIVE until the closing delimiter or end
- */
-const extractContractBlock = (text: string): string | null => {
-  // Match the full contract block - greedy match until closing delimiter or specific end markers
-  const contractMatch = text.match(
-    /={40,}\s*CONTRACT ACTIVE\s*={40,}[\s\S]*?={40,}/
+const updateUI = (state: PluginState, projectName: string): void => {
+  updateTabColor(state.status)
+  const statusText = getStatusText(
+    state.status,
+    state.activeSubAgents,
+    state.contract.active
   )
-  if (contractMatch) {
-    return contractMatch[0]
-  }
-  // Fallback: match until end of text if no closing delimiter
-  const fallbackMatch = text.match(
-    /={40,}\s*CONTRACT ACTIVE\s*={40,}[\s\S]*/
-  )
-  return fallbackMatch ? fallbackMatch[0] : null
-}
-
-/**
- * Extract objective from contract block
- */
-const extractObjective = (text: string): string | null => {
-  const match = text.match(/OBJECTIVE:\s*(.+)/i)
-  return match ? match[1].trim() : null
-}
-
-/**
- * Extract criteria with their status (supports both [x] and [X])
- */
-const extractCriteria = (text: string): string[] => {
-  const criteria: string[] = []
-  const criteriaMatches = text.matchAll(/- \[([ xX])\] (.+)/g)
-  for (const match of criteriaMatches) {
-    const checked = match[1].toLowerCase() === 'x' ? 'x' : ' '
-    criteria.push(`[${checked}] ${match[2]}`)
-  }
-  return criteria
+  updateTitle(projectName, state.status, statusText, state.contract.progress)
 }
 
 // =============================================================================
-// Plugin
+// Event Handlers
+// =============================================================================
+
+type EventHandlerContext = {
+  state: PluginState
+  projectName: string
+  log: (msg: string) => void
+}
+
+type EventHandler = (
+  properties: unknown,
+  ctx: EventHandlerContext
+) => PluginState
+
+/**
+ * Handle session.status event.
+ * Updates UI based on session idle/busy state.
+ */
+const handleSessionStatus: EventHandler = (properties, ctx) => {
+  const parsed = SessionStatusPropsSchema.safeParse(properties)
+  if (!parsed.success) {
+    ctx.log(`Invalid session.status properties: ${parsed.error.message}`)
+    return ctx.state
+  }
+
+  const { status } = parsed.data
+
+  if (status.type === "idle") {
+    const newStatus: GoostStatus = ctx.state.contract.active ? "earth" : "idle"
+    return updateStateStatus(ctx.state, newStatus)
+  } else if (status.type === "busy") {
+    return updateStateStatus(ctx.state, "work")
+  }
+
+  return ctx.state
+}
+
+/**
+ * Handle message.updated event.
+ * Processes assistant messages for contract state changes.
+ */
+const handleMessageUpdated: EventHandler = (properties, ctx) => {
+  const parsed = MessageUpdatedPropsSchema.safeParse(properties)
+  if (!parsed.success) {
+    ctx.log(`Invalid message.updated properties: ${parsed.error.message}`)
+    return ctx.state
+  }
+
+  const { info } = parsed.data
+  if (info?.role !== "assistant" || !info.parts) {
+    return ctx.state
+  }
+
+  let newState = ctx.state
+  for (const part of info.parts) {
+    if (part.type === "text" && part.text) {
+      newState = processMessageContent(newState, part.text)
+    }
+  }
+
+  return newState
+}
+
+/**
+ * Handle session.compacted event.
+ * Logs contract preservation status for debugging.
+ */
+const handleSessionCompacted: EventHandler = (_properties, ctx) => {
+  if (ctx.state.contract.text) {
+    ctx.log("Session compacted - contract preservation active")
+    ctx.log(`Contract objective: ${ctx.state.contract.objective || "Unknown"}`)
+    ctx.log(`Progress: ${ctx.state.contract.progress || "Unknown"}`)
+  }
+  return ctx.state
+}
+
+/**
+ * Handle permission.updated event.
+ * Switches to mic status when OpenCode requests approval.
+ */
+const handlePermissionUpdated: EventHandler = (_properties, ctx) => {
+  ctx.log("Permission request detected - switching to mic state")
+  return updateStateStatus(ctx.state, "mic")
+}
+
+/**
+ * Handle permission.replied event.
+ * Returns to work/idle state after permission is granted/denied.
+ */
+const handlePermissionReplied: EventHandler = (_properties, ctx) => {
+  ctx.log("Permission replied - returning to work state")
+  const newStatus: GoostStatus = ctx.state.contract.active ? "work" : "idle"
+  return updateStateStatus(ctx.state, newStatus)
+}
+
+/**
+ * Event handler dispatch map.
+ * Maps event type strings to handler functions.
+ */
+const eventHandlers: Partial<Record<string, EventHandler>> = {
+  [EVENT_TYPES.SESSION_STATUS]: handleSessionStatus,
+  [EVENT_TYPES.MESSAGE_UPDATED]: handleMessageUpdated,
+  [EVENT_TYPES.SESSION_COMPACTED]: handleSessionCompacted,
+  [EVENT_TYPES.PERMISSION_UPDATED]: handlePermissionUpdated,
+  [EVENT_TYPES.PERMISSION_REPLIED]: handlePermissionReplied,
+}
+
+// =============================================================================
+// Plugin Entry Point
 // =============================================================================
 
 const GoostStatusPlugin: Plugin = async ({ directory }) => {
   // Extract project name from directory
   const projectName = getProjectName(directory || process.cwd())
   log(`Project name: ${projectName}`)
-  
-  // State
-  let currentIcon = STATUS_EMOJIS.idle
-  let currentStatus: GoostStatus = "idle"
-  let activeSubAgents = 0  // Track running sub-agents
-  
-  let contract: ContractState = {
-    active: false,
-    text: null,
-    objective: null,
-    criteriaStatus: [],
-    progress: ""
+
+  // Initialize state
+  let state = createInitialState()
+
+  // Helper to update state and UI
+  const setState = (newState: PluginState): void => {
+    state = newState
+    updateUI(state, projectName)
   }
-  
+
   // Register cleanup handlers for process exit
-  const exitHandler = () => {
+  const exitHandler = (): void => {
     cleanupTerminal()
   }
-  
+
   // Handle various exit scenarios
-  process.on('exit', exitHandler)
-  process.on('SIGINT', () => {
+  process.on("exit", exitHandler)
+  process.on("SIGINT", () => {
     cleanupTerminal()
     process.exit(0)
   })
-  process.on('SIGTERM', () => {
+  process.on("SIGTERM", () => {
     cleanupTerminal()
     process.exit(0)
   })
-  
-  // Also handle uncaught exceptions to ensure cleanup
-  process.on('uncaughtException', (err) => {
+
+  // Handle uncaught exceptions - cleanup and exit per Node.js best practices
+  process.on("uncaughtException", (err) => {
     log(`Uncaught exception: ${err}`)
     cleanupTerminal()
+    process.exit(1)
   })
-
-  /**
-   * Get descriptive status text based on current state
-   */
-  const getStatusText = (): string => {
-    switch (currentStatus) {
-      case "doom_loop":
-        return "STUCK"
-      case "mic":
-        return ">>> APPROVAL NEEDED <<<"
-      case "moon":
-        return activeSubAgents > 1 ? `Agents(${activeSubAgents})` : "Agent"
-      case "rocket":
-        return "Launching"
-      case "earth":
-        return contract.active ? "Ready" : "Done"
-      case "work":
-        return "Working"
-      case "idle":
-        return contract.active ? "Contract" : ""
-      default:
-        return ""
-    }
-  }
-  
-  /**
-   * Update window/tab title using OSC 0 (standard xterm title)
-   * Format: 🚀 projectname: Status [1/3]
-   */
-  const updateTitle = (): void => {
-    const statusText = getStatusText()
-    const progressText = contract.progress ? ` [${contract.progress}]` : ""
-    
-    // Build title: emoji project: status [progress]
-    let display: string
-    if (statusText) {
-      display = `${currentIcon} ${projectName}: ${statusText}${progressText}`
-    } else {
-      // Idle with no contract - just show project name
-      display = `${currentIcon} ${projectName}${progressText}`
-    }
-    
-    writeOSC(`\x1b]0;${display}\x07`)
-  }
-
-  /**
-   * Detect status from response text based on markers and contract state
-   */
-  const detectStatus = (text: string): GoostStatus => {
-    // Check for explicit goost markers first (doom_loop and mic take priority)
-    if (GOOST_MARKERS.doom_loop.test(text)) return "doom_loop"
-    if (GOOST_MARKERS.mic.test(text)) return "mic"
-    if (GOOST_MARKERS.moon.test(text)) return "moon"
-    if (GOOST_MARKERS.rocket.test(text)) return "rocket"
-    if (GOOST_MARKERS.earth.test(text)) return "earth"
-    if (GOOST_MARKERS.work.test(text)) return "work"
-    if (GOOST_MARKERS.idle.test(text)) return "idle"
-
-    // Infer from contract state
-    if (CONTRACT_FULFILLED.test(text) || CONTRACT_VOIDED.test(text)) {
-      return "earth"
-    }
-
-    // Default to work if contract is active
-    if (contract.active) {
-      return "work"
-    }
-
-    return "idle"
-  }
-
-  /**
-   * Update UI state (icon, color, title) based on detected status
-   */
-  const updateUIState = (status: GoostStatus): void => {
-    currentStatus = status
-    currentIcon = STATUS_EMOJIS[status]
-    setTabColor(TAB_COLORS[status])
-    updateTitle()
-  }
-
-  /**
-   * Process message content for contract state changes
-   */
-  const processMessageContent = (content: string): void => {
-    // Track contract state and extract full contract text
-    if (CONTRACT_ACTIVE.test(content)) {
-      const contractBlock = extractContractBlock(content)
-      if (contractBlock) {
-        contract = {
-          active: true,
-          text: contractBlock,
-          objective: extractObjective(contractBlock),
-          criteriaStatus: extractCriteria(contractBlock),
-          progress: parseContractStatus(content) || contract.progress
-        }
-        log(`Contract captured: ${contract.objective || 'Unknown objective'}`)
-      } else {
-        contract.active = true
-      }
-    }
-    
-    // Update criteria status from status blocks
-    const statusBlockMatch = content.match(/CONTRACT STATUS:[\s\S]*?(?=\n---|\n\n|$)/)
-    if (statusBlockMatch && contract.active) {
-      const newCriteria = extractCriteria(statusBlockMatch[0])
-      if (newCriteria.length > 0) {
-        contract.criteriaStatus = newCriteria
-      }
-    }
-    
-    // Check for contract end
-    if (CONTRACT_FULFILLED.test(content) || CONTRACT_VOIDED.test(content)) {
-      log("Contract ended")
-      contract = {
-        active: false,
-        text: null,
-        objective: null,
-        criteriaStatus: [],
-        progress: ""
-      }
-    }
-
-    // Parse progress
-    const progress = parseContractStatus(content)
-    if (progress) {
-      contract.progress = progress
-    }
-
-    // Detect and apply status
-    const status = detectStatus(content)
-    updateUIState(status)
-  }
-
-  /**
-   * Build preservation context for compaction
-   */
-  const buildPreservationContext = (): string => {
-    if (!contract.text) return ""
-    
-    return `
-╔══════════════════════════════════════════════════════════════════╗
-║             CRITICAL: ACTIVE CONTRACT - MUST PRESERVE            ║
-╚══════════════════════════════════════════════════════════════════╝
-
-${contract.text}
-
-CURRENT PROGRESS:
-${contract.criteriaStatus.map(c => `  ${c}`).join('\n') || '  No criteria tracked yet'}
-
-PROGRESS SUMMARY: ${contract.progress || 'Not yet determined'}
-${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
-
-⚠️  This contract MUST be maintained after compaction.
-⚠️  All criteria status must be preserved.
-⚠️  The agent must continue working toward ALL remaining criteria.
-`
-  }
 
   // ===========================================================================
   // Hook Implementations
@@ -423,60 +247,17 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
 
   return {
     // Track session status and compaction events
-    event: async (input) => {
+    event: async (input): Promise<void> => {
       try {
         const { event } = input
-        
-        // SDK type: EventSessionStatus = { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
-        // SessionStatus = { type: "idle" } | { type: "retry"; ... } | { type: "busy" }
-        if (event.type === "session.status") {
-          const { status } = event.properties as { sessionID: string; status: { type: string } }
-          
-          if (status.type === "idle") {
-            updateUIState(contract.active ? "earth" : "idle")
-          } else if (status.type === "busy") {
-            updateUIState("work")
-          }
-        }
-        
-        // Detect compaction events
-        if (event.type === "session.compacted") {
-          if (contract.text) {
-            log("Session compacted - contract preservation active")
-            log(`Contract objective: ${contract.objective || 'Unknown'}`)
-            log(`Progress: ${contract.progress || 'Unknown'}`)
-          }
-        }
+        const handler = eventHandlers[event.type]
 
-        // Listen for message events to track contract state
-        // SDK type: EventMessageUpdated = { type: "message.updated"; properties: { info: Message } }
-        if (event.type === "message.updated") {
-          const props = event.properties as { 
-            info?: { 
-              role?: string
-              parts?: Array<{ type: string; text?: string }>
-            } 
+        if (handler) {
+          const ctx: EventHandlerContext = { state, projectName, log }
+          const newState = handler(event.properties, ctx)
+          if (newState !== state) {
+            setState(newState)
           }
-          
-          if (props.info?.role === "assistant" && props.info.parts) {
-            for (const part of props.info.parts) {
-              if (part.type === "text" && part.text) {
-                processMessageContent(part.text)
-              }
-            }
-          }
-        }
-        
-        // Detect OpenCode permission requests - this is the key event for shell approvals
-        if (event.type === "permission.updated") {
-          log("Permission request detected - switching to mic state")
-          updateUIState("mic")
-        }
-        
-        // Detect when permission is granted/denied - return to previous state
-        if (event.type === "permission.replied") {
-          log("Permission replied - returning to work state")
-          updateUIState(contract.active ? "work" : "idle")
         }
       } catch (error) {
         log(`Error in event handler: ${error}`)
@@ -485,23 +266,31 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
 
     // Watch for task tool calls (sub-agent spawning)
     // Before: show moon because sub-agent is about to run (we'll be waiting)
-    // Note: SDK names second param "output" but it contains mutable args to pass to the tool
-    "tool.execute.before": async (input, toolArgs) => {
+    "tool.execute.before": async (input, toolArgs): Promise<void> => {
       try {
         if (input.tool === "task") {
-          activeSubAgents++
-          const taskParams = toolArgs.args as { description?: string; prompt?: string }
-          log(`Sub-agent starting: ${taskParams?.description || 'Unknown'} (active: ${activeSubAgents})`)
-          
-          // Debug: warn if contract active but prompt lacks context
-          if (contract.active && taskParams?.prompt) {
-            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(taskParams.prompt)
+          const parsedArgs = TaskArgsSchema.safeParse(toolArgs.args)
+          const taskParams = parsedArgs.success ? parsedArgs.data : {}
+
+          const description = taskParams.description || "Unknown"
+          log(`Sub-agent starting: ${description} (active: ${state.activeSubAgents + 1})`)
+
+          // Warn if contract active but prompt lacks context (debug only)
+          if (state.contract.active && taskParams.prompt) {
+            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(
+              taskParams.prompt
+            )
             if (!hasContractContext) {
-              log(`Warning: Sub-agent prompt may lack contract context`)
+              log("Warning: Sub-agent prompt may lack contract context")
             }
           }
-          
-          updateUIState("moon")
+
+          setState({
+            ...state,
+            activeSubAgents: state.activeSubAgents + 1,
+            status: "moon",
+            icon: "\u{1F315}",
+          })
         }
       } catch (error) {
         log(`Error in tool.execute.before: ${error}`)
@@ -509,36 +298,41 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
     },
 
     // After task tool completes, sub-agent is done
-    "tool.execute.after": async (input, output) => {
+    "tool.execute.after": async (input, output): Promise<void> => {
       try {
         if (input.tool === "task") {
-          activeSubAgents = Math.max(0, activeSubAgents - 1)
-          const taskTitle = output?.title || "Unknown"
-          log(`Sub-agent finished: ${taskTitle} (active: ${activeSubAgents})`)
-          
-          // Check for sub-agent failure indicators (debug logging only)
-          // Note: Empty output is logged as a warning, not a definitive failure
-          // (some tasks like "delete temp files" may legitimately return empty)
-          const taskOutput = output?.output || ""
-          const failurePatterns = /\berror:|cannot proceed|unable to complete|failed to|exception:/i
-          const hasFailurePattern = failurePatterns.test(taskOutput)
-          const isEmpty = taskOutput.trim() === ""
-          
-          if (hasFailurePattern) {
+          const parsedOutput = TaskOutputSchema.safeParse(output)
+          const taskOutput = parsedOutput.success ? parsedOutput.data : {}
+
+          const taskTitle = taskOutput.title || "Unknown"
+          const newActiveCount = Math.max(0, state.activeSubAgents - 1)
+          log(`Sub-agent finished: ${taskTitle} (active: ${newActiveCount})`)
+
+          let newState = {
+            ...state,
+            activeSubAgents: newActiveCount,
+          }
+
+          // Track failures for doom loop detection
+          if (isSubAgentFailure(taskOutput)) {
+            const criterion = extractCriterionFromTask(taskTitle)
+            newState = recordSubAgentFailure(newState, criterion)
             log(`Sub-agent may have failed: ${taskTitle}`)
-            log(`  Reason: Output contains failure indicator`)
-          } else if (isEmpty) {
+            log("  Reason: Output contains failure indicator")
+
+            if (isDoomLoopReached(newState, criterion)) {
+              log(`Doom loop threshold reached for: ${criterion}`)
+            }
+          } else if (isSubAgentEmpty(taskOutput)) {
             log(`Sub-agent returned empty output: ${taskTitle}`)
-            log(`  Note: May be normal for cleanup/deletion tasks`)
+            log("  Note: May be normal for cleanup/deletion tasks")
           }
-          
-          // If still have active sub-agents, stay in moon state
-          if (activeSubAgents > 0) {
-            updateUIState("moon")
-          } else {
-            // All sub-agents done, back to working state
-            updateUIState("work")
-          }
+
+          // Update status based on remaining sub-agents
+          const newStatus: GoostStatus = newActiveCount > 0 ? "moon" : "work"
+          newState = updateStateStatus(newState, newStatus)
+
+          setState(newState)
         }
       } catch (error) {
         log(`Error in tool.execute.after: ${error}`)
@@ -546,10 +340,10 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
     },
 
     // Contract preservation during compaction
-    "experimental.session.compacting": async (_input, output) => {
+    "experimental.session.compacting": async (_input, output): Promise<void> => {
       try {
-        if (contract.text) {
-          const preservationContext = buildPreservationContext()
+        if (state.contract.text) {
+          const preservationContext = buildPreservationContext(state.contract)
           output.context.push(preservationContext)
           log("Injected contract preservation context into compaction")
         }
