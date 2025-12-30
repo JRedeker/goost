@@ -54,7 +54,9 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 
 ### Sub-Agent Integration
 - Sub-agents spawned via OpenCode `task` tool
-- Parent agent must propagate contract context
+- Sub-agents have full MCP tool access by default (Context7, Firecrawl, etc.)
+- Parent agent must propagate contract context in sub-agent prompts
+- For implementation tasks, sub-agents should verify patterns via documentation tools
 - Plugin tracks active sub-agent count
 
 ## Important Constraints
