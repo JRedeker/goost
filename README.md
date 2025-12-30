@@ -270,6 +270,7 @@ Goost includes a status indicator system that shows contract state in your Windo
 | 🌕 Full Moon | Waiting | Sub-agent tasks running, awaiting results |
 | 🌍 Earth | Ready | Complete or awaiting user input |
 | 🔄 Loop | Doom Loop | Stuck retrying failed approach |
+| 🎤 Mic | Approval Needed | Waiting for user approval (contract confirmation, destructive commands) |
 
 ### Tab Colors
 
@@ -278,6 +279,7 @@ The terminal tab color changes to match the state:
 - **Blue** (`#5865F2`): Waiting for sub-agents (moon)
 - **Green** (`#57F287`): Complete/ready for input (earth)
 - **Orange** (`#FFA500`): Doom loop detected (loop)
+- **Yellow** (`#FFCC00`): Needs user approval (mic)
 
 ### tmux Support
 
@@ -319,7 +321,13 @@ Then in `~/.config/opencode/opencode.json`:
 
 The agent emits status markers like `[GOOST:MOON]` at the start of responses. The plugin detects these and updates the terminal tab accordingly.
 
-The status also shows contract progress: `🌙 Sub-agents [2/5]`
+**Dynamic Title Format:** `{icon} {status} [{progress}]`
+
+Examples:
+- `🚀 Working [2/5]` - Active work, 2 of 5 criteria complete
+- `🌕 Waiting (3)` - 3 sub-agents running in parallel
+- `🎤 Approval Needed` - Waiting for user confirmation
+- `🌍 Idle` - Ready for input, no active contract
 
 ## Configuration
 
