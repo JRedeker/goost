@@ -125,6 +125,41 @@ const setTabColor = (color: string): void => {
 }
 
 /**
+ * Reset Windows Terminal tab color to default
+ */
+const resetTabColor = (): void => {
+  // OSC 9;9; with empty/default resets the color
+  writeOSC(`\x1b]9;9;\x07`)
+}
+
+/**
+ * Reset tab title to default (empty lets terminal use its default)
+ */
+const resetTabTitle = (): void => {
+  // Set to empty string to let terminal use its default title
+  writeOSC(`\x1b]0;\x07`)
+}
+
+/**
+ * Full cleanup - reset both title and color
+ */
+const cleanupTerminal = (): void => {
+  log("Cleaning up terminal state")
+  resetTabTitle()
+  resetTabColor()
+}
+
+/**
+ * Extract project name from directory path
+ */
+const getProjectName = (directory: string): string => {
+  if (!directory) return "opencode"
+  // Get the last segment of the path
+  const segments = directory.replace(/\\/g, '/').split('/').filter(Boolean)
+  return segments[segments.length - 1] || "opencode"
+}
+
+/**
  * Parse contract status from text (e.g., "Criteria: 2/5 complete")
  */
 const parseContractStatus = (text: string): string => {
@@ -179,10 +214,14 @@ const extractCriteria = (text: string): string[] => {
 // Plugin
 // =============================================================================
 
-const GoostStatusPlugin: Plugin = async () => {
+const GoostStatusPlugin: Plugin = async ({ directory }) => {
+  // Extract project name from directory
+  const projectName = getProjectName(directory || process.cwd())
+  log(`Project name: ${projectName}`)
+  
   // State
   let currentIcon = STATUS_EMOJIS.idle
-  let currentStats = "Idle"
+  let currentStatus: GoostStatus = "idle"
   let activeSubAgents = 0  // Track running sub-agents
   
   let contract: ContractState = {
@@ -192,14 +231,70 @@ const GoostStatusPlugin: Plugin = async () => {
     criteriaStatus: [],
     progress: ""
   }
+  
+  // Register cleanup handlers for process exit
+  const exitHandler = () => {
+    cleanupTerminal()
+  }
+  
+  // Handle various exit scenarios
+  process.on('exit', exitHandler)
+  process.on('SIGINT', () => {
+    cleanupTerminal()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    cleanupTerminal()
+    process.exit(0)
+  })
+  
+  // Also handle uncaught exceptions to ensure cleanup
+  process.on('uncaughtException', (err) => {
+    log(`Uncaught exception: ${err}`)
+    cleanupTerminal()
+  })
 
   /**
+   * Get descriptive status text based on current state
+   */
+  const getStatusText = (): string => {
+    switch (currentStatus) {
+      case "doom_loop":
+        return "STUCK"
+      case "mic":
+        return "Approval"
+      case "moon":
+        return activeSubAgents > 1 ? `Agents(${activeSubAgents})` : "Agent"
+      case "rocket":
+        return "Launching"
+      case "earth":
+        return contract.active ? "Ready" : "Done"
+      case "work":
+        return "Working"
+      case "idle":
+        return contract.active ? "Contract" : ""
+      default:
+        return ""
+    }
+  }
+  
+  /**
    * Update window/tab title using OSC 0 (standard xterm title)
+   * Format: 🚀 projectname: Status [1/3]
    */
   const updateTitle = (): void => {
-    const display = contract.progress 
-      ? `${currentIcon} ${currentStats} [${contract.progress}]`
-      : `${currentIcon} ${currentStats}`
+    const statusText = getStatusText()
+    const progressText = contract.progress ? ` [${contract.progress}]` : ""
+    
+    // Build title: emoji project: status [progress]
+    let display: string
+    if (statusText) {
+      display = `${currentIcon} ${projectName}: ${statusText}${progressText}`
+    } else {
+      // Idle with no contract - just show project name
+      display = `${currentIcon} ${projectName}${progressText}`
+    }
+    
     writeOSC(`\x1b]0;${display}\x07`)
   }
 
@@ -233,35 +328,9 @@ const GoostStatusPlugin: Plugin = async () => {
    * Update UI state (icon, color, title) based on detected status
    */
   const updateUIState = (status: GoostStatus): void => {
+    currentStatus = status
     currentIcon = STATUS_EMOJIS[status]
     setTabColor(TAB_COLORS[status])
-
-    switch (status) {
-      case "doom_loop":
-        currentStats = "STUCK"
-        break
-      case "mic":
-        currentStats = "Approval Needed"
-        break
-      case "moon":
-        currentStats = "Sub-agents"
-        break
-      case "rocket":
-        currentStats = "Launching"
-        break
-      case "earth":
-        currentStats = contract.active ? "Ready" : "Idle"
-        break
-      case "work":
-        currentStats = contract.active ? "Working" : "Busy"
-        break
-      case "idle":
-        currentStats = contract.active ? "Contract" : "Idle"
-        break
-      default:
-        currentStats = contract.active ? "Contract" : "Idle"
-    }
-
     updateTitle()
   }
 
@@ -359,15 +428,10 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
           const { status } = event.properties as { sessionID: string; status: { type: string } }
           
           if (status.type === "idle") {
-            currentIcon = STATUS_EMOJIS.earth
-            setTabColor(TAB_COLORS.earth)
-            currentStats = contract.active ? "Ready" : "Idle"
+            updateUIState(contract.active ? "earth" : "idle")
           } else if (status.type === "busy") {
-            currentIcon = STATUS_EMOJIS.work
-            setTabColor(TAB_COLORS.work)
-            currentStats = contract.active ? "Working" : "Busy"
+            updateUIState("work")
           }
-          updateTitle()
         }
         
         // Detect compaction events
@@ -409,10 +473,7 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
         if (input.tool === "task") {
           activeSubAgents++
           log(`Sub-agent starting (active: ${activeSubAgents})`)
-          currentIcon = STATUS_EMOJIS.moon
-          setTabColor(TAB_COLORS.moon)
-          currentStats = activeSubAgents > 1 ? `Waiting (${activeSubAgents})` : "Waiting"
-          updateTitle()
+          updateUIState("moon")
         }
       } catch (error) {
         log(`Error in tool.execute.before: ${error}`)
@@ -436,16 +497,11 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
           
           // If still have active sub-agents, stay in moon state
           if (activeSubAgents > 0) {
-            currentIcon = STATUS_EMOJIS.moon
-            setTabColor(TAB_COLORS.moon)
-            currentStats = activeSubAgents > 1 ? `Waiting (${activeSubAgents})` : "Waiting"
+            updateUIState("moon")
           } else {
             // All sub-agents done, back to working state
-            currentIcon = STATUS_EMOJIS.work
-            setTabColor(TAB_COLORS.work)
-            currentStats = contract.active ? "Working" : "Busy"
+            updateUIState("work")
           }
-          updateTitle()
         }
       } catch (error) {
         log(`Error in tool.execute.after: ${error}`)
