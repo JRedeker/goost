@@ -166,11 +166,22 @@ Goost lights up your Windows Terminal tab with real-time status.
 | 🌕 | **Waiting** | <img src="https://placehold.co/15x15/5865F2/5865F2.png" width="15" height="15"/> Blue | Sub-agents running, awaiting results |
 | 🌍 | **Ready** | <img src="https://placehold.co/15x15/57F287/57F287.png" width="15" height="15"/> Green | Complete or awaiting user input |
 | 🔄 | **Stuck** | <img src="https://placehold.co/15x15/FFA500/FFA500.png" width="15" height="15"/> Orange | Doom Loop detected (retrying failed approach) |
-| 🎤 | **Approval** | <img src="https://placehold.co/15x15/FFCC00/FFCC00.png" width="15" height="15"/> Yellow | Needs user confirmation |
+| 🎤 | **Approval** | <img src="https://placehold.co/15x15/FF00FF/FF00FF.png" width="15" height="15"/> Magenta | **Needs user approval** (auto-detected) |
 
 **Dynamic Title:**  
-`🚀 Working [2/5]` — *Active, 2 of 5 criteria done*  
-`🌕 Waiting (3)` — *3 sub-agents running*
+`🚀 projectname: Working [2/5]` — *Active, 2 of 5 criteria done*  
+`🌕 projectname: Agent` — *Sub-agent running*  
+`🎤 projectname: >>> APPROVAL NEEDED <<<` — *Shell permission required*
+
+### Automatic Permission Detection
+
+The plugin automatically detects when OpenCode requests permission for shell commands or other sensitive operations. When this happens:
+
+- **Tab turns bright magenta** (highly visible)
+- **Title shows `>>> APPROVAL NEEDED <<<`**
+- **Returns to normal** after you approve or deny
+
+This works through OpenCode's `permission.updated` and `permission.replied` events - no manual markers needed.
 
 > **Note:** Requires `set -g allow-passthrough on` in your `.tmux.conf` if using tmux.
 

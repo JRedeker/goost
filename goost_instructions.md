@@ -113,13 +113,13 @@ Unmet criteria:
 
 Emit a status marker at the START of each response:
 
-| Marker | Emoji | When |
-|--------|-------|------|
-| `[GOOST:ROCKET]` | 🚀 | Active work / spawning agents |
-| `[GOOST:MOON]` | 🌕 | Waiting for sub-agent results |
-| `[GOOST:EARTH]` | 🌍 | Complete / awaiting user input |
-| `[GOOST:DOOM_LOOP]` | 🔄 | Stuck in retry cycle - need user direction |
-| `[GOOST:MIC]` | 🎤 | Needs user approval for a command (tab turns yellow) |
+| Marker | Emoji | Tab Color | When |
+|--------|-------|-----------|------|
+| `[GOOST:ROCKET]` | 🚀 | Red | Active work / spawning agents |
+| `[GOOST:MOON]` | 🌕 | Blue | Waiting for sub-agent results |
+| `[GOOST:EARTH]` | 🌍 | Green | Complete / awaiting user input |
+| `[GOOST:DOOM_LOOP]` | 🔄 | Orange | Stuck in retry cycle - need user direction |
+| `[GOOST:MIC]` | 🎤 | **Magenta** | Needs user approval (auto-detected by plugin) |
 
 These markers are detected by the Goost plugin, which updates the terminal tab color and title accordingly.
 
@@ -140,12 +140,17 @@ Phase: 1 of 2 | Criteria: 1/3 complete
 
 ### User Approval Indicator
 
-When you need user approval before executing a command (e.g., destructive operations, sensitive actions, or OpenCode permission prompts), emit `[GOOST:MIC]` at the start of your response. This turns the terminal tab yellow to alert the user that their input is required.
+The plugin **automatically detects** when OpenCode requests permission for shell commands or other sensitive operations via the `permission.updated` event. When this happens:
+
+- Tab turns **bright magenta** (`#FF00FF`) - highly visible
+- Title shows `>>> APPROVAL NEEDED <<<`
+- Returns to normal state when `permission.replied` fires
+
+You can also manually emit `[GOOST:MIC]` at the start of your response for situations where you need user approval but OpenCode isn't prompting (e.g., contract confirmation, destructive operations you want to warn about).
 
 Use `[GOOST:MIC]` when:
 - Asking for contract confirmation ("Do you accept these terms?")
-- Requesting permission for destructive commands (rm -rf, DROP TABLE, etc.)
-- OpenCode shows a permission prompt that needs user approval
+- Warning about destructive commands before OpenCode prompts
 - Any action requiring explicit user consent before proceeding
 
 Example:
@@ -165,10 +170,17 @@ When spawning sub-agents (via the `task` tool) while a contract is active, you M
 
 ### When to Use Sub-Agents
 
-Use sub-agents for:
-- Complex research tasks (exploring codebase, finding patterns)
-- Parallel independent work (multiple files, multiple tests)
-- Specialized tasks (code review, security audit)
+Use sub-agents when:
+- Task is **independent** and can run in parallel with other work
+- Task requires **exploration** with uncertain scope (searching, researching)
+- You need to **preserve main context** for other work
+- Task is **specialized** (code review, security audit, documentation lookup)
+
+Do NOT use sub-agents when:
+- Task is simple and sequential (just do it directly)
+- You need results immediately to continue current work
+- Task requires back-and-forth iteration with user
+- Overhead of spawning outweighs benefit
 
 ### Contract-Aware Sub-Agent Prompts
 
