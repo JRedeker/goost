@@ -14,16 +14,17 @@ First, read the change proposal files:
 2. `openspec/changes/<id>/tasks.md` - for the task breakdown
 3. `openspec/changes/<id>/design.md` (if present) - for implementation details
 
-**Step 2: Establish a Contract**
+**Step 2: Display Contract (Informational)**
 
-You MUST establish a Goost contract before implementing. Generate the contract by:
+Generate a contract from the proposal for **visibility and tracking**. The user's invocation of `/openspec-apply` is implicit approval - do NOT wait for confirmation.
 
-1. **OBJECTIVE**: Derive from the proposal's title/summary
-2. **SUCCESS CRITERIA**: Convert each acceptance criterion from `proposal.md` into a verifiable checkbox
-3. **CONSTRAINTS**: Extract any MUST/MUST NOT requirements from the proposal
+Derive the contract:
+1. **OBJECTIVE**: From the proposal's title/summary
+2. **SUCCESS CRITERIA**: Convert acceptance criteria from `proposal.md` into verifiable checkboxes
+3. **CONSTRAINTS**: Extract any MUST/MUST NOT requirements
 4. **CHECKPOINTS**: Group tasks from `tasks.md` into logical phases
 
-Format the contract:
+Display the contract:
 ```
 ============================================================
                     CONTRACT ACTIVE
@@ -48,11 +49,11 @@ CHECKPOINTS:
 ============================================================
 ```
 
-Present the contract and emit `[GOOST:MIC]` to request confirmation before proceeding.
+Then immediately proceed to implementation.
 
 **Step 3: Implement Under Contract**
 
-Once the contract is confirmed:
+With the contract established:
 - Work through tasks sequentially from `tasks.md`
 - For EACH task: implement → verify → mark complete
 - End every response with a CONTRACT STATUS block

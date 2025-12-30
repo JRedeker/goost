@@ -18,11 +18,11 @@ Goost provides these slash commands:
 | `/openspec-review` | Comprehensive review of an OpenSpec change |
 | `/openspec-harden` | Post-implementation hardening analysis for production-readiness |
 
-The following commands are provided by the base OpenSpec CLI (not Goost-specific):
+The following commands integrate OpenSpec with Goost contract enforcement:
 
 | Command | Description |
 |---------|-------------|
-| `/openspec-apply` | Apply/implement an OpenSpec change proposal |
+| `/openspec-apply` | Implement an OpenSpec change under contract enforcement (auto-approved) |
 | `/openspec-archive` | Archive a completed OpenSpec change |
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
 
@@ -167,12 +167,19 @@ The plugin **automatically detects** when OpenCode requests permission for shell
 - Title shows `>>> APPROVAL NEEDED <<<`
 - Returns to normal state when `permission.replied` fires
 
-You can also manually emit `[GOOST:MIC]` at the start of your response for situations where you need user approval but OpenCode isn't prompting (e.g., contract confirmation, destructive operations you want to warn about).
+You can also manually emit `[GOOST:MIC]` at the start of your response for situations where you need user approval but OpenCode isn't prompting.
 
-Use `[GOOST:MIC]` when:
-- Asking for contract confirmation ("Do you accept these terms?")
-- Warning about destructive commands before OpenCode prompts
-- Any action requiring explicit user consent before proceeding
+**When to use `[GOOST:MIC]` (require confirmation):**
+- `/contract` or `/contract-quick` - user must confirm the contract terms
+- Destructive operations (delete files, force push, drop database)
+- Ambiguous requirements needing clarification
+- Doom loop recovery - presenting options to user
+- Contract modification requests
+
+**When NOT to use `[GOOST:MIC]` (implicit approval):**
+- `/openspec-apply` - the spec IS the contract, invocation is approval
+- Continuing work under an already-confirmed contract
+- Status updates or informational displays
 
 Example:
 ```

@@ -20,7 +20,9 @@ When invoked with a task description, **skip the questions** and directly propos
 
 2. **Generate a contract** with reasonable defaults
 
-3. **Present for confirmation** (still required - emit `[GOOST:MIC]` to signal approval needed)
+3. **Present for confirmation** - emit `[GOOST:MIC]` and WAIT for user approval before starting work
+
+**Note:** Unlike `/openspec-apply` where the spec provides implicit approval, `/contract-quick` requires explicit confirmation because the AI is inferring criteria that the user must validate.
 
 ### Example
 
