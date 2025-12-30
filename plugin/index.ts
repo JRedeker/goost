@@ -12,7 +12,12 @@ import { type Plugin } from "@opencode-ai/plugin"
  * - Rocket (🚀): Setting up/spawning sub-agents OR actively working
  * - Earth (🌍): Complete, awaiting user input
  * - Loop (🔄): Doom loop detected - stuck in retry cycle
- * - Mic (🎤): Needs user approval for a command/action
+ * - Mic (🎤): Needs user approval - MAGENTA TAB (auto-detected via permission.updated)
+ * 
+ * Permission Detection:
+ * - Automatically detects OpenCode permission.updated events (shell execution, etc.)
+ * - Switches to bright magenta tab with ">>> APPROVAL NEEDED <<<" title
+ * - Returns to normal state when permission.replied event fires
  * 
  * Contract Preservation:
  * - Stores full contract text when CONTRACT ACTIVE is detected
@@ -55,7 +60,7 @@ const TAB_COLORS: Record<GoostStatus, string> = {
   work: "#ED4245",      // Red - same as rocket (active work)
   idle: "#57F287",      // Green - idle/ready for input
   doom_loop: "#FFA500", // Orange - warning, stuck in loop
-  mic: "#FFCC00",       // Yellow - needs user approval
+  mic: "#FF00FF",       // Magenta/hot pink - URGENT: needs user approval (highly visible)
 }
 
 // Contract status patterns to detect in responses
@@ -262,7 +267,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
       case "doom_loop":
         return "STUCK"
       case "mic":
-        return "Approval"
+        return ">>> APPROVAL NEEDED <<<"
       case "moon":
         return activeSubAgents > 1 ? `Agents(${activeSubAgents})` : "Agent"
       case "rocket":
@@ -460,6 +465,18 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
               }
             }
           }
+        }
+        
+        // Detect OpenCode permission requests - this is the key event for shell approvals
+        if (event.type === "permission.updated") {
+          log("Permission request detected - switching to mic state")
+          updateUIState("mic")
+        }
+        
+        // Detect when permission is granted/denied - return to previous state
+        if (event.type === "permission.replied") {
+          log("Permission replied - returning to work state")
+          updateUIState(contract.active ? "work" : "idle")
         }
       } catch (error) {
         log(`Error in event handler: ${error}`)
