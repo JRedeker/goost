@@ -252,11 +252,34 @@ Total: 2 items | 8/15 tasks (53%)
 |---------|-------------|
 | `/openspec-apply <id>` | Implement a change under contract enforcement (implicit approval) |
 | `/openspec-review <id>` | Deep review with gap analysis, TDD readiness, rules compliance |
-| `/openspec-harden <id>` | Post-implementation hardening: test coverage, code quality, docs, cleanup |
+| `/openspec-harden <id>` | Post-implementation hardening with **comprehensive AI-slop detection** |
 | `/openspec-archive <id>` | Archive a completed change |
 | `/openspec-proposal` | Create a new change proposal |
 
 **Note:** `/openspec-apply` uses **implicit approval** — the spec IS the contract. The agent displays a contract for visibility but proceeds immediately without waiting for confirmation.
+
+### AI-Slop Detection (`/openspec-harden`)
+
+The `/openspec-harden` command includes **comprehensive AI-slop detection** based on academic research (arXiv 2024-2025) showing LLM-generated code has 63% more code smells than human-written code.
+
+**Detection Categories:**
+
+| Category | Patterns Detected |
+|----------|-------------------|
+| **Incomplete Implementations** | `pass` stubs, `NotImplementedError`, placeholder values, hardcoded IDs, incomplete refactors |
+| **Exception Handling** | Silent `except: pass`, bare exception handlers, missing error handling, overly broad catches |
+| **Lazy Typing** | Excessive `Any`, undocumented `**kwargs`, type safety bypasses (`as any`, `@ts-ignore`) |
+| **Structural Smells** | God classes (>20 methods), long functions (>100 lines), deep nesting, magic numbers, duplicate code |
+| **Documentation Issues** | Obvious comments, `# noqa` without explanation, stale TODOs, dead documentation |
+| **Async/Concurrency** | Blocking in async, thread-unsafe singletons, missing `await`, sync I/O in async code |
+
+**Severity Levels:**
+- **BLOCKER**: Code will fail or has security implications
+- **HIGH**: Significant quality issue requiring fix before merge  
+- **MEDIUM**: Technical debt that should be addressed
+- **LOW**: Minor style or preference issue
+
+The command can optionally spawn sub-agents to automatically fix detected issues.
 
 ---
 

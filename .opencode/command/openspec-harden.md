@@ -64,7 +64,7 @@ Store this context - you'll pass relevant portions to sub-agents.
 
 Create a TODO list tracking each analysis sub-agent:
 - [ ] Test Coverage Analysis
-- [ ] Implementation Quality Analysis
+- [ ] AI-Slop Detection (Comprehensive)
 - [ ] Documentation Analysis
 - [ ] Cleanup Analysis
 - [ ] Spec Alignment Analysis
@@ -112,47 +112,168 @@ RETURN FORMAT:
 ```
 ```
 
-#### Sub-Agent 2: Implementation Quality Scanner
+#### Sub-Agent 2: AI-Slop Detection Scanner (Comprehensive)
 
 ```
-You are analyzing IMPLEMENTATION QUALITY for OpenSpec change: <change-id>
+You are performing COMPREHENSIVE AI-SLOP DETECTION for OpenSpec change: <change-id>
+
+This analysis is based on academic research (arXiv 2024-2025) showing LLM-generated code has 63% more code smells than human-written code, with implementation smells 73% higher.
 
 CONTEXT:
 - Affected files: <list from proposal.md>
 
-TASK: Search affected files for quality issues. For each issue, record file, line, and category.
+TASK: Search affected files for AI-generated code patterns across 6 categories.
 
-1. INCOMPLETE WORK: Search for TODO, FIXME, HACK, XXX comments
+## CATEGORY 1: INCOMPLETE IMPLEMENTATIONS (HIGH PRIORITY)
 
-2. DEBUG ARTIFACTS: Search for console.log, console.debug, debugger statements
-   - EXCLUDE files in logger/, logging/, or named logger.ts/log.ts
+Search for patterns indicating unfinished work:
 
-3. TYPE SAFETY BYPASSES: Search for `as any`, `as unknown`, `@ts-ignore`, `@ts-expect-error`
+1.1. PLACEHOLDER IMPLEMENTATIONS:
+   - Python: `pass` in function/method bodies (excluding abstract methods, protocols, TYPE_CHECKING blocks)
+   - `raise NotImplementedError` with generic messages
+   - Return values like `return {}`, `return []`, `return None` with no logic before them
+   - Hardcoded placeholder values: `= 12345`, `= "placeholder"`, `= 0  # placeholder`
 
-4. ERROR HANDLING ISSUES:
-   - Empty catch blocks
-   - Swallowed errors (catch with only console.log, no rethrow)
-   - Missing .catch() on promise chains
+1.2. INCOMPLETE REFACTORS:
+   - Comments mentioning "WIP", "incomplete", "another agent", "not yet implemented"
+   - Multi-line commented code blocks (>5 lines of commented-out code)
+   - Functions that only call `super()` without adding value
 
-5. AI SLOP PATTERNS:
-   - Placeholder implementations: `throw new Error("Not implemented")`, `pass`, `...`
-   - Generic error messages: "An error occurred", "Something went wrong"
-   - Obvious comments restating code
+1.3. TODO/FIXME COMMENTS:
+   - `# TODO:` without owner or issue reference
+   - `# FIXME:` comments
+   - `# HACK:` or `# XXX:` comments
+
+## CATEGORY 2: POOR EXCEPTION HANDLING (HIGH PRIORITY)
+
+2.1. SILENT ERROR SWALLOWING:
+   - `except Exception: pass` or `except: pass`
+   - `except Exception as e: pass`
+   - Empty except blocks
+   - `except Exception:` without `# noqa: BLE001` justification
+
+2.2. OVERLY BROAD EXCEPTION HANDLING:
+   - `try/except Exception` around entire functions (>20 lines in try block)
+   - Catching Exception when specific exceptions should be caught
+   - Logging errors but not re-raising or handling properly
+
+2.3. MISSING ERROR HANDLING:
+   - Async functions without timeout on network calls
+   - File operations without proper exception handling
+   - Missing `.catch()` on JavaScript promise chains
+
+## CATEGORY 3: LAZY TYPING AND GENERICS (MEDIUM PRIORITY)
+
+3.1. EXCESSIVE `Any` USAGE (Python):
+   - Function parameters typed as `Any` when specific types exist
+   - `Any = Depends(...)` pattern in FastAPI
+   - Return types of `Any` for functions with clear return types
+
+3.2. UNDOCUMENTED KWARGS:
+   - `**kwargs` without docstring explaining expected keys
+   - `*args, **kwargs` passthrough without clear purpose
+   - Generic `options: dict` parameters without TypedDict
+
+3.3. TYPE SAFETY BYPASSES (TypeScript):
+   - `as any`, `as unknown` casts
+   - `@ts-ignore`, `@ts-expect-error` without explanation
+   - `// @ts-nocheck` at file level
+
+## CATEGORY 4: STRUCTURAL/DESIGN SMELLS (MEDIUM PRIORITY)
+
+4.1. GOD CLASSES/FUNCTIONS:
+   - Classes with >20 methods
+   - Functions >100 lines
+   - Files >1000 lines
+
+4.2. DEEP NESTING:
+   - >4 levels of indentation (excluding class/function definitions)
+   - Nested callbacks >3 levels deep
+
+4.3. MAGIC NUMBERS:
+   - Numeric literals in conditionals without named constants
+   - Hardcoded thresholds (e.g., `if score > 80:`, `if count > 100:`)
+   - Hardcoded IDs or configuration values
+
+4.4. DUPLICATE CODE:
+   - Identical or near-identical code blocks in multiple files
+   - Copy-pasted implementations that should be shared
+
+## CATEGORY 5: DOCUMENTATION ISSUES (MEDIUM PRIORITY)
+
+5.1. STALE/USELESS COMMENTS:
+   - Comments that just repeat the code (`# increment counter` before `counter += 1`)
+   - Docstrings that just repeat the function name
+   - Outdated comments referencing old implementations
+
+5.2. NOQA WITHOUT EXPLANATION:
+   - `# noqa` or `# noqa: CODE` without justification comment
+   - Duplicate noqa markers (`# noqa: S311  # noqa: S311`)
+   - `# type: ignore` without explanation
+
+5.3. DEAD DOCUMENTATION:
+   - Docstrings describing parameters that don't exist
+   - External URLs that may be stale
+   - References to removed code or features
+
+## CATEGORY 6: ASYNC/CONCURRENCY ISSUES (HIGH PRIORITY for async code)
+
+6.1. BLOCKING IN ASYNC:
+   - `time.sleep()` in async functions (should use `asyncio.sleep`)
+   - `requests.get()` in async code (should use `httpx` or `aiohttp`)
+   - Sync file I/O (`open()`) in async functions
+
+6.2. THREAD SAFETY:
+   - Singleton patterns without lock protection
+   - Module-level mutable state accessed from multiple threads
+   - Missing `asyncio.Lock` for shared async resources
+
+6.3. MISSING AWAIT:
+   - Coroutine called without `await`
+   - `asyncio.run()` called inside async functions
+
+SEVERITY LEVELS:
+- BLOCKER: Code will fail or has security implications
+- HIGH: Significant quality issue requiring fix before merge
+- MEDIUM: Technical debt that should be addressed
+- LOW: Minor style or preference issue
 
 RETURN FORMAT:
 ```json
 {
-  "dimension": "implementation_quality",
-  "issues": [
-    {"severity": "BLOCKER|WARNING|INFO", "category": "<category>", "file": "<file>", "line": <n>, "message": "<description>"}
-  ],
+  "dimension": "ai_slop_detection",
   "summary": {
-    "todos": 2,
-    "debug_artifacts": 0,
-    "type_bypasses": 1,
-    "error_handling": 0,
-    "ai_slop": 0
-  }
+    "total_issues": 15,
+    "blockers": 2,
+    "high": 5,
+    "medium": 6,
+    "low": 2,
+    "by_category": {
+      "incomplete_implementations": 3,
+      "exception_handling": 4,
+      "lazy_typing": 2,
+      "structural_smells": 3,
+      "documentation_issues": 2,
+      "async_issues": 1
+    }
+  },
+  "issues": [
+    {
+      "severity": "BLOCKER|HIGH|MEDIUM|LOW",
+      "category": "<category_name>",
+      "subcategory": "<subcategory>",
+      "file": "<file>",
+      "line": <n>,
+      "code_snippet": "<relevant code>",
+      "message": "<description>",
+      "fix_suggestion": "<how to fix>"
+    }
+  ],
+  "patterns_detected": [
+    "Silent exception swallowing (4 occurrences)",
+    "Excessive Any types (2 occurrences)",
+    "Magic numbers without constants (3 occurrences)"
+  ]
 }
 ```
 ```
@@ -223,6 +344,10 @@ TASK:
    - poc/, scratch/, temp/, tmp/ directories
    - Files named test.ts, scratch.py, debug.*
 
+5. DUPLICATE CODE:
+   - Check for files with similar names in different directories that might be duplicates
+   - Search for identical function signatures in multiple files
+
 RETURN FORMAT:
 ```json
 {
@@ -231,6 +356,7 @@ RETURN FORMAT:
   "dead_imports": [{"file": "<file>", "import": "<name>"}],
   "orphaned_tests": [],
   "dev_artifacts": [],
+  "duplicate_code": [{"files": ["<file1>", "<file2>"], "reason": "<description>"}],
   "issues": [
     {"severity": "WARNING", "file": "<file>", "message": "Backup file should be removed"}
   ]
@@ -282,7 +408,7 @@ RETURN FORMAT:
 ### Collect Sub-Agent Results
 
 Wait for all 5 sub-agents to return. Parse their JSON outputs and aggregate:
-- All issues by severity (BLOCKER > WARNING > INFO)
+- All issues by severity (BLOCKER > HIGH > MEDIUM > LOW > WARNING > INFO)
 - Dimension scores (PASS/WARN/FAIL)
 - Evidence and file references
 
@@ -311,7 +437,8 @@ Read the spec files again and check:
 Check project-level docs for context:
 - README.md - Does it explain conventions that might excuse certain patterns?
 - CONTRIBUTING.md - Are there documented exceptions?
-- .eslintrc, tsconfig.json - Are some patterns explicitly allowed?
+- .eslintrc, tsconfig.json, pyproject.toml - Are some patterns explicitly allowed?
+- AGENTS.md - Are there project-specific rules about code style?
 
 ### Step 4: Root Cause Classification
 
@@ -319,18 +446,20 @@ For each issue or cluster of issues, determine:
 
 | Root Cause | Indicators | Remediation Strategy |
 |------------|------------|---------------------|
-| Incomplete implementation | Tasks unverified, TODOs present | Complete the work |
+| Incomplete implementation | Tasks unverified, TODOs present, placeholder code | Complete the work |
+| AI-generated slop | Silent exception handlers, placeholder values, lazy typing | Refactor to production quality |
 | Testing gap | Low coverage, uncovered scenarios | Add targeted tests |
 | Documentation debt | Missing docs, README not updated | Add documentation |
-| Cleanup forgotten | Debug code, temp files | Remove artifacts |
+| Cleanup forgotten | Debug code, temp files, duplicate code | Remove artifacts, consolidate |
 | Scope creep | Out-of-scope files modified | Review or revert |
-| Quality shortcuts | Type bypasses, empty catches | Refactor for quality |
+| Quality shortcuts | Type bypasses, empty catches, magic numbers | Refactor for quality |
+| Thread-safety issues | Missing locks, shared mutable state | Add proper synchronization |
 
 ### Step 5: Determine Overall Status
 
 Based on aggregated findings:
-- **READY**: No BLOCKERs, ≤3 WARNINGs, all dimensions PASS or WARN
-- **NEEDS_WORK**: No BLOCKERs, but >3 WARNINGs or significant gaps
+- **READY**: No BLOCKERs, no HIGH severity issues, ≤3 MEDIUM issues
+- **NEEDS_WORK**: No BLOCKERs, but HIGH severity issues or >3 MEDIUM issues
 - **BLOCKED**: Any BLOCKER issues present
 
 ### Step 6: Generate Intermediate Report
@@ -347,8 +476,9 @@ PHASE 1 COMPLETE: Analysis gathered from 5 dimensions
 TEST COVERAGE                                    [PASS|WARN|FAIL]
   Coverage: X% (N/M files have tests)
 
-IMPLEMENTATION QUALITY                           [PASS|WARN|FAIL]
-  Issues: N total (X blockers, Y warnings)
+AI-SLOP DETECTION                                [PASS|WARN|FAIL]
+  Issues: N total (X blockers, Y high, Z medium)
+  Categories: incomplete=N, exception=N, typing=N, structural=N
 
 DOCUMENTATION                                    [PASS|WARN|FAIL]
   README: [OK|NEEDS UPDATE] | API Docs: X% | CHANGELOG: [OK|MISSING]
@@ -363,6 +493,11 @@ SPEC ALIGNMENT                                   [PASS|WARN|FAIL]
 ROOT CAUSES IDENTIFIED:
 1. <root cause 1> - affects N issues
 2. <root cause 2> - affects M issues
+...
+
+TOP AI-SLOP PATTERNS DETECTED:
+1. <pattern 1> - N occurrences
+2. <pattern 2> - M occurrences
 ...
 
 OVERALL STATUS: [READY|NEEDS_WORK|BLOCKED]
@@ -386,12 +521,13 @@ Found <N> issues requiring attention.
 
 Recommended fixes:
 1. [BLOCKER] <description> - estimated: <simple|moderate|complex>
-2. [WARNING] <description> - estimated: <simple|moderate|complex>
+2. [HIGH] <description> - estimated: <simple|moderate|complex>
+3. [MEDIUM] <description> - estimated: <simple|moderate|complex>
 ...
 
 Options:
 A) Spawn sub-agents to fix all issues automatically
-B) Spawn sub-agents for BLOCKER issues only
+B) Spawn sub-agents for BLOCKER and HIGH issues only
 C) Show detailed report and let me fix manually
 D) Accept current state (skip fixes)
 
@@ -409,14 +545,16 @@ You are fixing specific issues for OpenSpec change: <change-id>
 
 ISSUE TO FIX:
 - Category: <category>
-- Severity: <BLOCKER|WARNING>
+- Severity: <BLOCKER|HIGH|MEDIUM>
 - File: <file>
 - Line: <line> (if applicable)
 - Description: <issue description>
+- Fix suggestion: <suggested fix from analysis>
 
 CONTEXT:
 - Project specs: <relevant spec excerpts>
 - Related documentation: <relevant doc excerpts>
+- Project code style: <from AGENTS.md or CONTRIBUTING.md if available>
 
 CONSTRAINTS:
 - Make minimal, targeted changes
@@ -424,11 +562,35 @@ CONSTRAINTS:
 - Follow existing code style
 - Add tests if fixing implementation issues
 - Update docs if fixing documentation issues
+- Add `# noqa: CODE - reason` comments if suppressing lint rules intentionally
+
+COMMON FIX PATTERNS:
+
+For silent exception handlers:
+  - Replace `except Exception: pass` with specific exception or add logging
+  - Add `# noqa: BLE001 - <justification>` if suppression is intentional
+
+For placeholder implementations:
+  - Integrate with real services or raise NotImplementedError with clear message
+  - Remove hardcoded values and use actual data sources
+
+For lazy typing (Any):
+  - Find the actual return type of dependencies and use proper types
+  - Use Protocol or ABC for dependency injection
+
+For magic numbers:
+  - Define named constants at module level with descriptive names
+  - Use UPPER_SNAKE_CASE for constant names
+
+For thread-unsafe singletons:
+  - Add threading.Lock with double-checked locking pattern
+  - Follow existing patterns in codebase if available
 
 TASK:
 1. Analyze the issue in context
-2. Implement the fix
+2. Implement the fix following the suggested pattern
 3. Verify the fix addresses the issue
+4. Run any available linters/formatters
 
 RETURN FORMAT:
 ```json
@@ -469,9 +631,18 @@ TEST COVERAGE                                    [PASS|WARN|FAIL]
   Tests run: [PASSED | FAILED | SKIPPED]
   - [list untested files if any]
 
-IMPLEMENTATION QUALITY                           [PASS|WARN|FAIL]
-  TODOs: N | Debug: N | Type bypasses: N | Error handling: N
-  - [list remaining issues with file:line if any]
+AI-SLOP DETECTION                                [PASS|WARN|FAIL]
+  Summary: N issues found (X fixed, Y remaining)
+  
+  By Category:
+  - Incomplete implementations: N (fixed: M)
+  - Exception handling: N (fixed: M)
+  - Lazy typing: N (fixed: M)
+  - Structural smells: N (fixed: M)
+  - Documentation issues: N (fixed: M)
+  - Async/concurrency: N (fixed: M)
+  
+  [If issues remain, list top 5 with file:line]
 
 DOCUMENTATION                                    [PASS|WARN|FAIL]
   README: [Updated | Needs Update | N/A]
@@ -503,7 +674,8 @@ Ready to ship! Consider running `/openspec-archive <change-id>`
 [If NEEDS_WORK or BLOCKED:]
 REMAINING ACTIONS:
 1. [BLOCKER] Fix: <description> (<file:line>)
-2. [WARNING] Address: <description>
+2. [HIGH] Fix: <description> (<file:line>)
+3. [MEDIUM] Address: <description>
 ...
 ============================================================
 ```
