@@ -8,4 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Add automatic commit and changelog on contract completion (2ce8dd0)
+- Add automatic commit and changelog on contract completion (c698dd2)
+
+### Fixed
+- Update contract completion protocol to commit before changelog (a0f84a3)
