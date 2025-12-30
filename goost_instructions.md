@@ -16,6 +16,11 @@ Goost provides these slash commands:
 | `/contract-quick` | Quick contract for simpler tasks |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
 | `/openspec-review` | Comprehensive review of an OpenSpec change |
+
+The following commands are provided by the base OpenSpec CLI (not Goost-specific):
+
+| Command | Description |
+|---------|-------------|
 | `/openspec-apply` | Apply/implement an OpenSpec change proposal |
 | `/openspec-archive` | Archive a completed OpenSpec change |
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
