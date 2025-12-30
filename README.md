@@ -9,386 +9,192 @@
 </p>
 
 <p align="center">
-  A lightweight persistence mechanism for long-running AI agent tasks.<br>
-  Solves the fundamental problem of LLM task completion: agents declaring "done" before work is actually complete.
+  <a href="https://opencode.ai"><img src="https://img.shields.io/badge/OpenCode-Plugin-7C3AED?style=for-the-badge&logo=code&logoColor=white" alt="OpenCode Plugin"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Status-Stable-22c55e?style=for-the-badge" alt="Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"></a>
 </p>
 
----
+<p align="center">
+  A lightweight persistence mechanism for long-running AI agent tasks.<br>
+  Solves the fundamental problem of LLM task completion: <strong>agents declaring "done" before work is actually complete.</strong>
+</p>
 
-## The Problem
+<hr>
 
-LLMs exhibit predictable failure modes in extended tasks:
+## 💥 The Problem
+
+LLMs exhibit predictable failure modes in extended tasks. They get tired, they get lazy, or they just lose the plot.
 
 | Failure Mode | Description |
 |--------------|-------------|
-| **Premature completion** | Declaring done at 70% because the last 30% is hard |
-| **Scope reduction** | Quietly dropping difficult requirements |
-| **Goal drift** | Solving adjacent problems instead of the stated objective |
-| **Completion theater** | Marking todos done without verification |
+| **🏁 Premature completion** | Declaring done at 70% because the last 30% is hard |
+| **📉 Scope reduction** | Quietly dropping difficult requirements |
+| **⛵ Goal drift** | Solving adjacent problems instead of the stated objective |
+| **🎭 Completion theater** | Marking todos done without verification |
 
-Todo lists don't solve this because **the agent controls the todo list**. It can add, remove, or mark items complete without accountability.
+> Todo lists don't solve this because **the agent controls the todo list**. It can add, remove, or mark items complete without accountability.
 
-## The Solution: Contracts
+## 🛡️ The Solution: Contracts
 
 Goost introduces **immutable contracts** - success criteria that:
 
-- Are defined upfront with user confirmation
-- Cannot be modified without explicit contract voiding
-- Require verifiable evidence before marking complete
-- Block premature completion declarations
+- ✅ **Are defined upfront** with user confirmation
+- 🔒 **Cannot be modified** without explicit contract voiding
+- 🔎 **Require verifiable evidence** before marking complete
+- 🛑 **Block premature completion** declarations
 
-## Installation
+---
 
-### Quick Install (Recommended)
+## 🚀 Quick Start
+
+Get up and running in seconds.
 
 ```bash
+# 1. Clone the repo (if you haven't)
+git clone https://github.com/JRedeker/goost.git ~/dev/oc-plugins/goost
+
+# 2. Run the installer
 cd ~/dev/oc-plugins/goost
 ./install.sh
 ```
 
-Then add to your `~/.config/opencode/opencode.json`:
+Then add this to your `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "instructions": [
-    "/home/YOUR_USER/dev/oc-plugins/goost/goost_instructions.md"
-  ],
-  "plugin": [
-    "/home/YOUR_USER/dev/oc-plugins/goost/plugin"
-  ]
+  "instructions": ["~/dev/oc-plugins/goost/goost_instructions.md"],
+  "plugins": ["~/dev/oc-plugins/goost/plugin"]
 }
 ```
 
-### Manual Installation
+<details>
+<summary><strong>Manual Installation Options</strong> (Click to expand)</summary>
 
-**1. Copy slash commands:**
+### 1. Copy Files Manually
+
+**Slash Commands:**
 ```bash
 cp .opencode/command/*.md ~/.config/opencode/command/
 ```
 
-**2. Add instructions to opencode.json:**
+**Instructions:**
+Add to `opencode.json`:
 ```json
 {
-  "instructions": [
-    "/path/to/goost/goost_instructions.md"
-  ]
+  "instructions": ["/path/to/goost/goost_instructions.md"]
 }
 ```
 
-**3. (Optional) Install status plugin:**
+**Status Plugin:**
 ```bash
 cd plugin && bun install
 ```
-
-Then add to opencode.json:
+Add to `opencode.json`:
 ```json
 {
-  "plugin": [
-    "/path/to/goost/plugin"
-  ]
+  "plugin": ["/path/to/goost/plugin"]
 }
 ```
 
-### Project-Level Installation
+### 2. Project-Level Installation
 
-For per-project usage, copy the `.opencode` directory:
+For per-project usage, just copy the `.opencode` directory:
 
 ```bash
 cp -r goost/.opencode /path/to/your/project/
 ```
+</details>
 
-## Usage
+---
+
+## 🎮 Usage
 
 ### Starting a Contract
 
-Invoke the slash command:
+Just type `/contract`. The agent will interview you to lock down the scope.
 
-```
-/contract
-```
-
-The agent will ask you:
-1. What does "done" look like? (objective)
-2. What must be true when complete? (success criteria)
-3. Any hard boundaries? (constraints)
-4. Major phases? (checkpoints, for complex tasks)
-
-### Example Session
-
-```
+```text
 User: /contract
 
-Agent: Let's establish a contract for this task.
+Agent: Let's establish a contract.
+       1. What does "done" look like in one sentence?
+       ...
+```
 
-1. What does "done" look like in one sentence?
+### The Contract Artifact
 
-User: The API endpoint handles pagination correctly.
+Once confirmed, the contract becomes the **law** of the session. It appears in the context and cannot be ignored.
 
-Agent: 2. What 3-5 specific things must be true when complete?
-
-User: 
-- Endpoint accepts page and limit query params
-- Returns correct subset of data
-- Includes total count in response
-- Works with empty results
-
-Agent: 3. Any constraints - things that MUST or MUST NOT happen?
-
-User: Must not break existing endpoints. Must include tests.
-
-Agent:
+```markdown
 ============================================================
                     CONTRACT ACTIVE
 ============================================================
 
-OBJECTIVE: The API endpoint handles pagination correctly.
+OBJECTIVE: Add dark mode toggle to settings page.
 
 SUCCESS CRITERIA:
-- [ ] Endpoint accepts page and limit query params
-- [ ] Returns correct subset of data for given page/limit
-- [ ] Response includes total count metadata
-- [ ] Handles empty result sets gracefully
-- [ ] Unit tests cover pagination logic
+- [x] Toggle component renders on settings page
+- [x] Clicking toggle switches between light/dark themes
+- [ ] Preference persists across page refreshes (localStorage)
+- [ ] All existing tests pass
 
 CONSTRAINTS:
-- MUST NOT: Break existing endpoint contracts
-- MUST: Include test coverage
-
-CHECKPOINTS:
-- Single-phase task
+- MUST NOT: Break existing light theme styles
 
 ============================================================
+```
 
-Contract ready. Do you accept these terms?
+### 🛑 Completion Gate
 
-User: Yes
+You cannot say "Done!". The agent cannot say "Task complete!".
+**Not until every box is checked.**
 
-Agent: Contract locked. Beginning work...
-[work proceeds]
+If the agent tries to exit early:
+> "I can't declare this complete yet. The 'Persistence' criterion is still unchecked. Shall I implement that now?"
 
 ---
-CONTRACT STATUS:
-- [x] Endpoint accepts page and limit query params (implemented in routes/api.ts)
-- [x] Returns correct subset of data (verified with test data)
-- [ ] Response includes total count metadata (in progress)
-- [ ] Handles empty result sets (pending)
-- [ ] Unit tests cover pagination logic (pending)
-Phase: 1 of 1 | Criteria: 2/5 complete
----
-```
 
-### Contract Lifecycle
+## 📊 Terminal Status
 
-```
-/contract → Define → Confirm → LOCKED → Work → Status Updates → FULFILLED
-                                  ↓
-                              (or VOIDED if user cancels)
-```
-
-### Voiding a Contract
-
-If you need to abandon or modify scope:
-
-```
-User: void contract
-
-Agent:
-============================================================
-                  CONTRACT VOIDED
-============================================================
-Completed: 2 of 5 criteria
-Unmet criteria:
-- Response includes total count metadata
-- Handles empty result sets
-- Unit tests cover pagination logic
-============================================================
-```
-
-## How It Works
-
-### 1. Slash Command (`/contract`)
-
-Located at `.opencode/command/contract.md`, this defines the contract creation flow and format.
-
-### 2. Instructions (`goost_instructions.md`)
-
-The main instructions file defines the contract protocol and is loaded into the system prompt. It:
-
-- Defines the contract format and lifecycle
-- Requires status blocks on every response
-- Blocks premature completion
-- Handles user pressure to skip criteria
-- Enforces drift prevention checks
-- Detects and handles doom loops
-
-### 3. Status Plugin (`plugin/index.ts`)
-
-The TypeScript plugin provides:
-- Terminal tab color changes based on contract state
-- Window title updates with progress
-- Contract preservation during context compaction
-- tmux passthrough support for escape sequences
-
-## Design Philosophy
-
-### Immutability Over Flexibility
-
-Todo lists fail because they're mutable. The agent can game them. Contracts are locked at confirmation - changing scope requires explicit voiding and re-contracting.
-
-### Verification Over Trust
-
-Criteria must be **verifiable**: "tests pass" not "code is clean". The status block requires evidence, not assertions.
-
-### Explicit Over Implicit
-
-Every response shows contract status. Progress is visible. Incompleteness is undeniable.
-
-### User Authority
-
-Only the user can void a contract. The agent cannot unilaterally declare partial completion acceptable.
-
-## Comparison to Alternatives
-
-| Feature | Todo Lists | OhMyOpenCode Enforcer | Goost Contracts |
-|---------|------------|----------------------|-----------------|
-| User-confirmed scope | No | No | Yes |
-| Immutable criteria | No | No | Yes |
-| Requires evidence | No | Partial | Yes |
-| Visible in every response | Sometimes | Sometimes | Always |
-| Blocks false completion | No | Yes | Yes |
-| Handles scope changes | Implicit | Implicit | Explicit (void + re-contract) |
-
-## Terminal Status Integration
-
-Goost includes a status indicator system that shows contract state in your Windows Terminal tab.
+Goost lights up your Windows Terminal tab with real-time status.
 
 ### Status Icons
 
-| Icon | State | Meaning |
-|------|-------|---------|
-| 🚀 Rocket | Launching/Working | Setting up sub-agents or actively working |
-| 🌕 Full Moon | Waiting | Sub-agent tasks running, awaiting results |
-| 🌍 Earth | Ready | Complete or awaiting user input |
-| 🔄 Loop | Doom Loop | Stuck retrying failed approach |
-| 🎤 Mic | Approval Needed | Waiting for user approval (contract confirmation, destructive commands) |
+| Icon | State | Visual | Meaning |
+|:----:|:------|:-------|:--------|
+| 🚀 | **Working** | <img src="https://placehold.co/15x15/ED4245/ED4245.png" width="15" height="15"/> Red | Active work, launching agents |
+| 🌕 | **Waiting** | <img src="https://placehold.co/15x15/5865F2/5865F2.png" width="15" height="15"/> Blue | Sub-agents running, awaiting results |
+| 🌍 | **Ready** | <img src="https://placehold.co/15x15/57F287/57F287.png" width="15" height="15"/> Green | Complete or awaiting user input |
+| 🔄 | **Stuck** | <img src="https://placehold.co/15x15/FFA500/FFA500.png" width="15" height="15"/> Orange | Doom Loop detected (retrying failed approach) |
+| 🎤 | **Approval** | <img src="https://placehold.co/15x15/FFCC00/FFCC00.png" width="15" height="15"/> Yellow | Needs user confirmation |
 
-### Tab Colors
+**Dynamic Title:**  
+`🚀 Working [2/5]` — *Active, 2 of 5 criteria done*  
+`🌕 Waiting (3)` — *3 sub-agents running*
 
-The terminal tab color changes to match the state:
-- **Red** (`#ED4245`): Active work / launching (rocket)
-- **Blue** (`#5865F2`): Waiting for sub-agents (moon)
-- **Green** (`#57F287`): Complete/ready for input (earth)
-- **Orange** (`#FFA500`): Doom loop detected (loop)
-- **Yellow** (`#FFCC00`): Needs user approval (mic)
+> **Note:** Requires `set -g allow-passthrough on` in your `.tmux.conf` if using tmux.
 
-### tmux Support
+---
 
-If you run OpenCode inside tmux, add this to your `~/.tmux.conf` to enable passthrough of escape sequences:
+## 🧠 Design Philosophy
 
-```bash
-set -g allow-passthrough on
-```
+| Feature | Todo Lists | Goost Contracts |
+|:--------|:-----------|:----------------|
+| **Scope Control** | Mutable (Agent) | **Immutable (User)** |
+| **Trust Model** | "Trust me" | **"Verify me"** |
+| **Visibility** | Buried in logs | **Front & Center** |
+| **Completion** | Subjective | **Objective** |
 
-The plugin automatically detects tmux and wraps OSC escape sequences in DCS passthrough format.
+## 💡 Tips for Success
 
-### Installation (Plugin)
+- **Be Specific:** "No ESLint errors" is better than "Code is clean".
+- **Keep it Tight:** 3-5 criteria is the sweet spot.
+- **Use Checkpoints:** For tasks >30 mins, break it into phases.
 
-For terminal status integration, add the plugin to your `opencode.json`:
+## ⚖️ License
 
-```json
-{
-  "plugins": [
-    "./path/to/goost/plugin"
-  ]
-}
-```
+MIT © [JRedeker](https://github.com/JRedeker)
 
-Or install globally:
-```bash
-cp -r goost/plugin ~/.config/opencode/plugins/goost-status
-```
-
-Then in `~/.config/opencode/opencode.json`:
-```json
-{
-  "plugins": [
-    "~/.config/opencode/plugins/goost-status"
-  ]
-}
-```
-
-### How It Works
-
-The agent emits status markers like `[GOOST:MOON]` at the start of responses. The plugin detects these and updates the terminal tab accordingly.
-
-**Dynamic Title Format:** `{icon} {status} [{progress}]`
-
-Examples:
-- `🚀 Working [2/5]` - Active work, 2 of 5 criteria complete
-- `🌕 Waiting (3)` - 3 sub-agents running in parallel
-- `🎤 Approval Needed` - Waiting for user confirmation
-- `🌍 Idle` - Ready for input, no active contract
-
-## Configuration
-
-### Minimal Setup
-
-Just the slash command:
-```
-.opencode/command/contract.md
-```
-
-### Full Setup (Recommended)
-
-Slash command + instructions + status plugin:
-```
-goost/
-├── .opencode/
-│   ├── command/
-│   │   ├── contract.md
-│   │   └── contract-quick.md
-│   └── rules/
-│       └── status-indicator.md
-├── plugin/
-│   ├── index.ts
-│   └── package.json
-└── goost_instructions.md
-```
-
-## Tips for Effective Contracts
-
-### Write Verifiable Criteria
-
-| Bad | Good |
-|-----|------|
-| "Code is clean" | "No ESLint errors" |
-| "Works correctly" | "All test cases pass" |
-| "Good performance" | "Response time < 200ms" |
-| "Handles errors" | "Returns 400 for invalid input with error message" |
-
-### Keep Criteria Count Reasonable
-
-- 3-5 criteria for small tasks
-- 5-8 for medium tasks
-- 8+ means you should break into multiple contracts
-
-### Use Checkpoints for Long Tasks
-
-If a task takes more than ~30 minutes, define phase gates:
-```
-CHECKPOINTS:
-- [ ] Phase 1: Data model and migrations complete
-- [ ] Phase 2: API endpoints implemented
-- [ ] Phase 3: Frontend integration complete
-- [ ] Phase 4: Tests passing, PR ready
-```
-
-## License
-
-MIT - Use freely, attribution appreciated.
-
-## Name Origin
-
-**Goost** = **Go**al B**oost** 
-
-Because sometimes you need a boost to actually reach your goals, not just start toward them.
+<p align="center">
+  <sub><strong>Goost</strong> = <strong>Go</strong>al B<strong>oost</strong> — Because sometimes you need a boost to finish the job.</sub>
+</p>
