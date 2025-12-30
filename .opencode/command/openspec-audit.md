@@ -85,6 +85,46 @@ Create a TODO list tracking each analysis sub-agent:
 - [ ] Drift Scanner (check requirements against code)
 - [ ] Conflict Detector (cross-reference specs for contradictions)
 
+### Sub-Agent Common Template
+
+All sub-agents follow this structure for consistency:
+
+```
+You are a [ROLE] for a project-wide OpenSpec audit.
+
+SCOPE: <scope value - "all" or specific capability>
+[INPUTS: list any data passed from previous sub-agents]
+
+TASK:
+[numbered steps specific to the sub-agent role]
+
+RETURN FORMAT:
+{
+  "dimension": "<dimension_name>",
+  "summary": { ... aggregate counts ... },
+  [role-specific fields]
+}
+```
+
+**Guidelines for all sub-agents:**
+- Return valid JSON only (no markdown wrapping)
+- Include a `summary` object with aggregate counts for quick parsing
+- Use consistent severity levels: HIGH, MEDIUM, LOW, REVIEW
+- Reference file locations as `path:line` format
+
+### Data Flow Between Sub-Agents
+
+Sub-agents have dependencies - use this decision logic for data passing:
+
+| Sub-Agent | Depends On | Data Passing Rule |
+|-----------|------------|-------------------|
+| Spec Parser | None | Runs independently |
+| Code Mapper | Spec Parser | If <50 requirements: pass inline as JSON. If ≥50: instruct to read `openspec/specs/` directly |
+| Drift Scanner | Code Mapper | Always pass mappings inline (typically <100 entries) |
+| Conflict Detector | Spec Parser + Code Mapper | Pass requirements inline; reference mappings by file if large |
+
+**Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy.
+
 ### Spawn Analysis Sub-Agents
 
 Spawn **4 parallel sub-agents** using the Task tool with `subagent_type: "explore"`:
@@ -92,7 +132,7 @@ Spawn **4 parallel sub-agents** using the Task tool with `subagent_type: "explor
 #### Sub-Agent 1: Spec Parser
 
 ```
-You are parsing SPECIFICATIONS for a project-wide audit.
+You are a SPECIFICATION PARSER for a project-wide OpenSpec audit.
 
 SCOPE: <SCOPE value - "all" or specific capability>
 SPECS DIRECTORY: openspec/specs/
@@ -144,10 +184,10 @@ RETURN FORMAT:
 #### Sub-Agent 2: Code Mapper
 
 ```
-You are mapping SPECIFICATIONS TO CODE for a project-wide audit.
+You are a CODE MAPPER for a project-wide OpenSpec audit.
 
 SCOPE: <SCOPE value>
-REQUIREMENTS: <Pass the requirements array from Spec Parser, or instruct to read specs directly>
+REQUIREMENTS: <If <50 requirements, paste the requirements array here. Otherwise: "Read requirements from openspec/specs/<scope>/spec.md files">
 
 TASK:
 1. For each requirement with explicit file references:
@@ -197,10 +237,10 @@ RETURN FORMAT:
 #### Sub-Agent 3: Drift Scanner
 
 ```
-You are detecting DRIFT between specifications and implementation.
+You are a DRIFT SCANNER for a project-wide OpenSpec audit.
 
 SCOPE: <SCOPE value>
-MAPPINGS: <Pass the mappings from Code Mapper>
+MAPPINGS: <Paste the mappings array from Code Mapper>
 
 TASK:
 For each mapped requirement:
@@ -223,11 +263,15 @@ For each mapped requirement:
    - Extract negative constraints from specs
    - Search code for violations
 
-5. Classify each finding:
-   - HIGH: MUST/SHALL violation, security risk, data integrity
-   - MEDIUM: SHOULD violation, test mismatch, significant gap
-   - LOW: Minor inconsistency, style drift
-   - REVIEW: Ambiguous, needs manual verification
+5. Classify each finding by severity (see classification guide below)
+
+SEVERITY CLASSIFICATION:
+| Severity | Criteria | Examples |
+|----------|----------|----------|
+| HIGH | MUST/SHALL violation; security/auth issues; data loss risk | "MUST use HTTPS" but code allows HTTP; password stored in plaintext |
+| MEDIUM | SHOULD violation; significant functional gap; test mismatch | "SHOULD log errors" but no logging; test expects 30s, spec says 60s |
+| LOW | Minor inconsistency; documentation drift; style mismatch | Comment says "timeout: 30s" but spec says 30 seconds (same value) |
+| REVIEW | Ambiguous; needs human judgment; context-dependent | Spec says "reasonable timeout" - code uses 5s, unclear if reasonable |
 
 RETURN FORMAT:
 ```json
@@ -267,11 +311,11 @@ RETURN FORMAT:
 #### Sub-Agent 4: Conflict Detector
 
 ```
-You are detecting CONFLICTS between specifications.
+You are a CONFLICT DETECTOR for a project-wide OpenSpec audit.
 
 SCOPE: <SCOPE value>
-REQUIREMENTS: <Pass the requirements from Spec Parser>
-MAPPINGS: <Pass the mappings from Code Mapper>
+REQUIREMENTS: <Paste requirements array from Spec Parser>
+MAPPINGS: <If mappings <100 entries, paste inline. Otherwise: "Reference Code Mapper output for file mappings">
 
 TASK:
 
@@ -332,10 +376,30 @@ RETURN FORMAT:
 
 ### Collect Sub-Agent Results
 
-Wait for all 4 sub-agents to return. If any sub-agent times out (exceeds 5 minutes):
+Wait for all 4 sub-agents to return.
+
+**Timeout Handling** (5-minute limit per sub-agent):
+- Rationale: 5 minutes allows thorough exploration of ~500 files while preventing indefinite hangs
+- If a sub-agent exceeds this limit, it typically indicates scope creep or infinite loops
+
+If any sub-agent times out:
 - Mark that dimension as "INCOMPLETE"
 - Note the timeout in the final report
 - Continue with available results
+
+### Sub-Agent Failure Handling
+
+Sub-agents may fail or return partial results. Handle each case:
+
+| Failure Type | Detection | Action |
+|--------------|-----------|--------|
+| Timeout | No response after 5 minutes | Mark dimension INCOMPLETE; continue with others |
+| Empty response | Response is empty or only whitespace | Retry once with simplified scope; if still empty, mark INCOMPLETE |
+| Invalid JSON | JSON parse fails | Extract any usable text; mark dimension PARTIAL |
+| Partial data | Missing expected fields in response | Use available fields; note missing data in report |
+| Error message | Response contains error instead of data | Log error; attempt fallback (direct file read); mark INCOMPLETE if fallback fails |
+
+**Retry Policy**: Retry at most once per sub-agent to avoid doom loops. If retry fails, proceed without that dimension's data.
 
 Parse JSON outputs and store for synthesis.
 
@@ -351,9 +415,12 @@ After receiving Code Mapper results, identify orphaned code:
    - Focus on `src/`, `lib/`, `app/` directories
    - Exclude configuration files, type definitions, generated code
 
-2. **Filter by significance**:
-   - Deprioritize files <20 lines
-   - Focus on files >50 lines or with multiple exports
+2. **Filter by significance** (line count thresholds):
+   - **<20 lines**: Deprioritize (likely utility/helper files)
+   - **20-50 lines**: Include if has multiple exports
+   - **>50 lines**: Always include (substantial modules warrant specs)
+   
+   Rationale: Files under 20 lines rarely contain complex behavior needing specification. The 50-line threshold captures most meaningful business logic.
 
 3. **Exclude common non-spec targets**:
    - `*.config.js`, `*.json`, `*.yaml`
@@ -361,9 +428,10 @@ After receiving Code Mapper results, identify orphaned code:
    - Files with `// Generated` or `@generated` markers
    - Test files (covered by their source specs)
 
-4. **Large codebase optimization**:
-   - If >1000 source files, limit to top 100 by line count
-   - Note sampling in report
+4. **Large codebase optimization** (>1000 source files):
+   - Limit analysis to top 100 files by line count
+   - Rationale: Analyzing 1000+ files exceeds practical sub-agent context; sampling top 100 captures ~80% of significant orphans by code volume
+   - Note sampling in report with recommendation for targeted audits
 
 Build orphan list:
 ```json
@@ -377,6 +445,7 @@ Build orphan list:
     }
   ],
   "sampled": false,
+  "sample_size": null,
   "total_source_files": 150
 }
 ```
@@ -404,13 +473,18 @@ Combine issues from all dimensions:
 
 ### Step 3: Determine Overall Health
 
-Based on aggregated findings:
+Calculate health status based on concrete thresholds:
 
 | Status | Criteria |
 |--------|----------|
-| **ALIGNED** | No drift, no conflicts, <3 minor orphans |
-| **DRIFT_DETECTED** | Any HIGH severity drift OR >3 orphans |
-| **MAJOR_DRIFT** | Any MUST/SHALL constraint violations |
+| **ALIGNED** | Zero HIGH findings AND zero MUST/SHALL violations AND ≤2 orphaned modules AND zero unresolved conflicts |
+| **DRIFT_DETECTED** | 1-2 HIGH findings OR 3-10 orphaned modules OR any SHOULD violations OR any stale references |
+| **MAJOR_DRIFT** | ≥3 HIGH findings OR any MUST/SHALL constraint violation OR any contradictory requirements OR >10 orphaned modules |
+
+**Priority of criteria** (evaluated in order):
+1. MUST/SHALL violations → always MAJOR_DRIFT
+2. HIGH finding count → determines DRIFT_DETECTED vs MAJOR_DRIFT threshold
+3. Orphan count → secondary signal
 
 ### Step 4: Generate Prioritized Recommendations
 
