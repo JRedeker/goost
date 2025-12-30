@@ -348,9 +348,10 @@ export const updateStateStatus = (state: PluginState, status: GoostStatus): Plug
 export const buildPreservationContext = (contract: ContractState): string => {
   if (!contract.text) return ""
 
-  const criteriaList = contract.criteriaStatus.length > 0
-    ? contract.criteriaStatus.map((c) => `  ${c}`).join("\n")
-    : "  No criteria tracked yet"
+  const criteriaList =
+    contract.criteriaStatus.length > 0
+      ? contract.criteriaStatus.map((c) => `  ${c}`).join("\n")
+      : "  No criteria tracked yet"
 
   return `
 \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557

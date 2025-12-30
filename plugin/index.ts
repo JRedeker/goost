@@ -35,12 +35,7 @@ import {
   TaskArgsSchema,
   TaskOutputSchema,
 } from "./types"
-import {
-  cleanupTerminal,
-  getProjectName,
-  updateTabColor,
-  updateTitle,
-} from "./terminal"
+import { cleanupTerminal, getProjectName, updateTabColor, updateTitle } from "./terminal"
 import {
   createInitialState,
   processMessageContent,
@@ -84,11 +79,7 @@ const log = (msg: string): void => {
  */
 const updateUI = (state: PluginState, projectName: string): void => {
   updateTabColor(state.status)
-  const statusText = getStatusText(
-    state.status,
-    state.activeSubAgents,
-    state.contract.active
-  )
+  const statusText = getStatusText(state.status, state.activeSubAgents, state.contract.active)
   updateTitle(projectName, state.status, statusText, state.contract.progress)
 }
 
@@ -102,10 +93,7 @@ type EventHandlerContext = {
   log: (msg: string) => void
 }
 
-type EventHandler = (
-  properties: unknown,
-  ctx: EventHandlerContext
-) => PluginState
+type EventHandler = (properties: unknown, ctx: EventHandlerContext) => PluginState
 
 /**
  * Handle session.status event.
@@ -288,9 +276,10 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
           // Warn if contract active but prompt lacks context (debug only)
           if (state.contract.active && taskParams.prompt) {
-            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(
-              taskParams.prompt
-            )
+            const hasContractContext =
+              /parent contract|contract objective|assigned criterion|your assigned/i.test(
+                taskParams.prompt
+              )
             if (!hasContractContext) {
               log("Warning: Sub-agent prompt may lack contract context")
             }
