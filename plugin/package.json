@@ -1,0 +1,25 @@
+{
+  "name": "goost-status",
+  "version": "1.0.0",
+  "description": "Contract-aware status plugin for Goost - shows sub-agent and completion state in terminal tab",
+  "type": "module",
+  "main": "index.ts",
+  "keywords": [
+    "opencode",
+    "plugin",
+    "goost",
+    "wsl",
+    "terminal",
+    "status",
+    "contract"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.js
+!*.config.js
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Lock files (optional - keep if you want reproducible builds)
+# package-lock.json
+# bun.lock
