@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add /openspec-audit command for project-wide spec/implementation drift detection (a380f26)
 - Enhance openspec-roadmap spec with edge cases, verification steps, and schema (d414eb4)
 
 ### Changed
