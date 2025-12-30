@@ -485,16 +485,17 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
 
     // Watch for task tool calls (sub-agent spawning)
     // Before: show moon because sub-agent is about to run (we'll be waiting)
-    "tool.execute.before": async (input, output) => {
+    // Note: SDK names second param "output" but it contains mutable args to pass to the tool
+    "tool.execute.before": async (input, toolArgs) => {
       try {
         if (input.tool === "task") {
           activeSubAgents++
-          const taskArgs = output.args as { description?: string; prompt?: string }
-          log(`Sub-agent starting: ${taskArgs?.description || 'Unknown'} (active: ${activeSubAgents})`)
+          const taskParams = toolArgs.args as { description?: string; prompt?: string }
+          log(`Sub-agent starting: ${taskParams?.description || 'Unknown'} (active: ${activeSubAgents})`)
           
           // Debug: warn if contract active but prompt lacks context
-          if (contract.active && taskArgs?.prompt) {
-            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(taskArgs.prompt)
+          if (contract.active && taskParams?.prompt) {
+            const hasContractContext = /parent contract|contract objective|assigned criterion|your assigned/i.test(taskParams.prompt)
             if (!hasContractContext) {
               log(`Warning: Sub-agent prompt may lack contract context`)
             }
@@ -516,17 +517,19 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ''}
           log(`Sub-agent finished: ${taskTitle} (active: ${activeSubAgents})`)
           
           // Check for sub-agent failure indicators (debug logging only)
+          // Note: Empty output is logged as a warning, not a definitive failure
+          // (some tasks like "delete temp files" may legitimately return empty)
           const taskOutput = output?.output || ""
-          const failurePatterns = /\berror:|cannot proceed|unable to complete|failed to/i
-          const failed = failurePatterns.test(taskOutput) || taskOutput.trim() === ""
+          const failurePatterns = /\berror:|cannot proceed|unable to complete|failed to|exception:/i
+          const hasFailurePattern = failurePatterns.test(taskOutput)
+          const isEmpty = taskOutput.trim() === ""
           
-          if (failed) {
+          if (hasFailurePattern) {
             log(`Sub-agent may have failed: ${taskTitle}`)
-            if (taskOutput.trim() === "") {
-              log(`  Reason: Empty output`)
-            } else {
-              log(`  Reason: Output indicates failure`)
-            }
+            log(`  Reason: Output contains failure indicator`)
+          } else if (isEmpty) {
+            log(`Sub-agent returned empty output: ${taskTitle}`)
+            log(`  Note: May be normal for cleanup/deletion tasks`)
           }
           
           // If still have active sub-agents, stay in moon state
