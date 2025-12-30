@@ -92,7 +92,7 @@ cd plugin && bun install
 Add to `opencode.json`:
 ```json
 {
-  "plugin": ["/path/to/goost/plugin"]
+  "plugins": ["/path/to/goost/plugin"]
 }
 ```
 

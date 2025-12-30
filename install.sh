@@ -60,8 +60,7 @@ if [ -f "${OPENCODE_CONFIG}" ]; then
         echo "    \"${GOOST_DIR}/plugin\""
         echo ""
         echo "  In the 'instructions' array, add:"
-        echo "    \"${OPENCODE_CONFIG_DIR}/rules/contract-enforcer.md\","
-        echo "    \"${OPENCODE_CONFIG_DIR}/rules/status-indicator.md\""
+        echo "    \"${GOOST_DIR}/goost_instructions.md\""
         echo ""
     fi
 else
