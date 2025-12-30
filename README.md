@@ -187,6 +187,53 @@ This works through OpenCode's `permission.updated` and `permission.replied` even
 
 ---
 
+## 📋 OpenSpec Integration
+
+Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) for change management and roadmap visibility.
+
+### `/openspec-roadmap` Command
+
+Display a tiered progress dashboard for all OpenSpec changes in your project:
+
+```text
+User: /openspec-roadmap
+
+============================================================
+                    PROJECT ROADMAP
+============================================================
+
+NOW (In Progress)
+-----------------
+  [████████░░] add-oauth-support (8/10 tasks)
+    OAuth2 authentication flow
+
+NEXT (Ready)
+------------
+  [░░░░░░░░░░] add-rate-limiting (0/5 tasks)
+    API rate limiting
+
+============================================================
+Total: 2 items | 8/15 tasks (53%)
+============================================================
+```
+
+**Features:**
+- Works with OpenSpec changes out of the box (no config required)
+- Optional `roadmap.yaml` for custom metadata and tiering
+- Graceful fallback when OpenSpec CLI isn't available
+- Progress bars with task completion counts
+
+### Other OpenSpec Commands
+
+| Command | Description |
+|---------|-------------|
+| `/openspec-review` | Deep review of a change with gap analysis |
+| `/openspec-apply` | Implement a change proposal |
+| `/openspec-archive` | Archive a completed change |
+| `/openspec-proposal` | Create a new change proposal |
+
+---
+
 ## 🤖 Sub-Agent Handling
 
 When a contract is active and you spawn sub-agents, Goost provides guidance for:
