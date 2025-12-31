@@ -308,9 +308,9 @@ DETAILED FINDINGS
 | **Conflict Analysis** | Contradictory requirements, stale references, overlapping scope |
 
 **Health Status:**
-- **ALIGNED**: No drift, no conflicts, <3 minor orphans
-- **DRIFT_DETECTED**: Any HIGH severity drift or >3 orphans
-- **MAJOR_DRIFT**: Any MUST/SHALL constraint violations
+- **ALIGNED**: Zero HIGH findings, zero MUST/SHALL violations, ≤2 orphaned modules, zero unresolved conflicts
+- **DRIFT_DETECTED**: 1-2 HIGH findings OR 3-10 orphaned modules OR any SHOULD violations OR stale references
+- **MAJOR_DRIFT**: ≥3 HIGH findings OR any MUST/SHALL constraint violation OR contradictory requirements OR >10 orphans
 
 **Scoped Audits:**
 ```text

@@ -46,6 +46,11 @@ which openspec && openspec --version 2>/dev/null || echo "CLI_UNAVAILABLE"
 - Continue with file-based discovery (fallback mode)
 
 **If CLI available:**
+- Fetch spec inventory for structured parsing:
+```bash
+openspec list --specs --json 2>/dev/null || echo "CLI_JSON_UNAVAILABLE"
+```
+- If JSON output unavailable, fall back to directory scanning
 - Check for active changes that may affect audit accuracy:
 ```bash
 openspec list 2>/dev/null
@@ -123,7 +128,7 @@ Sub-agents have dependencies - use this decision logic for data passing:
 | Drift Scanner | Code Mapper | Always pass mappings inline (typically <100 entries) |
 | Conflict Detector | Spec Parser + Code Mapper | Pass requirements inline; reference mappings by file if large |
 
-**Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy.
+**Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy. Mappings use a higher threshold (100) because each mapping entry is smaller (~200 bytes vs ~500 bytes for requirements with scenarios).
 
 ### Spawn Analysis Sub-Agents
 
@@ -197,7 +202,7 @@ TASK:
 2. For requirements without explicit references:
    - Infer code locations from capability name
    - Search patterns: `**/<capability>/**`, `**/*<capability>*`
-   - Include test files: `**/*.test.ts`, `**/*.spec.ts`
+   - Include test files: `**/*.test.ts`, `**/*.spec.ts`, `test_*.py`, `*_test.py`, `*_test.go`
    - Assign confidence: HIGH (explicit ref), MEDIUM (name match), LOW (inferred)
 
 3. Build a bidirectional map:
@@ -271,7 +276,7 @@ SEVERITY CLASSIFICATION:
 | HIGH | MUST/SHALL violation; security/auth issues; data loss risk | "MUST use HTTPS" but code allows HTTP; password stored in plaintext |
 | MEDIUM | SHOULD violation; significant functional gap; test mismatch | "SHOULD log errors" but no logging; test expects 30s, spec says 60s |
 | LOW | Minor inconsistency; documentation drift; style mismatch | Comment says "timeout: 30s" but spec says 30 seconds (same value) |
-| REVIEW | Ambiguous; needs human judgment; context-dependent | Spec says "reasonable timeout" - code uses 5s, unclear if reasonable |
+| REVIEW | Ambiguous; needs human judgment; context-dependent | Spec says "reasonable timeout" - code uses 5s, unclear if reasonable; function behavior changed but spec allows flexibility; partial implementation may satisfy vague requirement |
 
 RETURN FORMAT:
 ```json
@@ -381,6 +386,7 @@ Wait for all 4 sub-agents to return.
 **Timeout Handling** (5-minute limit per sub-agent):
 - Rationale: 5 minutes allows thorough exploration of ~500 files while preventing indefinite hangs
 - If a sub-agent exceeds this limit, it typically indicates scope creep or infinite loops
+- **Enforcement**: When spawning via Task tool, the orchestrator should monitor elapsed time. If Task tool supports a timeout parameter, use 300000ms (5 minutes). Otherwise, track start time and cancel manually if exceeded.
 
 If any sub-agent times out:
 - Mark that dimension as "INCOMPLETE"

@@ -27,6 +27,13 @@ The `/openspec-audit` command SHALL perform a project-wide audit to detect drift
 - **THEN** the command SHALL display: "No capability specs found in openspec/specs/"
 - **AND** suggest creating specs or running `/openspec-proposal`
 
+#### Scenario: Invalid scope argument
+- **GIVEN** user invokes `/openspec-audit nonexistent`
+- **AND** `openspec/specs/nonexistent/` does not exist
+- **THEN** the command SHALL display an error message
+- **AND** list available capability directories
+- **AND** exit gracefully without proceeding to analysis
+
 ### Requirement: Spec Discovery Phase
 
 The audit command SHALL inventory all specs and extract requirements with their scenarios as the first phase of analysis.
