@@ -82,7 +82,12 @@ Store the list - you'll pass it to sub-agents.
 
 ## Phase 1: Analysis (Sub-Agent Scanning)
 
-**Goal**: Spawn specialized sub-agents to analyze different dimensions in parallel.
+**Goal**: Spawn specialized sub-agents to analyze different dimensions.
+
+**Execution Order**: Due to data dependencies, sub-agents run in stages:
+1. **Stage 1**: Spec Parser (runs first, no dependencies)
+2. **Stage 2**: Code Mapper + Conflict Detector (run in parallel after Spec Parser completes)
+3. **Stage 3**: Drift Scanner (runs after Code Mapper completes)
 
 Create a TODO list tracking each analysis sub-agent:
 - [ ] Spec Parser (inventory requirements and scenarios)
@@ -119,20 +124,20 @@ RETURN FORMAT:
 
 ### Data Flow Between Sub-Agents
 
-Sub-agents have dependencies - use this decision logic for data passing:
+Sub-agents have dependencies - use this execution order and data passing logic:
 
-| Sub-Agent | Depends On | Data Passing Rule |
-|-----------|------------|-------------------|
-| Spec Parser | None | Runs independently |
-| Code Mapper | Spec Parser | If <50 requirements: pass inline as JSON. If ≥50: instruct to read `openspec/specs/` directly |
-| Drift Scanner | Code Mapper | Always pass mappings inline (typically <100 entries) |
-| Conflict Detector | Spec Parser + Code Mapper | Pass requirements inline; reference mappings by file if large |
+| Stage | Sub-Agent | Depends On | Data Passing Rule |
+|-------|-----------|------------|-------------------|
+| 1 | Spec Parser | None | Runs first; count requirements in output |
+| 2 | Code Mapper | Spec Parser | If Spec Parser found <50 requirements: pass inline. If ≥50: instruct to read specs directly |
+| 2 | Conflict Detector | Spec Parser | Pass requirements inline (runs parallel with Code Mapper) |
+| 3 | Drift Scanner | Code Mapper | Always pass mappings inline (typically <100 entries) |
 
 **Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy. Mappings use a higher threshold (100) because each mapping entry is smaller (~200 bytes vs ~500 bytes for requirements with scenarios).
 
 ### Spawn Analysis Sub-Agents
 
-Spawn **4 parallel sub-agents** using the Task tool with `subagent_type: "explore"`:
+**Stage 1**: Spawn Spec Parser first using the Task tool with `subagent_type: "explore"`:
 
 #### Sub-Agent 1: Spec Parser
 
@@ -381,12 +386,15 @@ RETURN FORMAT:
 
 ### Collect Sub-Agent Results
 
-Wait for all 4 sub-agents to return.
+Wait for all sub-agents to return (respecting the stage order above).
 
 **Timeout Handling** (5-minute limit per sub-agent):
 - Rationale: 5 minutes allows thorough exploration of ~500 files while preventing indefinite hangs
 - If a sub-agent exceeds this limit, it typically indicates scope creep or infinite loops
-- **Enforcement**: When spawning via Task tool, the orchestrator should monitor elapsed time. If Task tool supports a timeout parameter, use 300000ms (5 minutes). Otherwise, track start time and cancel manually if exceeded.
+- **Enforcement**: Use the Task tool's built-in timeout if available, or track wall-clock time:
+  1. Record `start_time` before spawning each sub-agent
+  2. If `current_time - start_time > 300 seconds`, consider the sub-agent timed out
+  3. Do not wait indefinitely - proceed with available results
 
 If any sub-agent times out:
 - Mark that dimension as "INCOMPLETE"
@@ -395,15 +403,15 @@ If any sub-agent times out:
 
 ### Sub-Agent Failure Handling
 
-Sub-agents may fail or return partial results. Handle each case:
+Sub-agents may fail or return partial results. Handle each case with specific fallbacks:
 
-| Failure Type | Detection | Action |
-|--------------|-----------|--------|
-| Timeout | No response after 5 minutes | Mark dimension INCOMPLETE; continue with others |
-| Empty response | Response is empty or only whitespace | Retry once with simplified scope; if still empty, mark INCOMPLETE |
-| Invalid JSON | JSON parse fails | Extract any usable text; mark dimension PARTIAL |
-| Partial data | Missing expected fields in response | Use available fields; note missing data in report |
-| Error message | Response contains error instead of data | Log error; attempt fallback (direct file read); mark INCOMPLETE if fallback fails |
+| Failure Type | Detection | Action | Fallback |
+|--------------|-----------|--------|----------|
+| Timeout | No response after 5 minutes | Mark dimension INCOMPLETE | For Spec Parser: count `### Requirement:` headers directly. For others: skip dimension |
+| Empty response | Response is empty or only whitespace | Retry once with simplified scope | If retry fails, use direct file reading for that dimension |
+| Invalid JSON | JSON parse fails | Extract any usable text; mark PARTIAL | Parse key-value pairs from response text if possible |
+| Partial data | Missing expected fields in response | Use available fields; note gaps | Fill missing fields with empty arrays/zero counts |
+| Error message | Response contains error instead of data | Log error; attempt fallback | Spec Parser: read files directly. Code Mapper: use glob patterns. Others: mark INCOMPLETE |
 
 **Retry Policy**: Retry at most once per sub-agent to avoid doom loops. If retry fails, proceed without that dimension's data.
 
@@ -479,18 +487,20 @@ Combine issues from all dimensions:
 
 ### Step 3: Determine Overall Health
 
-Calculate health status based on concrete thresholds:
+Calculate health status based on concrete thresholds (aligned with spec):
 
 | Status | Criteria |
 |--------|----------|
-| **ALIGNED** | Zero HIGH findings AND zero MUST/SHALL violations AND ≤2 orphaned modules AND zero unresolved conflicts |
-| **DRIFT_DETECTED** | 1-2 HIGH findings OR 3-10 orphaned modules OR any SHOULD violations OR any stale references |
-| **MAJOR_DRIFT** | ≥3 HIGH findings OR any MUST/SHALL constraint violation OR any contradictory requirements OR >10 orphaned modules |
+| **ALIGNED** | Zero HIGH findings AND zero MUST/SHALL violations AND <3 orphaned modules AND zero unresolved conflicts |
+| **DRIFT_DETECTED** | Any HIGH severity drift OR >3 orphaned modules OR any SHOULD violations OR any stale references |
+| **MAJOR_DRIFT** | Any MUST/SHALL constraint violation OR any contradictory requirements |
+
+**Note on REVIEW findings**: REVIEW-severity findings indicate ambiguous cases needing human judgment. They do NOT affect the health status calculation but are included in the recommendations section for manual verification.
 
 **Priority of criteria** (evaluated in order):
 1. MUST/SHALL violations → always MAJOR_DRIFT
-2. HIGH finding count → determines DRIFT_DETECTED vs MAJOR_DRIFT threshold
-3. Orphan count → secondary signal
+2. HIGH finding count → DRIFT_DETECTED if any present
+3. Orphan count → >3 triggers DRIFT_DETECTED
 
 ### Step 4: Generate Prioritized Recommendations
 
