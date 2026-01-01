@@ -57,16 +57,22 @@ openspec list 2>/dev/null
 ```
 - If active changes exist, warn: "Note: Active changes may affect audit accuracy. Consider archiving completed changes."
 
-### Step 3: Determine Audit Scope
+### Step 3: Determine Audit Scope and Output Format
 
-**If `$ARGUMENTS` is empty:**
+**Parse arguments from `$ARGUMENTS`:**
+- If contains `--json`: Set `OUTPUT_FORMAT = "json"`, remove `--json` from arguments
+- Otherwise: Set `OUTPUT_FORMAT = "text"` (default)
+
+**Determine scope from remaining arguments:**
+
+**If arguments empty after parsing flags:**
 - Audit ALL capability specs under `openspec/specs/`
 - Set `SCOPE = "all"`
 
-**If `$ARGUMENTS` is provided (e.g., "auth"):**
-- Verify `openspec/specs/$ARGUMENTS/` exists
+**If arguments provided (e.g., "auth"):**
+- Verify `openspec/specs/<argument>/` exists
 - If not found, display error and list available capabilities
-- Set `SCOPE = "$ARGUMENTS"`
+- Set `SCOPE = "<argument>"`
 
 ### Step 4: Build Spec Inventory
 
@@ -129,11 +135,21 @@ Sub-agents have dependencies - use this execution order and data passing logic:
 | Stage | Sub-Agent | Depends On | Data Passing Rule |
 |-------|-----------|------------|-------------------|
 | 1 | Spec Parser | None | Runs first; count requirements in output |
-| 2 | Code Mapper | Spec Parser | If Spec Parser found <50 requirements: pass inline. If ≥50: instruct to read specs directly |
+| 2 | Code Mapper | Spec Parser | If <50 requirements: pass inline. If ≥50: use fallback instructions below |
 | 2 | Conflict Detector | Spec Parser | Pass requirements inline (runs parallel with Code Mapper) |
 | 3 | Drift Scanner | Code Mapper | Always pass mappings inline (typically <100 entries) |
 
-**Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy. Mappings use a higher threshold (100) because each mapping entry is smaller (~200 bytes vs ~500 bytes for requirements with scenarios).
+**Fallback for ≥50 requirements** (Code Mapper only):
+Instead of passing all requirements inline, add this instruction to the Code Mapper prompt:
+```
+REQUIREMENTS SOURCE: Too many requirements to pass inline (N total).
+Read requirements directly from spec files:
+1. For each capability in scope, read `openspec/specs/<capability>/spec.md`
+2. Extract `### Requirement:` blocks and their file references
+3. Use the requirement title as the key for your mapping output
+```
+
+**Rationale**: Inline data reduces sub-agent file I/O but bloats prompts. The 50-requirement threshold balances context efficiency (~2KB per 50 requirements) against sub-agent autonomy.
 
 ### Spawn Analysis Sub-Agents
 
@@ -391,10 +407,14 @@ Wait for all sub-agents to return (respecting the stage order above).
 **Timeout Handling** (5-minute limit per sub-agent):
 - Rationale: 5 minutes allows thorough exploration of ~500 files while preventing indefinite hangs
 - If a sub-agent exceeds this limit, it typically indicates scope creep or infinite loops
-- **Enforcement**: Use the Task tool's built-in timeout if available, or track wall-clock time:
-  1. Record `start_time` before spawning each sub-agent
-  2. If `current_time - start_time > 300 seconds`, consider the sub-agent timed out
-  3. Do not wait indefinitely - proceed with available results
+- **Enforcement** (in order of preference):
+  1. Use the Task tool's `timeout` parameter if available (preferred)
+  2. Track wall-clock time: Record `start_time` before spawning, check elapsed time periodically
+  3. **Fallback if neither works**: Proceed with caution; note in report that timeout could not be guaranteed
+- **On timeout detection**:
+  1. Do not wait indefinitely - proceed with available results
+  2. Mark the timed-out dimension as "INCOMPLETE"
+  3. Include note in final report: "Sub-agent <name> timed out after 5 minutes"
 
 If any sub-agent times out:
 - Mark that dimension as "INCOMPLETE"
@@ -414,6 +434,14 @@ Sub-agents may fail or return partial results. Handle each case with specific fa
 | Error message | Response contains error instead of data | Log error; attempt fallback | Spec Parser: read files directly. Code Mapper: use glob patterns. Others: mark INCOMPLETE |
 
 **Retry Policy**: Retry at most once per sub-agent to avoid doom loops. If retry fails, proceed without that dimension's data.
+
+**Concrete retry strategies by failure type:**
+
+| Failure | Retry Modification |
+|---------|-------------------|
+| Empty response | Reduce scope: if auditing "all", retry with single capability; if single capability, retry asking for plain text instead of JSON |
+| Invalid JSON | Ask sub-agent to return plain text summary with key metrics on separate lines (e.g., "requirements: 15\nscenarios: 42") |
+| Error message | Simplify the task: for Code Mapper, ask only for file list without mapping details; for Drift Scanner, ask only for HIGH severity issues |
 
 Parse JSON outputs and store for synthesis.
 
@@ -600,6 +628,62 @@ No drift, conflicts, or significant orphans detected.
 
 **For issues found:**
 Show full detailed report with findings and recommendations.
+
+### JSON Output Format
+
+**If `OUTPUT_FORMAT = "json"`**, output the report as a JSON object instead of the text format above:
+
+```json
+{
+  "health": "ALIGNED | DRIFT_DETECTED | MAJOR_DRIFT",
+  "summary": {
+    "specsAudited": 5,
+    "requirementsChecked": 23,
+    "scenariosVerified": 67,
+    "scope": "all | <capability>"
+  },
+  "drift": [
+    {
+      "severity": "HIGH | MEDIUM | LOW | REVIEW",
+      "type": "constraint | missing_implementation | test_spec_mismatch",
+      "capability": "<capability>",
+      "requirement": "<requirement title>",
+      "spec": "<quoted spec text>",
+      "code": "<actual implementation>",
+      "evidence": "<file:line>",
+      "action": "<remediation suggestion>"
+    }
+  ],
+  "orphans": [
+    {
+      "file": "<file path>",
+      "lines": 150,
+      "exports": 5,
+      "suggestion": "Create spec for <module purpose>"
+    }
+  ],
+  "conflicts": [
+    {
+      "type": "contradictory | overlapping | stale",
+      "specs": ["<spec1>", "<spec2>"],
+      "description": "<conflict description>",
+      "resolution": "<suggested resolution>"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": 1,
+      "action": "<prioritized action description>"
+    }
+  ],
+  "incomplete_dimensions": ["<dimension names if any timed out>"]
+}
+```
+
+**JSON output rules:**
+- Output ONLY the JSON object, no markdown wrapping
+- Use empty arrays `[]` for sections with no findings
+- Omit `incomplete_dimensions` if all dimensions completed successfully
 
 ---
 

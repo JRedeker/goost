@@ -14,7 +14,7 @@ Goost provides these slash commands:
 |---------|-------------|
 | `/contract` | Establish a formal contract with success criteria |
 | `/contract-quick` | Quick contract for simpler tasks |
-| `/openspec-audit` | Project-wide spec/implementation drift detection and alignment verification |
+| `/openspec-audit` | Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
 | `/openspec-review` | Comprehensive review of an OpenSpec change |
 | `/openspec-harden` | Post-implementation hardening analysis for production-readiness |

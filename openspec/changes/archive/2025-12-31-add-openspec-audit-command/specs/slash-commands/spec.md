@@ -27,6 +27,18 @@ The `/openspec-audit` command SHALL perform a project-wide audit to detect drift
 - **THEN** the command SHALL display: "No capability specs found in openspec/specs/"
 - **AND** suggest creating specs or running `/openspec-proposal`
 
+#### Scenario: JSON output format
+- **GIVEN** a project with specs
+- **WHEN** user invokes `/openspec-audit --json`
+- **THEN** the command SHALL output the audit results as a JSON object
+- **AND** the JSON SHALL include:
+  - `health`: overall status (ALIGNED, DRIFT_DETECTED, MAJOR_DRIFT)
+  - `summary`: object with specsAudited, requirementsChecked, scenariosVerified counts
+  - `drift`: array of drift findings with severity, spec, code evidence
+  - `orphans`: array of unspecified code modules
+  - `conflicts`: array of spec conflicts
+  - `recommendations`: array of prioritized actions
+
 #### Scenario: Invalid scope argument
 - **GIVEN** user invokes `/openspec-audit nonexistent`
 - **AND** `openspec/specs/nonexistent/` does not exist
@@ -232,8 +244,8 @@ RECOMMENDATIONS
 - **GIVEN** audit analysis is complete
 - **WHEN** determining overall health status
 - **THEN** the command SHALL set status based on:
-  - **ALIGNED**: No drift, no conflicts, <3 minor orphans
-  - **DRIFT_DETECTED**: Any HIGH severity drift or >3 orphans
+  - **ALIGNED**: No drift, no conflicts, and 2 or fewer minor orphans
+  - **DRIFT_DETECTED**: Any HIGH severity drift or 3 or more orphans
   - **MAJOR_DRIFT**: Any constraint violations of MUST/SHALL requirements
 
 #### Scenario: Severity classification
@@ -255,16 +267,15 @@ RECOMMENDATIONS
 
 ### Requirement: Sub-Agent Orchestration
 
-The audit command SHALL use parallel sub-agents for efficient analysis, consistent with the `/openspec-harden` pattern.
+The audit command SHALL use staged parallel sub-agents for efficient analysis, consistent with the `/openspec-harden` pattern. Sub-agents are executed in stages where each stage completes before the next begins, but agents within a stage run in parallel.
 
-#### Scenario: Spawn analysis sub-agents
+#### Scenario: Spawn analysis sub-agents in stages
 - **GIVEN** audit begins after pre-flight checks pass
 - **WHEN** entering analysis phase
-- **THEN** the command SHALL spawn parallel sub-agents:
-  - Spec Parser (explore): Inventory requirements and scenarios
-  - Code Mapper (explore): Map specs to implementation files
-  - Drift Scanner (explore): Check each requirement against code
-  - Conflict Detector (explore): Cross-reference specs
+- **THEN** the command SHALL spawn sub-agents in stages:
+  - **Stage 1**: Spec Parser (explore) - Inventory requirements and scenarios
+  - **Stage 2** (parallel, after Stage 1): Code Mapper (explore) + Conflict Detector (explore)
+  - **Stage 3** (after Stage 2): Drift Scanner (explore) - Requires Code Mapper results
 
 #### Scenario: Aggregate sub-agent results
 - **GIVEN** all sub-agents have returned results

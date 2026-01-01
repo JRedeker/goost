@@ -116,7 +116,7 @@ cp -r goost/.opencode /path/to/your/project/
 | `/contract` | Interactive contract creation with guided questions | Explicit |
 | `/contract-quick <task>` | Quick contract inferred from task description | Explicit |
 | `/openspec-apply <id>` | Implement an OpenSpec change under contract enforcement | Implicit (spec is approval) |
-| `/openspec-audit [scope]` | Project-wide spec/implementation drift detection | — |
+| `/openspec-audit [scope]` | Project-wide audit: drift, orphans, conflicts | — |
 | `/openspec-review <id>` | Comprehensive spec review with gap analysis | — |
 | `/openspec-harden <id>` | Post-implementation hardening analysis | — |
 | `/openspec-roadmap` | Display tiered progress dashboard | — |
@@ -308,9 +308,9 @@ DETAILED FINDINGS
 | **Conflict Analysis** | Contradictory requirements, stale references, overlapping scope |
 
 **Health Status:**
-- **ALIGNED**: Zero HIGH findings, zero MUST/SHALL violations, ≤2 orphaned modules, zero unresolved conflicts
-- **DRIFT_DETECTED**: 1-2 HIGH findings OR 3-10 orphaned modules OR any SHOULD violations OR stale references
-- **MAJOR_DRIFT**: ≥3 HIGH findings OR any MUST/SHALL constraint violation OR contradictory requirements OR >10 orphans
+- **ALIGNED**: Zero HIGH findings, zero MUST/SHALL violations, 2 or fewer orphaned modules, zero unresolved conflicts
+- **DRIFT_DETECTED**: Any HIGH severity drift OR 3+ orphaned modules OR any SHOULD violations OR stale references
+- **MAJOR_DRIFT**: Any MUST/SHALL constraint violation OR contradictory requirements
 
 **Scoped Audits:**
 ```text
