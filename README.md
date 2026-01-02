@@ -47,63 +47,102 @@ Goost introduces **immutable contracts** - success criteria that:
 
 ## 🚀 Quick Start
 
-Get up and running in seconds.
+### Recommended: AI-Assisted Installation
+
+The easiest way to install Goost is to ask your AI agent to do it:
 
 ```bash
-# 1. Clone the repo (if you haven't)
+# 1. Clone the repo
 git clone https://github.com/JRedeker/goost.git ~/dev/oc-plugins/goost
 
-# 2. Run the installer
+# 2. Start OpenCode in the Goost directory
+cd ~/dev/oc-plugins/goost
+opencode
+
+# 3. Ask the agent to install Goost
+> "Install Goost for me"
+```
+
+The agent will find [INSTALL.md](./INSTALL.md) and follow the installation steps, including:
+- Installing plugin dependencies
+- Updating your `opencode.json` automatically  
+- Configuring tmux passthrough if needed
+- Verifying the installation
+
+### Alternative: Script Installation
+
+For automated/CI environments, use the install script:
+
+```bash
 cd ~/dev/oc-plugins/goost
 ./install.sh
 ```
 
-Then add this to your `~/.config/opencode/opencode.json`:
+Then manually add to `~/.config/opencode/opencode.json`:
 
 ```json
 {
-  "instructions": ["~/dev/oc-plugins/goost/goost_instructions.md"],
-  "plugins": ["~/dev/oc-plugins/goost/plugin"]
+  "instructions": ["/full/path/to/goost/goost_instructions.md"],
+  "plugins": ["/full/path/to/goost/plugin"]
 }
 ```
+
+> **Note:** Use absolute paths (not `~`) in opencode.json.
 
 <details>
 <summary><strong>Manual Installation Options</strong> (Click to expand)</summary>
 
-### 1. Copy Files Manually
+### 1. Minimal Setup (Instructions + Plugin Only)
 
-**Slash Commands:**
+Install dependencies:
 ```bash
-cp .opencode/command/*.md ~/.config/opencode/command/
+cd ~/dev/oc-plugins/goost/plugin && npm install
 ```
 
-**Instructions:**
-Add to `opencode.json`:
+Add to `~/.config/opencode/opencode.json`:
 ```json
 {
-  "instructions": ["/path/to/goost/goost_instructions.md"]
-}
-```
-
-**Status Plugin:**
-```bash
-cd plugin && bun install
-```
-Add to `opencode.json`:
-```json
-{
+  "instructions": ["/path/to/goost/goost_instructions.md"],
   "plugins": ["/path/to/goost/plugin"]
 }
 ```
 
-### 2. Project-Level Installation
+### 2. Global Slash Commands
 
-For per-project usage, just copy the `.opencode` directory:
-
+Copy commands to make them available in all projects:
 ```bash
-cp -r goost/.opencode /path/to/your/project/
+mkdir -p ~/.config/opencode/command
+cp ~/dev/oc-plugins/goost/.opencode/command/*.md ~/.config/opencode/command/
 ```
+
+### 3. Project-Level Only
+
+For per-project usage without global installation:
+```bash
+cp -r ~/dev/oc-plugins/goost/.opencode /path/to/your/project/
+```
+
+### 4. tmux Users
+
+Add to `~/.tmux.conf` for tab color support:
+```
+set -g allow-passthrough on
+```
+
+Then reload: `tmux source-file ~/.tmux.conf`
+
 </details>
+
+### Terminal Compatibility
+
+| Terminal | Tab Colors | Tab Titles |
+|----------|------------|------------|
+| Windows Terminal | Full support | Full support |
+| iTerm2 | Limited | Full support |
+| Ghostty/Kitty/Alacritty | Varies | Full support |
+| tmux | Requires passthrough | Full support |
+
+> Tab colors are visual enhancements. Core contract enforcement works in any terminal.
 
 ---
 

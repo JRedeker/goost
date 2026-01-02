@@ -1,6 +1,9 @@
 #!/bin/bash
 # Goost Installation Script
 # Installs contract-based persistence for OpenCode
+#
+# For AI-assisted installation, start OpenCode in the Goost directory
+# and ask: "Install Goost for me" - the agent will follow INSTALL.md
 
 set -e
 
