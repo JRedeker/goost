@@ -18,6 +18,7 @@ Goost provides these slash commands:
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
 | `/openspec-review` | Post-implementation code review for correctness, logic, security, and architecture |
 | `/openspec-harden` | Post-implementation hardening analysis for production-readiness |
+| `/openspec-status` | Fast overview of OpenSpec project state - changes, specs, dependencies |
 
 The following commands integrate OpenSpec with Goost contract enforcement:
 
