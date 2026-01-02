@@ -16,7 +16,6 @@ Goost provides these slash commands:
 | `/contract-quick` | Quick contract for simpler tasks |
 | `/openspec-audit` | Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
-| `/openspec-prep` | Pre-implementation preparation and validation of an OpenSpec change |
 | `/openspec-review` | Post-implementation code review for correctness, logic, security, and architecture |
 | `/openspec-harden` | Post-implementation hardening analysis for production-readiness |
 
@@ -24,6 +23,7 @@ The following commands integrate OpenSpec with Goost contract enforcement:
 
 | Command | Description |
 |---------|-------------|
+| `/openspec-prep` | Prepare spec by adding missing AC, scenarios, and tasks (auto-approved) |
 | `/openspec-apply` | Implement an OpenSpec change under contract enforcement (auto-approved) |
 | `/openspec-archive` | Archive a completed OpenSpec change |
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
