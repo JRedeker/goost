@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add /openspec-status command for fast project state overview (cbaae13)
 - Add /openspec-prep command (renamed from /openspec-review) for pre-implementation validation (64d0759)
 - Add new /openspec-review command for post-implementation code review with sub-agent orchestration (64d0759)
 - Add /openspec-audit command for project-wide spec/implementation drift detection (a380f26)
