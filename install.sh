@@ -24,7 +24,7 @@ mkdir -p "${OPENCODE_CONFIG_DIR}/rules"
 cp "${GOOST_DIR}/.opencode/rules/"*.md "${OPENCODE_CONFIG_DIR}/rules/"
 
 # 4. Install core rules.yaml if not present
-# This provides the P01-P23 rules referenced by /openspec-review
+# This provides the P01-P23 rules referenced by /openspec-prep
 if [ ! -f "${OPENCODE_CONFIG_DIR}/rules.yaml" ]; then
     echo "📜 Installing core rules.yaml..."
     cp "${GOOST_DIR}/rules.yaml" "${OPENCODE_CONFIG_DIR}/rules.yaml"
@@ -77,9 +77,11 @@ echo "Available commands:"
 echo "  /contract          - Interactive contract creation"
 echo "  /contract-quick    - Quick contract from task description"
 echo "  /openspec-apply    - Implement OpenSpec change under contract"
-echo "  /openspec-review   - Comprehensive spec review with gap analysis"
+echo "  /openspec-prep     - Pre-implementation spec validation with gap analysis"
+echo "  /openspec-review   - Post-implementation code review (correctness, security)"
 echo "  /openspec-harden   - Post-implementation hardening analysis"
 echo "  /openspec-roadmap  - Display tiered progress dashboard"
+echo "  /openspec-audit    - Project-wide audit for spec/implementation drift"
 echo ""
 echo "Status indicators (in terminal tab):"
 echo "  🚀 Rocket  - Active work"
