@@ -247,6 +247,61 @@ The code review command SHALL use orchestrated sub-agents for scalable analysis 
   - Focused search and analysis instructions
 - **AND** NOT include the full codebase or all specs
 
+#### Scenario: Discovery sub-agent timeout
+- **GIVEN** a discovery sub-agent exceeds the timeout threshold
+- **WHEN** the main agent is waiting for results
+- **THEN** the command SHALL mark that scanner as TIMEOUT
+- **AND** proceed with synthesis using available results from other sub-agents
+- **AND** note the timeout in the report with the affected dimension
+
+#### Scenario: Partial discovery failure
+- **GIVEN** one or more discovery sub-agents fail (timeout, error, or invalid response)
+- **AND** at least one discovery sub-agent succeeds
+- **WHEN** synthesis phase begins
+- **THEN** the command SHALL synthesize findings from successful sub-agents
+- **AND** mark failed dimensions as INCOMPLETE in the report
+- **AND** list which scanners failed and why
+
+#### Scenario: Discovery sub-agent invalid response
+- **GIVEN** a discovery sub-agent returns malformed or invalid JSON
+- **WHEN** parsing the sub-agent response
+- **THEN** the command SHALL treat it as a failure for that scanner
+- **AND** log the parse error for debugging
+- **AND** continue with synthesis using other sub-agent results
+
+#### Scenario: All discovery sub-agents fail
+- **GIVEN** all 4 discovery sub-agents fail
+- **WHEN** attempting to begin synthesis phase
+- **THEN** the command SHALL display an error: "Code review failed - all scanners encountered errors"
+- **AND** list each scanner failure reason
+- **AND** suggest retrying or checking system status
+
+#### Scenario: Remediation fix validation
+- **GIVEN** a remediation sub-agent applies a fix
+- **WHEN** the fix is complete
+- **THEN** the command SHALL verify the fix by checking:
+  - The original issue pattern no longer exists at that location
+  - No new syntax errors were introduced
+  - The file is still valid (parseable)
+- **AND** mark the fix as VERIFIED or UNVERIFIED
+
+#### Scenario: Remediation fix introduces new issues
+- **GIVEN** a remediation sub-agent fix is applied
+- **AND** the fix introduces a new issue (detected by validation)
+- **WHEN** reporting remediation results
+- **THEN** the command SHALL flag the fix as PROBLEMATIC
+- **AND** include both the original issue and the new issue in the report
+- **AND** suggest manual review of the fix
+
+#### Scenario: Remediation rollback guidance
+- **GIVEN** remediation sub-agents have modified files
+- **WHEN** generating the final report
+- **THEN** the command SHALL include rollback instructions:
+  - List all files modified by remediation
+  - Note that `git checkout -- <file>` can revert individual files
+  - Note that `git stash` was NOT used (changes are unstaged)
+- **AND** recommend reviewing changes before committing
+
 ### Requirement: Code Review Report Format
 
 The code review command SHALL output a structured, actionable report.

@@ -46,10 +46,36 @@ New recommended workflow:
 - **Affected code**:
   - `.opencode/command/openspec-review.md` (renamed to openspec-prep.md)
   - `.opencode/command/openspec-review.md` (new file with code review logic)
+  - `openspec/specs/slash-commands/spec.md` (rename existing requirement, add new requirements)
   - `goost_instructions.md` (update command table)
   - `README.md` (update command documentation)
 - **Dependencies**: Builds on existing sub-agent patterns from `/openspec-harden`
 - **Breaking**: Users expecting old `/openspec-review` will need to use `/openspec-prep`
+
+## Migration
+
+This is a **breaking change** for users of the old `/openspec-review` command.
+
+### Migration Steps
+
+1. **Update scripts/aliases**: Replace `/openspec-review` with `/openspec-prep` for pre-implementation validation
+2. **Update documentation**: Any internal docs referencing the old command name
+3. **No functional changes**: The renamed command (`/openspec-prep`) behaves identically to the old `/openspec-review`
+
+### Command Mapping
+
+| Old Command | New Command | Purpose |
+|-------------|-------------|---------|
+| `/openspec-review <id>` | `/openspec-prep <id>` | Pre-implementation spec validation |
+| _(new)_ | `/openspec-review <id>` | Post-implementation code review |
+
+### Rollback Plan
+
+If issues arise with this change:
+1. Rename `.opencode/command/openspec-prep.md` back to `openspec-review.md`
+2. Delete the new `.opencode/command/openspec-review.md` (code review command)
+3. Revert spec changes in `openspec/specs/slash-commands/spec.md`
+4. Revert documentation changes in `goost_instructions.md` and `README.md`
 
 ## Design Considerations
 

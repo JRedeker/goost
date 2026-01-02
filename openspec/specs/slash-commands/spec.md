@@ -7,12 +7,14 @@ This spec defines slash commands provided by the Goost plugin ecosystem for Open
 
 <!-- Requirements will be added via OpenSpec changes -->
 
-### Requirement: OpenSpec Review Command
+### Requirement: OpenSpec Prep Command
 
-The `/openspec-review` command SHALL perform a comprehensive review of an OpenSpec change including validation, research, and gap analysis to identify potentially missing or forgotten impacts.
+The `/openspec-prep` command SHALL perform comprehensive pre-implementation preparation of an OpenSpec change including validation, research, and gap analysis to identify potentially missing or forgotten impacts.
+
+> **Note**: This requirement was renamed from "OpenSpec Review Command". The command `/openspec-review` now refers to post-implementation code review (see separate requirement).
 
 #### Scenario: Gap analysis before final assessment
-- **GIVEN** the review has completed phases 1-6 (Discovery, Research, Criteria, Rules, TDD, Research Gaps)
+- **GIVEN** the prep has completed phases 1-6 (Discovery, Research, Criteria, Rules, TDD, Research Gaps)
 - **WHEN** Phase 7: Gap Analysis executes
 - **THEN** the command SHALL analyze the spec for missing or forgotten impacts
 - **AND** feed findings into Phase 8: Final Assessment
@@ -85,6 +87,105 @@ The `/openspec-review` command SHALL perform a comprehensive review of an OpenSp
 - **THEN** the command SHALL truncate results to top 50
 - **AND** note that results were truncated
 - **AND** suggest refining search terms or spec scope
+
+### Requirement: OpenSpec Code Review Command
+
+The `/openspec-review` command SHALL perform a comprehensive post-implementation code review of an OpenSpec change, analyzing correctness, logic, security, and architecture conformance using orchestrated sub-agents.
+
+#### Scenario: Basic invocation with change ID
+- **GIVEN** an OpenSpec change `feature-x` exists with implementation code
+- **WHEN** user invokes `/openspec-review feature-x`
+- **THEN** the command SHALL analyze the implementation across all review dimensions
+- **AND** output a structured code review report
+
+#### Scenario: Change not found
+- **GIVEN** no OpenSpec change matches the provided ID
+- **WHEN** user invokes `/openspec-review non-existent`
+- **THEN** the command SHALL display an error: "Change 'non-existent' not found"
+- **AND** suggest running `openspec list` to see available changes
+
+#### Scenario: No argument provided
+- **GIVEN** user invokes `/openspec-review` without arguments
+- **WHEN** the command executes
+- **THEN** the command SHALL display usage: "/openspec-review <change-id>"
+- **AND** list active changes if any exist
+
+#### Scenario: No implementation exists
+- **GIVEN** an OpenSpec change exists but no implementation code has been written
+- **WHEN** user invokes `/openspec-review <change-id>`
+- **THEN** the command SHALL report: "No implementation found for this change"
+- **AND** suggest running `/openspec-apply <change-id>` first
+
+#### Scenario: Discovery phase sub-agents
+- **GIVEN** user invokes `/openspec-review <change-id>`
+- **WHEN** Phase 1 (Discovery) begins
+- **THEN** the command SHALL spawn 4 parallel sub-agents:
+  - Requirement Traceability Scanner
+  - Logic and Edge Case Scanner
+  - Security Review Scanner
+  - Architecture Conformance Scanner
+- **AND** each sub-agent SHALL have focused scope on affected files only
+- **AND** each sub-agent SHALL return structured JSON findings
+
+#### Scenario: Synthesis phase
+- **GIVEN** all discovery sub-agents have returned
+- **WHEN** Phase 2 (Synthesis) begins
+- **THEN** the main agent SHALL:
+  - Aggregate findings by severity (CRITICAL > MAJOR > MINOR > INFO)
+  - Cross-reference findings to identify root causes
+  - Deduplicate overlapping findings
+  - Determine overall verdict
+- **AND** display an intermediate review summary
+
+#### Scenario: Remediation phase prompt
+- **GIVEN** issues are found during discovery
+- **AND** synthesis phase is complete
+- **WHEN** Phase 3 (Remediation) begins
+- **THEN** the command SHALL prompt user with options:
+  - A) Spawn sub-agents to fix CRITICAL issues
+  - B) Spawn sub-agents to fix CRITICAL and MAJOR issues
+  - C) Show detailed report only (manual fix)
+  - D) Accept current state
+- **AND** wait for user selection before proceeding
+
+#### Scenario: Discovery sub-agent timeout
+- **GIVEN** a discovery sub-agent exceeds the timeout threshold
+- **WHEN** the main agent is waiting for results
+- **THEN** the command SHALL mark that scanner as TIMEOUT
+- **AND** proceed with synthesis using available results from other sub-agents
+- **AND** note the timeout in the report with the affected dimension
+
+#### Scenario: Partial discovery failure
+- **GIVEN** one or more discovery sub-agents fail (timeout, error, or invalid response)
+- **AND** at least one discovery sub-agent succeeds
+- **WHEN** synthesis phase begins
+- **THEN** the command SHALL synthesize findings from successful sub-agents
+- **AND** mark failed dimensions as INCOMPLETE in the report
+- **AND** list which scanners failed and why
+
+#### Scenario: All discovery sub-agents fail
+- **GIVEN** all 4 discovery sub-agents fail
+- **WHEN** attempting to begin synthesis phase
+- **THEN** the command SHALL display an error: "Code review failed - all scanners encountered errors"
+- **AND** list each scanner failure reason
+- **AND** suggest retrying or checking system status
+
+#### Scenario: Verdict determination
+- **GIVEN** all analyses are complete
+- **WHEN** determining the overall verdict
+- **THEN** the verdict SHALL be:
+  - BLOCKED: Any CRITICAL issues present
+  - CHANGES_REQUESTED: No CRITICAL but MAJOR issues present
+  - APPROVED: Only MINOR or INFO issues (or no issues)
+
+#### Scenario: Remediation rollback guidance
+- **GIVEN** remediation sub-agents have modified files
+- **WHEN** generating the final report
+- **THEN** the command SHALL include rollback instructions:
+  - List all files modified by remediation
+  - Note that `git checkout -- <file>` can revert individual files
+  - Note that `git stash` was NOT used (changes are unstaged)
+- **AND** recommend reviewing changes before committing
 
 ### Requirement: OpenSpec Roadmap Command
 

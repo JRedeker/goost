@@ -1,214 +1,648 @@
 ---
 name: openspec-review
-description: Comprehensive validation and review of a spec with research, acceptance criteria, TDD verification, and gap analysis.
-agent: general
+description: Post-implementation code review of an OpenSpec change - orchestrated sub-agents for correctness, logic, security, and architecture analysis.
 ---
 
-# OpenSpec Comprehensive Review
+# OpenSpec Code Review
 
-You are performing a **deep review** of the OpenSpec change: `$ARGUMENTS`
+You are orchestrating a **post-implementation code review** on the OpenSpec change: `$ARGUMENTS`
 
-## Review Framework
+This is a **multi-phase orchestration** - you spawn sub-agents for analysis, synthesize findings, then optionally spawn targeted sub-agents for fixes.
 
-Follow this comprehensive review process, tracking all items as TODOs:
+## Pre-flight Checks
 
-### Phase 1: Spec Discovery & Context
-1. **Locate the spec**: Find and read `openspec/changes/$ARGUMENTS/proposal.md`, `design.md`, and `tasks.md`
-2. **Read related specs**: Check `openspec/changes/$ARGUMENTS/specs/*/spec.md` for all capability deltas
-3. **Review project context**: Read `openspec/project.md` for project-level requirements
-4. **Check existing implementation**: Run `openspec show $ARGUMENTS --json` for full context
+### Step 1: Validate Arguments
 
-### Phase 2: Documentation Research (Use Context7)
-For EVERY library, framework, or technology mentioned in the spec:
-1. Use `resolve-library-id` to find the Context7 library ID
-2. Use `query-docs` to fetch current documentation
-3. **Verify version compatibility** with project requirements from `openspec/project.md`
-4. **Check for breaking changes** in recent versions
-5. **Validate API patterns** match documented best practices
-6. Document any discrepancies between spec and current library docs
+If `$ARGUMENTS` is empty or whitespace:
+```
+Usage: /openspec-review <change-id>
 
-### Phase 3: Acceptance Criteria Validation
-Verify the spec has **complete acceptance criteria**:
+Run `openspec list` to see available changes.
+```
+Then list active changes and stop.
 
-1. **Requirements Check** (for each requirement):
-   - [ ] Has clear, testable success criteria
-   - [ ] Has at least one `#### Scenario:` with Given/When/Then
-   - [ ] Scenarios cover happy path AND error cases
-   - [ ] Edge cases are documented
-   - [ ] Performance requirements specified (if applicable)
+### Step 2: Fetch Change Context
 
-2. **Missing Scenarios** - Identify and draft scenarios for:
-   - Error handling paths
-   - Boundary conditions
-   - Concurrent access scenarios
-   - Degradation/fallback behavior
-   - Security considerations
-
-### Phase 4: Core Rules Compliance
-Validate against `~/.config/opencode/rules.yaml`:
-
-| Rule | Status | Evidence |
-|------|--------|----------|
-| **P01 Security** | | Least privilege enforced? |
-| **P02 Collaboration** | | Plan proposed before execution? |
-| **P05 Ship-Complete** | | Tests, observability, feature flags specified? |
-| **P06 Atomic-Commits** | | Tasks are atomic and verifiable? |
-| **P07 Verify** | | Each task has verification criteria? |
-| **P08 Clarify** | | Ambiguities identified and resolved? |
-| **P11 Lifecycle** | | Follows Understand -> Research -> Plan -> Implement -> Verify? |
-| **P12 Dependencies** | | Versions, compatibility, security verified? |
-| **P13 Minimize-Debt** | | Simplest solution proposed? |
-| **P14 Observability** | | Logging, metrics, tracing specified? |
-| **P16 Docs-First** | | Documentation plan included? |
-| **P19 Simplicity** | | Avoids over-engineering? |
-
-### Phase 5: TDD Readiness
-Verify the spec supports Test-Driven Development:
-
-1. **Test Strategy**:
-   - [ ] Unit test targets identified for each component
-   - [ ] Integration test boundaries defined
-   - [ ] Acceptance test scenarios mapped to requirements
-   - [ ] Mock/stub strategy for external dependencies
-
-2. **Test File Locations**:
-   - [ ] Test paths follow project conventions (check `openspec/project.md` for project-specific paths)
-   - [ ] Test markers/tags specified per project's test framework
-
-3. **Testability**:
-   - [ ] Dependencies are injectable
-   - [ ] Side effects are isolated
-   - [ ] Async code is properly testable
-
-### Phase 6: Research Gaps
-Identify what additional research is needed:
-
-1. **External API Research**:
-   - Are all external APIs documented?
-   - Are rate limits known?
-   - Is error handling specified?
-
-2. **Performance Research**:
-   - Are baseline performance requirements established?
-   - Is there load testing criteria?
-
-3. **Security Research**:
-   - Are authentication/authorization requirements clear?
-   - Are sensitive data handling requirements specified?
-
-### Phase 7: Gap Analysis
-
-Analyze what the spec might be **missing** or **forgetting**:
-
-#### 7.1 Codebase Impact Discovery
-1. **Extract key terms**: Identify technologies, features, and domain terms from the spec
-2. **Search codebase**: Use `grep`/`glob` to find files matching those terms
-3. **Compare with spec**: Check found files against the "Affected code" section in proposal.md
-4. **Flag gaps**: List potentially impacted files not mentioned in the spec
-
-**Error handling**:
-- If no "Affected code" section exists, note it and treat all found files as potentially impacted
-- If no files match, report "No additional impacted files found"
-- If >50 files match, truncate to top 50 and note that results were truncated
-
-#### 7.2 Cross-Cutting Concerns Check
-Review the spec for coverage of each concern:
-
-| Concern | What to Check |
-|---------|---------------|
-| **Error Handling** | Are failure scenarios documented? API errors? Network failures? |
-| **Logging/Observability** | Are structured logs, metrics, or traces specified? |
-| **Security** | Auth, input validation, secrets handling, least privilege? |
-| **Configuration** | New config options documented? Env vars? Feature flags? |
-| **Performance** | Latency requirements? Rate limits? Resource constraints? |
-
-Mark each as: ✓ Covered | ⚠️ Partial | ✗ Missing
-
-#### 7.3 Related Changes Detection
-1. **List active changes**: Run `openspec list` to get other in-progress changes
-2. **Check for overlaps**: Compare capabilities and affected files
-3. **Flag conflicts**: Note any changes that touch the same areas
-
-**Error handling**:
-- If `openspec` CLI is unavailable, skip this check and note in the report
-
-#### 7.4 Commonly Forgotten Items
-Present this checklist and mark items based on spec content:
-
-- [ ] **Database migrations** - Does the change modify data models?
-- [ ] **API versioning** - Are endpoints changing in breaking ways?
-- [ ] **Feature flags** - Should this be gradually rolled out?
-- [ ] **Rollback plan** - How to revert if issues occur?
-- [ ] **Documentation updates** - README, API docs, user guides?
-- [ ] **Dependency updates** - New deps need version pinning, security review?
-
-Mark as: ✓ Addressed | ⚠️ Needs attention | N/A Not applicable
-
-### Phase 8: Final Assessment
-
-Generate a **REVIEW REPORT** with:
-
-```markdown
-## OpenSpec Review: $ARGUMENTS
-
-### Summary
-- **Overall Status**: [APPROVED | NEEDS_REVISION | BLOCKED]
-- **Completeness**: X/10
-- **TDD Readiness**: X/10
-- **Rules Compliance**: X/23
-
-### Critical Issues
-1. [Issue description and remediation]
-
-### Recommendations
-1. [Improvement suggestion]
-
-### Missing Items
-- [ ] [Item to add]
-
-### Documentation Verified
-- [Library]: Version X.Y.Z compatible, [notes]
-
-### Gap Analysis
-
-#### Potentially Impacted Files (Not in Spec)
-- `path/to/file.ts` - Contains "[term]" but not listed in affected code
-- _(or "No additional impacted files found")_
-
-#### Cross-Cutting Concerns
-| Concern | Status | Notes |
-|---------|--------|-------|
-| Error Handling | ✓/⚠️/✗ | [specific notes] |
-| Logging/Observability | ✓/⚠️/✗ | [specific notes] |
-| Security | ✓/⚠️/✗ | [specific notes] |
-| Configuration | ✓/⚠️/✗ | [specific notes] |
-| Performance | ✓/⚠️/✗ | [specific notes] |
-
-#### Related Changes
-- `change-id` - May conflict: [reason]
-- _(or "No conflicts detected" or "OpenSpec CLI unavailable - conflict check skipped")_
-
-#### Commonly Forgotten Items
-- [ ] Database migrations (if schema changes)
-- [ ] API versioning (if endpoints change)
-- [ ] Feature flags (for gradual rollout)
-- [ ] Rollback plan
-- [ ] Documentation updates
-- [ ] Dependency updates
-
-### Next Steps
-1. [Action item]
+```bash
+openspec show $ARGUMENTS --json
 ```
 
-## Output Requirements
+**If the command fails:**
+- Check if OpenSpec CLI is available: `which openspec`
+- If not available, display: "OpenSpec CLI required for code review. Install from: https://github.com/openspec-dev/openspec"
+- Stop execution
 
-1. **Use TODOs**: Track all review steps as todos
-2. **Be thorough**: Check Context7 for EVERY technology mentioned
-3. **Be specific**: Quote exact locations of issues (file:line)
-4. **Be actionable**: Every issue must have a remediation path
-5. **Update the spec**: If issues are found, propose specific edits to fix them
+**If change not found:**
+- Display: "Change '$ARGUMENTS' not found"
+- Run `openspec list` and show available changes
+- Stop execution
 
-## Reference Commands
-- `openspec show $ARGUMENTS --json --deltas-only` - Get full spec context
-- `openspec validate $ARGUMENTS --strict` - Run validation
-- `rg -n "Requirement:|Scenario:" openspec/changes/$ARGUMENTS/` - Find all requirements
+**If change is archived:**
+- Note: "This change has been archived. Performing post-archive review."
+- Continue with analysis
+
+### Step 3: Check for Implementation
+
+Verify implementation exists by checking:
+1. Read `openspec/changes/$ARGUMENTS/tasks.md` - check if tasks are marked complete
+2. Search for affected files from `openspec/changes/$ARGUMENTS/proposal.md`
+
+**If no implementation found:**
+- Display: "No implementation found for this change"
+- Suggest: "Run `/openspec-apply $ARGUMENTS` first to implement the change"
+- Stop execution
+
+### Step 4: Extract Change Details
+
+From the OpenSpec JSON output and proposal, extract:
+- Change ID and title
+- Affected files (from proposal.md "Affected code" section)
+- Spec scenarios (from specs/*/spec.md files)
+- Task list and completion status
+
+Read these files for context:
+- `openspec/changes/$ARGUMENTS/proposal.md`
+- `openspec/changes/$ARGUMENTS/tasks.md`
+- `openspec/changes/$ARGUMENTS/specs/*/spec.md`
+
+Store this context - you'll pass relevant portions to sub-agents.
+
+---
+
+## Phase 1: Discovery (Sub-Agent Scanning)
+
+**Goal**: Spawn specialized sub-agents to scan each review dimension in parallel.
+
+Create a TODO list tracking each analysis sub-agent:
+- [ ] Requirement Traceability Analysis
+- [ ] Logic & Edge Case Analysis
+- [ ] Security Review Analysis
+- [ ] Architecture Conformance Analysis
+
+### Spawn Analysis Sub-Agents
+
+Spawn **4 parallel sub-agents** using the Task tool with `subagent_type: "explore"`:
+
+#### Sub-Agent 1: Requirement Traceability Scanner
+
+```
+You are analyzing REQUIREMENT TRACEABILITY for OpenSpec change: <change-id>
+
+CONTEXT:
+- Change title: <title>
+- Affected files: <list from proposal.md>
+- Spec scenarios: <list of scenario titles from specs/*/spec.md>
+
+TASK:
+1. For each scenario in the spec, search affected files for implementation evidence:
+   - Look for function names, comments, or logic that implements the scenario
+   - Note file:line where implementation is found
+
+2. Calculate coverage: (scenarios with traced implementation / total scenarios) * 100
+
+3. For untraced scenarios:
+   - Note the scenario title
+   - Explain what implementation evidence would look like
+   - Flag as UNTRACED
+
+RETURN FORMAT:
+```json
+{
+  "dimension": "requirement_traceability",
+  "total_scenarios": 10,
+  "traced_scenarios": 8,
+  "coverage_percent": 80,
+  "traces": [
+    {
+      "scenario": "User login with valid credentials",
+      "status": "TRACED",
+      "file": "src/auth/login.ts",
+      "line": 45,
+      "evidence": "function handleLogin(credentials) { ... }"
+    }
+  ],
+  "untraced": [
+    {
+      "scenario": "User login with expired token",
+      "status": "UNTRACED",
+      "reason": "No token expiration check found in login flow"
+    }
+  ],
+  "issues": []
+}
+```
+```
+
+#### Sub-Agent 2: Logic & Edge Case Scanner
+
+```
+You are analyzing LOGIC AND EDGE CASES for OpenSpec change: <change-id>
+
+CONTEXT:
+- Affected files: <list from proposal.md>
+- Project type: <infer from package.json, pyproject.toml, go.mod, etc.>
+
+TASK:
+1. Read each affected file and analyze for logic issues:
+
+   **Off-by-one errors:**
+   - Array indexing: `arr[i]` where i could equal arr.length
+   - Loop bounds: `for (i = 0; i <= length)` instead of `< length`
+   - String slicing edge cases
+
+   **Boolean logic errors:**
+   - Incorrect AND/OR combinations
+   - De Morgan's law violations
+   - Double negatives that confuse intent
+
+   **Null/undefined handling:**
+   - Property access without null checks: `obj.prop.value` without `obj?.prop`
+   - Array methods on potentially undefined arrays
+   - Missing default values for optional parameters
+
+   **Comparison issues:**
+   - == vs === in JavaScript/TypeScript
+   - < vs <= boundary conditions
+   - String vs number comparisons
+
+   **Unreachable code:**
+   - Returns before code that should execute
+   - Conditions that are always true/false
+   - Dead branches after early exits
+
+2. Check edge case handling:
+   - Empty arrays/strings/objects
+   - Null/undefined inputs
+   - Zero, negative numbers, MAX_INT
+   - Concurrent access patterns
+
+3. Check error handling:
+   - Are errors caught at right boundaries?
+   - Is error info preserved (not swallowed)?
+   - Are user-facing messages appropriate?
+
+SEVERITY LEVELS:
+- CRITICAL: Will cause runtime errors or data corruption
+- MAJOR: Significant logic flaw affecting correctness
+- MINOR: Edge case not handled but low impact
+- INFO: Potential improvement
+
+RETURN FORMAT:
+```json
+{
+  "dimension": "logic_review",
+  "files_analyzed": ["file1.ts", "file2.ts"],
+  "issues": [
+    {
+      "severity": "MAJOR",
+      "category": "null_handling",
+      "file": "src/api/handler.ts",
+      "line": 23,
+      "code_snippet": "const value = response.data.items[0].name",
+      "finding": "No null check before accessing nested properties",
+      "suggestion": "Use optional chaining: response?.data?.items?.[0]?.name"
+    }
+  ],
+  "edge_cases_checked": {
+    "empty_inputs": "COVERED",
+    "null_handling": "PARTIAL",
+    "boundary_values": "MISSING",
+    "concurrent_access": "N/A"
+  },
+  "error_handling_assessment": "ADEQUATE"
+}
+```
+```
+
+#### Sub-Agent 3: Security Review Scanner
+
+```
+You are analyzing SECURITY for OpenSpec change: <change-id>
+
+CONTEXT:
+- Affected files: <list from proposal.md>
+- Project type: <infer from package.json, pyproject.toml, go.mod, etc.>
+
+TASK:
+1. **Authentication & Authorization:**
+   - Is auth checked before accessing protected resources?
+   - Are authorization checks using least privilege?
+   - Is session/token validation present and correct?
+   - Are credentials handled securely (not logged, hashed properly)?
+
+2. **Input Validation:**
+   - Is user input validated before use?
+   - Are there SQL injection vectors (raw string concatenation in queries)?
+   - Are there XSS vectors (unescaped user content in HTML)?
+   - Are there command injection vectors (user input in shell commands)?
+   - Are file paths sanitized (no path traversal)?
+
+3. **Secrets Handling:**
+   - Are secrets hardcoded? Search for: API keys, passwords, tokens, connection strings
+   - Are secrets loaded from environment or secure storage?
+   - Are secrets logged or exposed in error messages?
+   - Check .env files are in .gitignore
+
+4. **Data Exposure:**
+   - Are sensitive fields inadvertently exposed in responses?
+   - Is response filtering applied where needed?
+   - Is debug information leaked in production?
+   - Are internal IDs or implementation details exposed?
+
+SEVERITY LEVELS:
+- CRITICAL: Exploitable vulnerability (injection, auth bypass, secrets exposure)
+- MAJOR: Security weakness that should be fixed
+- MINOR: Defense-in-depth improvement
+- INFO: Best practice suggestion
+
+RETURN FORMAT:
+```json
+{
+  "dimension": "security_review",
+  "files_analyzed": ["file1.ts", "file2.ts"],
+  "issues": [
+    {
+      "severity": "CRITICAL",
+      "category": "input_validation",
+      "file": "src/api/query.ts",
+      "line": 15,
+      "code_snippet": "db.query(`SELECT * FROM users WHERE id = ${userId}`)",
+      "finding": "SQL injection vulnerability - user input directly interpolated",
+      "suggestion": "Use parameterized queries: db.query('SELECT * FROM users WHERE id = ?', [userId])"
+    }
+  ],
+  "auth_assessment": {
+    "authentication": "PRESENT",
+    "authorization": "MISSING",
+    "session_handling": "ADEQUATE"
+  },
+  "secrets_scan": {
+    "hardcoded_secrets": 0,
+    "env_usage": true,
+    "logging_safe": true
+  }
+}
+```
+```
+
+#### Sub-Agent 4: Architecture Conformance Scanner
+
+```
+You are analyzing ARCHITECTURE CONFORMANCE for OpenSpec change: <change-id>
+
+CONTEXT:
+- Affected files: <list from proposal.md>
+- Project root: <path>
+
+TASK:
+1. **Pattern Conformance:**
+   - Read AGENTS.md, CONTRIBUTING.md, or architecture docs if they exist
+   - Check if implementation follows documented patterns
+   - Note any deviations from established patterns
+
+2. **Module Boundaries:**
+   - Check if imports respect module boundaries
+   - Look for circular dependencies
+   - Verify public/private interfaces are respected
+   - Check for inappropriate cross-module dependencies
+
+3. **Naming Conventions:**
+   - File names follow project conventions
+   - Function/class names follow conventions (camelCase, PascalCase, snake_case)
+   - Variable names are descriptive and consistent
+   - Constants use appropriate casing (UPPER_SNAKE_CASE)
+
+4. **Code Organization:**
+   - New files placed in appropriate directories
+   - Related code grouped together
+   - No god files (>500 lines) or god functions (>100 lines)
+   - Separation of concerns maintained
+
+5. **Consistency Check:**
+   - Does new code match existing codebase style?
+   - Are similar operations handled consistently?
+   - Is error handling style consistent?
+
+SEVERITY LEVELS:
+- CRITICAL: Breaks fundamental architecture (rare)
+- MAJOR: Significant pattern violation
+- MINOR: Inconsistency or minor convention violation
+- INFO: Style suggestion
+
+RETURN FORMAT:
+```json
+{
+  "dimension": "architecture_conformance",
+  "files_analyzed": ["file1.ts", "file2.ts"],
+  "patterns_documented": true,
+  "issues": [
+    {
+      "severity": "MAJOR",
+      "category": "module_boundary",
+      "file": "src/api/handler.ts",
+      "line": 5,
+      "code_snippet": "import { dbConnection } from '../database/internal'",
+      "finding": "Importing internal module from database layer",
+      "suggestion": "Use the public database API: import { query } from '../database'"
+    }
+  ],
+  "naming_violations": [],
+  "organization_issues": [],
+  "god_files": [],
+  "god_functions": []
+}
+```
+```
+
+### Collect Sub-Agent Results
+
+Wait for all 4 sub-agents to return. Parse their JSON outputs.
+
+**Error Handling:**
+
+For each sub-agent response:
+1. **If timeout**: Mark dimension as `TIMEOUT`, continue with other results
+2. **If parse error**: Mark dimension as `PARSE_ERROR`, log the raw response, continue
+3. **If empty response**: Mark dimension as `EMPTY`, continue
+
+Track failures:
+```
+failed_scanners = []
+successful_results = []
+```
+
+**If ALL sub-agents fail:**
+```
+============================================================
+         CODE REVIEW FAILED - ALL SCANNERS ERROR
+============================================================
+
+Scanner failures:
+1. Requirement Traceability: <reason>
+2. Logic Review: <reason>
+3. Security Review: <reason>
+4. Architecture Review: <reason>
+
+Possible causes:
+- Sub-agent timeouts (try again with simpler scope)
+- Invalid change context (verify openspec show works)
+- System resource issues
+
+Suggestions:
+- Retry the review: /openspec-review $ARGUMENTS
+- Check system status
+- Try reviewing a smaller scope
+============================================================
+```
+Stop execution.
+
+---
+
+## Phase 2: Synthesis (Root Cause Analysis)
+
+**Goal**: YOU (the orchestrator) analyze the aggregated findings, cross-reference, and identify root causes.
+
+### Step 1: Aggregate Issues
+
+Combine all issues from successful sub-agents:
+- Group by severity: CRITICAL → MAJOR → MINOR → INFO
+- Group by file (issues in same file may be related)
+- Identify patterns (same issue type across multiple files)
+
+### Step 2: Deduplicate Findings
+
+Check for overlapping findings:
+- Same file:line flagged by multiple scanners
+- Keep the most severe classification
+- Note which scanners agreed
+
+### Step 3: Cross-Reference with Spec
+
+For each issue, check:
+- Does it relate to an untraced scenario?
+- Does it violate a spec requirement?
+- Is it in scope or scope creep?
+
+### Step 4: Determine Overall Verdict
+
+Based on aggregated findings:
+- **BLOCKED**: Any CRITICAL issues present
+- **CHANGES_REQUESTED**: No CRITICAL but any MAJOR issues present
+- **APPROVED**: Only MINOR or INFO issues (or no issues)
+
+### Step 5: Generate Intermediate Report
+
+Display the analysis summary:
+
+```
+============================================================
+              CODE REVIEW: <change-id>
+============================================================
+
+PHASE 1 COMPLETE: Analysis gathered from N/4 dimensions
+
+REQUIREMENT TRACEABILITY                           [PASS|WARN|FAIL|INCOMPLETE]
+  Coverage: X% (N/M scenarios traced)
+  Untraced: <count>
+
+LOGIC REVIEW                                       [PASS|WARN|FAIL|INCOMPLETE]
+  Issues: N total (X critical, Y major, Z minor)
+
+SECURITY REVIEW                                    [PASS|WARN|FAIL|INCOMPLETE]
+  Concerns: N (X critical, Y major)
+
+ARCHITECTURE CONFORMANCE                           [PASS|WARN|FAIL|INCOMPLETE]
+  Violations: N
+
+------------------------------------------------------------
+SEVERITY BREAKDOWN:
+  CRITICAL: X issues (blocks approval)
+  MAJOR: Y issues (requires changes)
+  MINOR: Z issues (recommended fixes)
+  INFO: W issues (suggestions)
+
+OVERALL VERDICT: [APPROVED | CHANGES_REQUESTED | BLOCKED]
+============================================================
+```
+
+---
+
+## Phase 3: Remediation (Targeted Fixes)
+
+**Goal**: If issues exist, optionally spawn targeted sub-agents to fix specific problems.
+
+### Decision Point
+
+**If APPROVED**: Skip to Final Report. No fixes needed.
+
+**If CHANGES_REQUESTED or BLOCKED**: Prompt user:
+
+```
+Found <N> issues requiring attention.
+
+Options:
+A) Spawn sub-agents to fix CRITICAL issues only (<count>)
+B) Spawn sub-agents to fix CRITICAL and MAJOR issues (<count>)
+C) Show detailed report only (fix manually)
+D) Accept current state (skip fixes)
+
+Which would you like? [A/B/C/D]
+```
+
+Wait for user selection before proceeding.
+
+### Spawn Fix Sub-Agents
+
+Based on user choice, spawn targeted fix sub-agents with `subagent_type: "general"`:
+
+#### Fix Sub-Agent Template
+
+```
+You are fixing a specific issue for OpenSpec change: <change-id>
+
+ISSUE TO FIX:
+- Severity: <CRITICAL|MAJOR>
+- Category: <category>
+- File: <file>
+- Line: <line>
+- Finding: <issue description>
+- Suggestion: <suggested fix from analysis>
+
+CONTEXT:
+- Full file content: <read the file>
+- Project patterns: <from AGENTS.md or conventions>
+
+CONSTRAINTS:
+- Make minimal, targeted changes
+- Do NOT change unrelated code
+- Follow existing code style
+- Preserve all existing functionality
+
+TASK:
+1. Read the file and understand the context
+2. Implement the fix following the suggestion
+3. Verify the fix addresses the issue
+4. Ensure no new issues are introduced
+
+RETURN FORMAT:
+```json
+{
+  "issue_id": "<category>:<file>:<line>",
+  "status": "FIXED|PARTIAL|UNABLE",
+  "changes_made": ["<description of change>"],
+  "files_modified": ["<file>"],
+  "verification": "<how you verified the fix>",
+  "notes": "<any caveats or follow-up needed>"
+}
+```
+```
+
+### Validate Fixes
+
+After each fix sub-agent completes:
+
+1. **Check the fix exists**: Read the file to verify changes were made
+2. **Check for syntax errors**: If TypeScript, run `tsc --noEmit` on the file
+3. **Check original issue is resolved**: The pattern from the finding should no longer exist at that location
+4. **Check for new issues**: No obvious new problems introduced
+
+Mark each fix as:
+- **VERIFIED**: Fix applied correctly, issue resolved
+- **UNVERIFIED**: Fix applied but couldn't confirm resolution
+- **PROBLEMATIC**: Fix introduced new issues
+
+### Rollback Guidance
+
+After remediation, output:
+```
+ROLLBACK GUIDANCE:
+Files modified by remediation:
+- <file1>
+- <file2>
+
+To revert individual files:
+  git checkout -- <file>
+
+To revert all remediation changes:
+  git checkout -- .
+
+Note: Changes are unstaged. Review before committing.
+```
+
+---
+
+## Final Report
+
+Generate the final code review report:
+
+```
+============================================================
+              CODE REVIEW: <change-id>
+============================================================
+
+OVERALL VERDICT: [APPROVED | CHANGES_REQUESTED | BLOCKED]
+
+REQUIREMENT TRACEABILITY                           [PASS|WARN|FAIL]
+  Scenarios traced: X/Y (Z%)
+  - [list untraced scenarios if any]
+
+LOGIC REVIEW                                       [PASS|WARN|FAIL]
+  Issues found: N (X critical, Y major, Z minor)
+  Edge cases: [COVERED|PARTIAL|MISSING]
+  Error handling: [ADEQUATE|NEEDS_WORK]
+  - [top issues if any]
+
+SECURITY REVIEW                                    [PASS|WARN|FAIL]
+  Concerns: N
+  Auth: [PRESENT|MISSING] | Input validation: [PRESENT|MISSING]
+  - [critical/major issues if any]
+
+ARCHITECTURE CONFORMANCE                           [PASS|WARN|FAIL]
+  Pattern violations: N
+  - [issues if any]
+
+------------------------------------------------------------
+REVIEW COMMENTS:
+
+1. [CRITICAL] <file:line> - <finding>
+   Suggestion: <how to fix>
+
+2. [MAJOR] <file:line> - <finding>
+   Suggestion: <how to fix>
+
+3. [MINOR] <file:line> - <finding>
+   Suggestion: <how to fix>
+...
+
+------------------------------------------------------------
+[If fixes were applied:]
+FIXES APPLIED:
+- [x] <issue 1> - VERIFIED in <file>
+- [x] <issue 2> - VERIFIED in <file>
+- [ ] <issue 3> - UNABLE: <reason>
+
+ROLLBACK:
+  git checkout -- <file1> <file2> ...
+
+------------------------------------------------------------
+[If APPROVED:]
+NEXT STEPS:
+Ready for hardening! Run `/openspec-harden $ARGUMENTS`
+
+[If CHANGES_REQUESTED or BLOCKED:]
+REMAINING ACTIONS:
+1. Fix: <description> (<file:line>)
+2. Fix: <description> (<file:line>)
+...
+
+After fixes, re-run: /openspec-review $ARGUMENTS
+============================================================
+```
+
+---
+
+## Execution
+
+Now execute the code review for change: `$ARGUMENTS`
+
+Begin with pre-flight checks, then orchestrate Phase 1 sub-agents. Report progress as you go.

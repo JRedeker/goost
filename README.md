@@ -117,11 +117,14 @@ cp -r goost/.opencode /path/to/your/project/
 | `/contract-quick <task>` | Quick contract inferred from task description | Explicit |
 | `/openspec-apply <id>` | Implement an OpenSpec change under contract enforcement | Implicit (spec is approval) |
 | `/openspec-audit [scope]` | Project-wide audit: drift, orphans, conflicts | — |
-| `/openspec-review <id>` | Comprehensive spec review with gap analysis | — |
+| `/openspec-prep <id>` | Pre-implementation spec validation with gap analysis | — |
+| `/openspec-review <id>` | Post-implementation code review (correctness, security, architecture) | — |
 | `/openspec-harden <id>` | Post-implementation hardening analysis | — |
 | `/openspec-roadmap` | Display tiered progress dashboard | — |
 | `/openspec-archive <id>` | Archive a completed OpenSpec change | — |
 | `/openspec-proposal` | Create a new OpenSpec change proposal | — |
+
+> **Migration Note**: `/openspec-review` was renamed to `/openspec-prep`. The new `/openspec-review` performs code review after implementation.
 
 ### Starting a Contract
 
@@ -253,10 +256,18 @@ Total: 2 items | 8/15 tasks (53%)
 |---------|-------------|
 | `/openspec-apply <id>` | Implement a change under contract enforcement (implicit approval) |
 | `/openspec-audit [scope]` | **Project-wide audit** for spec/implementation drift, orphaned code, conflicts |
-| `/openspec-review <id>` | Deep review with gap analysis, TDD readiness, rules compliance |
+| `/openspec-prep <id>` | Pre-implementation validation with gap analysis, TDD readiness, rules compliance |
+| `/openspec-review <id>` | **Post-implementation code review** for correctness, logic, security, architecture |
 | `/openspec-harden <id>` | Post-implementation hardening with **comprehensive AI-slop detection** |
 | `/openspec-archive <id>` | Archive a completed change |
 | `/openspec-proposal` | Create a new change proposal |
+
+**Recommended Workflow:**
+```
+/openspec-prep → /openspec-apply → /openspec-review → /openspec-harden → /openspec-archive
+      ↑                                  ↑                    ↑
+ Pre-impl prep                   Code correctness      Production ready
+```
 
 **Note:** `/openspec-apply` uses **implicit approval** — the spec IS the contract. The agent displays a contract for visibility but proceeds immediately without waiting for confirmation.
 
