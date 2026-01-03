@@ -12,10 +12,13 @@ import {
   type TaskOutput,
   CONTRACT_DELIMITER_MIN_LENGTH,
   CONTRACT_PATTERNS,
+  CONTRACT_STATUS_HEADER,
   GOOST_MARKERS,
   STATUS_EMOJIS,
   FAILURE_PATTERNS,
   DOOM_LOOP_THRESHOLD,
+  OPENSPEC_COMMAND_PATTERN,
+  OPENSPEC_CHANGE_PATH_PATTERN,
 } from "./types"
 
 // =============================================================================
@@ -58,6 +61,7 @@ export const createInitialState = (): PluginState => ({
   activeSubAgents: 0,
   contract: createEmptyContract(),
   subAgentFailures: new Map<string, number>(),
+  openSpecChange: null,
 })
 
 // =============================================================================
@@ -65,21 +69,25 @@ export const createInitialState = (): PluginState => ({
 // =============================================================================
 
 /**
- * Build regex for contract block matching.
- * Uses the configured delimiter length.
+ * Pre-compiled regex for contract block matching.
+ * Matches from CONTRACT ACTIVE to the closing delimiter.
  */
-const buildContractBlockRegex = (): RegExp => {
-  const len = CONTRACT_DELIMITER_MIN_LENGTH
-  return new RegExp(`={${len},}\\s*CONTRACT ACTIVE\\s*={${len},}[\\s\\S]*?={${len},}`)
-}
+const CONTRACT_BLOCK_REGEX = new RegExp(
+  `={${CONTRACT_DELIMITER_MIN_LENGTH},}\\s*CONTRACT ACTIVE\\s*={${CONTRACT_DELIMITER_MIN_LENGTH},}[\\s\\S]*?={${CONTRACT_DELIMITER_MIN_LENGTH},}`
+)
 
 /**
- * Build fallback regex for contract block (matches to end of text).
+ * Pre-compiled fallback regex for contract block (matches to end of text).
  */
-const buildContractFallbackRegex = (): RegExp => {
-  const len = CONTRACT_DELIMITER_MIN_LENGTH
-  return new RegExp(`={${len},}\\s*CONTRACT ACTIVE\\s*={${len},}[\\s\\S]*`)
-}
+const CONTRACT_FALLBACK_REGEX = new RegExp(
+  `={${CONTRACT_DELIMITER_MIN_LENGTH},}\\s*CONTRACT ACTIVE\\s*={${CONTRACT_DELIMITER_MIN_LENGTH},}[\\s\\S]*`
+)
+
+/**
+ * Pre-compiled regex for status block matching.
+ * Matches from CONTRACT STATUS: until end delimiter (---), double newline, or end of text.
+ */
+const STATUS_BLOCK_REGEX = new RegExp(`${CONTRACT_STATUS_HEADER}[\\s\\S]*?(?=\\n---|\\n\\n|$)`)
 
 /**
  * Extract contract block from message content.
@@ -88,14 +96,14 @@ const buildContractFallbackRegex = (): RegExp => {
  * @param text - Full message content
  * @returns Contract block text or null if not found
  */
-export const extractContractBlock = (text: string): string | null => {
+const extractContractBlock = (text: string): string | null => {
   // Match the full contract block - greedy match until closing delimiter
-  const contractMatch = text.match(buildContractBlockRegex())
+  const contractMatch = text.match(CONTRACT_BLOCK_REGEX)
   if (contractMatch) {
     return contractMatch[0]
   }
   // Fallback: match until end of text if no closing delimiter
-  const fallbackMatch = text.match(buildContractFallbackRegex())
+  const fallbackMatch = text.match(CONTRACT_FALLBACK_REGEX)
   return fallbackMatch ? fallbackMatch[0] : null
 }
 
@@ -105,7 +113,7 @@ export const extractContractBlock = (text: string): string | null => {
  * @param text - Contract block text
  * @returns Objective string or null if not found
  */
-export const extractObjective = (text: string): string | null => {
+const extractObjective = (text: string): string | null => {
   const match = text.match(/OBJECTIVE:\s*(.+)/i)
   return match ? match[1].trim() : null
 }
@@ -117,7 +125,7 @@ export const extractObjective = (text: string): string | null => {
  * @param text - Contract block or status block text
  * @returns Array of criteria strings like "[x] Criterion text"
  */
-export const extractCriteria = (text: string): string[] => {
+const extractCriteria = (text: string): string[] => {
   const criteria: string[] = []
   const criteriaMatches = text.matchAll(/- \[([ xX?])\] (.+)/g)
   for (const match of criteriaMatches) {
@@ -140,6 +148,33 @@ export const parseContractStatus = (text: string): string => {
     return `${match[1]}/${match[2]}`
   }
   return ""
+}
+
+// =============================================================================
+// OpenSpec Detection
+// =============================================================================
+
+/**
+ * Extract OpenSpec change name from message content.
+ * Looks for /openspec-xxx command arguments and openspec/changes/<id>/ paths.
+ *
+ * @param text - Message content to analyze
+ * @returns Change name or null if not found
+ */
+export const extractOpenSpecChange = (text: string): string | null => {
+  // First, check for direct command usage: /openspec-xxx <change-id>
+  const commandMatch = text.match(OPENSPEC_COMMAND_PATTERN)
+  if (commandMatch) {
+    return commandMatch[1]
+  }
+
+  // Fallback: check for openspec/changes/<id>/ path references
+  const pathMatch = text.match(OPENSPEC_CHANGE_PATH_PATTERN)
+  if (pathMatch) {
+    return pathMatch[1]
+  }
+
+  return null
 }
 
 // =============================================================================
@@ -220,7 +255,7 @@ export const getStatusText = (
 
 /**
  * Process message content for contract state changes.
- * Handles contract activation, status updates, and contract end.
+ * Handles contract activation, status updates, OpenSpec tracking, and contract end.
  *
  * @param state - Current plugin state
  * @param content - Message content to process
@@ -229,8 +264,19 @@ export const getStatusText = (
 export const processMessageContent = (state: PluginState, content: string): PluginState => {
   let newState = { ...state }
 
+  // Cache pattern match results to avoid redundant regex execution
+  const contractActivated = CONTRACT_PATTERNS.ACTIVE.test(content)
+  const contractEnded =
+    CONTRACT_PATTERNS.FULFILLED.test(content) || CONTRACT_PATTERNS.VOIDED.test(content)
+
+  // Detect OpenSpec change name (only update if we find one, preserve existing)
+  const openSpecChange = extractOpenSpecChange(content)
+  if (openSpecChange) {
+    newState = { ...newState, openSpecChange }
+  }
+
   // Check for contract activation
-  if (CONTRACT_PATTERNS.ACTIVE.test(content)) {
+  if (contractActivated) {
     newState = processContractActivation(newState, content)
   }
 
@@ -240,7 +286,7 @@ export const processMessageContent = (state: PluginState, content: string): Plug
   }
 
   // Check for contract end
-  if (CONTRACT_PATTERNS.FULFILLED.test(content) || CONTRACT_PATTERNS.VOIDED.test(content)) {
+  if (contractEnded) {
     newState = processContractEnd(newState)
   }
 
@@ -254,8 +300,21 @@ export const processMessageContent = (state: PluginState, content: string): Plug
   }
 
   // Detect and apply status
-  const status = detectStatus(content, newState.contract.active)
-  newState = updateStateStatus(newState, status)
+  // Only override status if:
+  // 1. There's an explicit [GOOST:*] marker in the content
+  // 2. Contract state changed (fulfilled/voided → earth, activated → work)
+  // 3. Current state is NOT a terminal state (earth/idle)
+  //
+  // This prevents message processing from overriding session-derived terminal states
+  // when the message doesn't contain explicit markers.
+  const detectedStatus = detectStatus(content, newState.contract.active)
+  const isTerminalState = newState.status === "earth" || newState.status === "idle"
+  const hasExplicitMarker = Object.values(GOOST_MARKERS).some((pattern) => pattern.test(content))
+
+  // Apply status if: explicit marker, contract ended, or not in terminal state
+  if (hasExplicitMarker || contractEnded || !isTerminalState) {
+    newState = updateStateStatus(newState, detectedStatus)
+  }
 
   return newState
 }
@@ -267,7 +326,7 @@ export const processMessageContent = (state: PluginState, content: string): Plug
  * @param content - Message content containing CONTRACT ACTIVE
  * @returns Updated plugin state with active contract
  */
-export const processContractActivation = (state: PluginState, content: string): PluginState => {
+const processContractActivation = (state: PluginState, content: string): PluginState => {
   const contractBlock = extractContractBlock(content)
   if (contractBlock) {
     return {
@@ -294,8 +353,8 @@ export const processContractActivation = (state: PluginState, content: string): 
  * @param content - Message content potentially containing status block
  * @returns Updated plugin state with new criteria status
  */
-export const processStatusBlock = (state: PluginState, content: string): PluginState => {
-  const statusBlockMatch = content.match(/CONTRACT STATUS:[\s\S]*?(?=\n---|\n\n|$)/)
+const processStatusBlock = (state: PluginState, content: string): PluginState => {
+  const statusBlockMatch = content.match(STATUS_BLOCK_REGEX)
   if (statusBlockMatch) {
     const newCriteria = extractCriteria(statusBlockMatch[0])
     if (newCriteria.length > 0) {
@@ -314,11 +373,13 @@ export const processStatusBlock = (state: PluginState, content: string): PluginS
  * @param state - Current plugin state
  * @returns Updated plugin state with empty contract
  */
-export const processContractEnd = (state: PluginState): PluginState => ({
+const processContractEnd = (state: PluginState): PluginState => ({
   ...state,
   contract: createEmptyContract(),
   // Clear failure tracking
   subAgentFailures: new Map<string, number>(),
+  // Clear OpenSpec change tracking
+  openSpecChange: null,
 })
 
 /**

@@ -30,6 +30,7 @@ import {
   type PluginState,
   type GoostStatus,
   EVENT_TYPES,
+  TOOL_NAMES,
   SessionStatusPropsSchema,
   MessageUpdatedPropsSchema,
   TaskArgsSchema,
@@ -75,12 +76,12 @@ const log = (msg: string): void => {
  * Update all UI elements (tab color and title) based on current state.
  *
  * @param state - Current plugin state
- * @param projectName - Project name for title
+ * @param projectName - Project name for title (fallback if no openSpecChange)
  */
 const updateUI = (state: PluginState, projectName: string): void => {
   updateTabColor(state.status)
   const statusText = getStatusText(state.status, state.activeSubAgents, state.contract.active)
-  updateTitle(projectName, state.status, statusText, state.contract.progress)
+  updateTitle(projectName, state.status, statusText, state.contract.progress, state.openSpecChange)
 }
 
 // =============================================================================
@@ -169,6 +170,7 @@ const handlePermissionUpdated: EventHandler = (_properties, ctx) => {
 /**
  * Handle permission.replied event.
  * Returns to work/idle state after permission is granted/denied.
+ * Note: session.status event will follow to set the correct terminal state if needed.
  */
 const handlePermissionReplied: EventHandler = (_properties, ctx) => {
   ctx.log("Permission replied - returning to work state")
@@ -217,28 +219,43 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     updateUI(state, projectName)
   }
 
-  // Register cleanup handlers for process exit
-  const exitHandler = (): void => {
+  // ==========================================================================
+  // Process Exit Handlers
+  // ==========================================================================
+  // Note: These handlers are registered once per plugin initialization.
+  // OpenCode typically loads plugins once per session, so accumulation is
+  // unlikely. If hot-reloading is ever supported, consider tracking and
+  // removing previous listeners.
+
+  /** Cleanup handler for normal exit */
+  const handleExit = (): void => {
     cleanupTerminal()
   }
 
-  // Handle various exit scenarios
-  process.on("exit", exitHandler)
-  process.on("SIGINT", () => {
+  /** Cleanup handler for SIGINT (Ctrl+C) */
+  const handleSigInt = (): void => {
     cleanupTerminal()
     process.exit(0)
-  })
-  process.on("SIGTERM", () => {
-    cleanupTerminal()
-    process.exit(0)
-  })
+  }
 
-  // Handle uncaught exceptions - cleanup and exit per Node.js best practices
-  process.on("uncaughtException", (err) => {
+  /** Cleanup handler for SIGTERM */
+  const handleSigTerm = (): void => {
+    cleanupTerminal()
+    process.exit(0)
+  }
+
+  /** Cleanup handler for uncaught exceptions */
+  const handleUncaughtException = (err: Error): void => {
     log(`Uncaught exception: ${err}`)
     cleanupTerminal()
     process.exit(1)
-  })
+  }
+
+  // Register cleanup handlers - use named functions for potential future removal
+  process.on("exit", handleExit)
+  process.on("SIGINT", handleSigInt)
+  process.on("SIGTERM", handleSigTerm)
+  process.on("uncaughtException", handleUncaughtException)
 
   // ===========================================================================
   // Hook Implementations
@@ -267,7 +284,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     // Before: show moon because sub-agent is about to run (we'll be waiting)
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
       try {
-        if (input.tool === "task") {
+        if (input.tool === TOOL_NAMES.TASK) {
           const parsedArgs = TaskArgsSchema.safeParse(toolArgs.args)
           const taskParams = parsedArgs.success ? parsedArgs.data : {}
 
@@ -285,12 +302,15 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
             }
           }
 
-          setState({
-            ...state,
-            activeSubAgents: state.activeSubAgents + 1,
-            status: "moon",
-            icon: "\u{1F315}",
-          })
+          setState(
+            updateStateStatus(
+              {
+                ...state,
+                activeSubAgents: state.activeSubAgents + 1,
+              },
+              "moon"
+            )
+          )
         }
       } catch (error) {
         log(`Error in tool.execute.before: ${error}`)
@@ -300,7 +320,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output): Promise<void> => {
       try {
-        if (input.tool === "task") {
+        if (input.tool === TOOL_NAMES.TASK) {
           const parsedOutput = TaskOutputSchema.safeParse(output)
           const taskOutput = parsedOutput.success ? parsedOutput.data : {}
 
@@ -329,7 +349,10 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
           }
 
           // Update status based on remaining sub-agents
-          const newStatus: GoostStatus = newActiveCount > 0 ? "moon" : "work"
+          // Preserve terminal states (earth/idle) - they were set by session.status
+          const isTerminalState = newState.status === "earth" || newState.status === "idle"
+          const newStatus: GoostStatus =
+            newActiveCount > 0 ? "moon" : isTerminalState ? newState.status : "work"
           newState = updateStateStatus(newState, newStatus)
 
           setState(newState)
