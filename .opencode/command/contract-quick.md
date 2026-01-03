@@ -1,4 +1,5 @@
 ---
+name: contract-quick
 description: Quickly create a contract by inferring criteria from your request
 agent: general
 ---
@@ -6,6 +7,18 @@ agent: general
 # /contract-quick - Rapid Contract Creation
 
 For when you don't want the interactive flow. Parse the user's request and immediately propose a contract.
+
+## Pre-flight Check
+
+If `$ARGUMENTS` is empty or whitespace:
+```
+Usage: /contract-quick <task description>
+
+Example: /contract-quick Add JWT auth without breaking existing routes
+
+For an interactive contract flow, use /contract instead.
+```
+Then stop execution.
 
 ## Behavior
 

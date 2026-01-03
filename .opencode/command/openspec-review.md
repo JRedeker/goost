@@ -1,6 +1,7 @@
 ---
 name: openspec-review
 description: Post-implementation code review of an OpenSpec change - orchestrated sub-agents for correctness, logic, security, and architecture analysis.
+agent: general
 ---
 
 # OpenSpec Code Review

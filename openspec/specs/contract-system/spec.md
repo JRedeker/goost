@@ -1,7 +1,8 @@
 # contract-system Specification
 
 ## Purpose
-TBD - created by archiving change add-contract-completion-commit. Update Purpose after archive.
+
+The contract-system capability defines the behavior of Goost's immutable contract enforcement mechanism. This includes automatic commit creation on contract fulfillment, conventional commit message derivation from objectives, changelog entry generation, sub-agent contract context propagation, and failure escalation protocols.
 ## Requirements
 ### Requirement: Contract Completion Commit
 

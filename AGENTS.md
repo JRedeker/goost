@@ -28,22 +28,32 @@ goost/
 ├── README.md                           # User documentation
 ├── AGENTS.md                           # This file (agent instructions)
 ├── CHANGELOG.md                        # Version history
+├── INSTALL.md                          # Installation guide for AI agents
 ├── goost_instructions.md               # Main instructions (injected into sessions)
+├── install.sh                          # Automated install script
+├── rules.yaml                          # Global agent rules
 ├── plugin/                             # TypeScript plugin
 │   ├── index.ts                        # Entry point, event dispatch, hooks
 │   ├── types.ts                        # Types, constants, Zod schemas
 │   ├── terminal.ts                     # OSC sequences, tab color/title
 │   ├── contract.ts                     # Contract parsing, state management
 │   ├── package.json                    # Dependencies (@opencode-ai/plugin, zod)
-│   └── tsconfig.json                   # TypeScript config
+│   ├── tsconfig.json                   # TypeScript config
+│   └── eslint.config.js                # ESLint configuration
 ├── .opencode/
 │   ├── command/
 │   │   ├── contract.md                 # Main /contract slash command
 │   │   ├── contract-quick.md           # Quick /contract-quick variant
-│   │   ├── openspec-*.md               # OpenSpec integration commands
+│   │   └── openspec-*.md               # OpenSpec integration commands
 │   └── rules/
 │       └── status-indicator.md         # Status indicator rule
+├── .github/
+│   └── workflows/
+│       └── ci.yml                      # GitHub Actions CI
+├── assets/
+│   └── goost-logo.svg                  # Project logo
 └── openspec/                           # OpenSpec change management
+    ├── AGENTS.md                       # OpenSpec agent instructions
     ├── project.md                      # Project context
     ├── specs/                          # Capability specifications
     └── changes/                        # Change proposals

@@ -1,4 +1,5 @@
 ---
+name: contract
 description: Establish a binding task contract with verifiable success criteria
 ---
 

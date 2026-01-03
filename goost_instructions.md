@@ -424,7 +424,6 @@ Please confirm the current contract state or void/re-establish.
 Options:
 1. Re-state the contract and current progress
 2. Void the contract and start fresh
-3. Check `.goost/active-contract.md` if file persistence is enabled
 ```
 
 ### Contract Recovery Priority

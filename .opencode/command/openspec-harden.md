@@ -1,6 +1,7 @@
 ---
 name: openspec-harden
 description: Post-implementation hardening analysis for OpenSpec changes - orchestrated multi-phase analysis with sub-agents for scanning and remediation.
+agent: general
 ---
 
 # OpenSpec Hardening Analysis

@@ -1,6 +1,7 @@
 ---
 name: openspec-audit
 description: Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements.
+agent: general
 ---
 
 # OpenSpec Project Audit

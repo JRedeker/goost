@@ -1,6 +1,7 @@
 ---
 name: openspec-status
 description: Fast overview of OpenSpec project state - active changes, specs, dependencies, and recommendations.
+agent: general
 ---
 
 # OpenSpec Status

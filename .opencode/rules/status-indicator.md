@@ -10,6 +10,7 @@ When a contract is active, emit a status marker at the **start** of each respons
 | `[GOOST:MOON]` | 🌕 | Waiting for sub-agent results |
 | `[GOOST:EARTH]` | 🌍 | Complete or awaiting user input |
 | `[GOOST:DOOM_LOOP]` | 🔄 | Stuck retrying same failed approach |
+| `[GOOST:MIC]` | 🎤 | Needs user approval (auto-detected by plugin for permission prompts) |
 
 ## Rules
 

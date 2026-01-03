@@ -31,6 +31,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Update contract completion protocol to commit before changelog (a0f84a3)
 - Restore tab title/color on exit, show project name in title (4cfe142)
-
-### Changed
 - Archive completed add-contract-completion-commit change (bf5abaf)
