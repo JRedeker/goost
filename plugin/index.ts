@@ -48,6 +48,7 @@ import {
   extractCriterionFromTask,
   recordSubAgentFailure,
   isDoomLoopReached,
+  extractOpenSpecChange,
 } from "./contract"
 
 // =============================================================================
@@ -121,7 +122,10 @@ const handleSessionStatus: EventHandler = (properties, ctx) => {
 
 /**
  * Handle message.updated event.
- * Processes assistant messages for contract state changes.
+ * Processes messages for contract state changes and OpenSpec tracking.
+ *
+ * - Assistant messages: Full processing (contract, status, OpenSpec)
+ * - User messages: OpenSpec change detection only (for /openspec-xxx commands)
  */
 const handleMessageUpdated: EventHandler = (properties, ctx) => {
   const parsed = MessageUpdatedPropsSchema.safeParse(properties)
@@ -131,14 +135,32 @@ const handleMessageUpdated: EventHandler = (properties, ctx) => {
   }
 
   const { info } = parsed.data
-  if (info?.role !== "assistant" || !info.parts) {
+  if (!info?.parts) {
     return ctx.state
   }
 
   let newState = ctx.state
-  for (const part of info.parts) {
-    if (part.type === "text" && part.text) {
-      newState = processMessageContent(newState, part.text)
+
+  // Process user messages for OpenSpec command detection only
+  if (info.role === "user") {
+    for (const part of info.parts) {
+      if (part.type === "text" && part.text) {
+        const openSpecChange = extractOpenSpecChange(part.text)
+        if (openSpecChange) {
+          ctx.log(`OpenSpec change detected from user command: ${openSpecChange}`)
+          newState = { ...newState, openSpecChange }
+        }
+      }
+    }
+    return newState
+  }
+
+  // Process assistant messages for full contract/status tracking
+  if (info.role === "assistant") {
+    for (const part of info.parts) {
+      if (part.type === "text" && part.text) {
+        newState = processMessageContent(newState, part.text)
+      }
     }
   }
 

@@ -54,7 +54,7 @@ export const writeOSC = (sequence: string): void => {
  * @param color - Hex color string (e.g., "#FF0000")
  * @sideeffect Writes to process.stdout via writeOSC
  */
-export const setTabColor = (color: string): void => {
+const setTabColor = (color: string): void => {
   if (color && /^#[0-9A-Fa-f]{6}$/.test(color)) {
     writeOSC(`\x1b]9;9;${color}\x07`)
   }
@@ -64,7 +64,7 @@ export const setTabColor = (color: string): void => {
  * Reset Windows Terminal tab color to default.
  * @sideeffect Writes to process.stdout via writeOSC
  */
-export const resetTabColor = (): void => {
+const resetTabColor = (): void => {
   // OSC 9;9; with empty/default resets the color
   writeOSC(`\x1b]9;9;\x07`)
 }
@@ -75,7 +75,7 @@ export const resetTabColor = (): void => {
  * @param title - The title string to display
  * @sideeffect Writes to process.stdout via writeOSC
  */
-export const setTabTitle = (title: string): void => {
+const setTabTitle = (title: string): void => {
   writeOSC(`\x1b]0;${title}\x07`)
 }
 
@@ -83,7 +83,7 @@ export const setTabTitle = (title: string): void => {
  * Reset tab title to default (empty lets terminal use its default).
  * @sideeffect Writes to process.stdout via writeOSC
  */
-export const resetTabTitle = (): void => {
+const resetTabTitle = (): void => {
   writeOSC(`\x1b]0;\x07`)
 }
 
@@ -132,30 +132,36 @@ export const updateTabColor = (status: GoostStatus): void => {
 /**
  * Build and set the tab title.
  *
- * Format: <emoji> <projectName>: <statusText> [<progress>]
- * Example: 🚀 myproject: Working [2/5]
+ * Format (with openSpecChange): <emoji> <openSpecChange>: <statusText> [<progress>]
+ * Format (without): <emoji> <projectName>: <statusText> [<progress>]
+ * Example: 🚀 add-contract-completion: Working [2/5]
  *
- * @param projectName - The project name to display
+ * @param projectName - The project name to display (fallback)
  * @param status - Current Goost status
  * @param statusText - Descriptive status text
  * @param progress - Optional progress string (e.g., "2/5")
+ * @param openSpecChange - Optional OpenSpec change name (takes priority over projectName)
  * @sideeffect Writes to process.stdout via setTabTitle
  */
 export const updateTitle = (
   projectName: string,
   status: GoostStatus,
   statusText: string,
-  progress: string
+  progress: string,
+  openSpecChange?: string | null
 ): void => {
   const icon = STATUS_EMOJIS[status]
   const progressText = progress ? ` [${progress}]` : ""
 
+  // Use openSpecChange if available, otherwise fall back to projectName
+  const displayName = openSpecChange || projectName
+
   let display: string
   if (statusText) {
-    display = `${icon} ${projectName}: ${statusText}${progressText}`
+    display = `${icon} ${displayName}: ${statusText}${progressText}`
   } else {
-    // Idle with no contract - just show project name
-    display = `${icon} ${projectName}${progressText}`
+    // Idle with no contract - just show display name
+    display = `${icon} ${displayName}${progressText}`
   }
 
   setTabTitle(display)

@@ -50,6 +50,8 @@ export interface PluginState {
   contract: ContractState
   /** Sub-agent failure tracking per criterion (for doom loop detection) */
   subAgentFailures: Map<string, number>
+  /** Current OpenSpec change name (for tab title display) */
+  openSpecChange: string | null
 }
 
 // =============================================================================
@@ -131,6 +133,18 @@ export const EVENT_TYPES = {
 } as const
 
 /**
+ * Tool name constants to avoid magic strings.
+ */
+export const TOOL_NAMES = {
+  TASK: "task",
+} as const
+
+/**
+ * Contract status block patterns.
+ */
+export const CONTRACT_STATUS_HEADER = "CONTRACT STATUS:"
+
+/**
  * Threshold for sub-agent failures before doom loop warning.
  * After this many consecutive failures for the same criterion,
  * the AI should be warned to consider alternative approaches.
@@ -199,17 +213,6 @@ export const TaskOutputSchema = z.object({
 
 export type TaskOutput = z.infer<typeof TaskOutputSchema>
 
-/**
- * Schema for compaction hook output.
- * Used in experimental.session.compacting hook.
- */
-export const CompactionOutputSchema = z.object({
-  context: z.array(z.string()),
-  prompt: z.string().optional(),
-})
-
-export type CompactionOutput = z.infer<typeof CompactionOutputSchema>
-
 // =============================================================================
 // Failure Detection
 // =============================================================================
@@ -219,3 +222,19 @@ export type CompactionOutput = z.infer<typeof CompactionOutputSchema>
  * Used for doom loop tracking.
  */
 export const FAILURE_PATTERNS = /\berror:|cannot proceed|unable to complete|failed to|exception:/i
+
+// =============================================================================
+// OpenSpec Detection
+// =============================================================================
+
+/**
+ * Pattern to detect OpenSpec command usage in messages.
+ * Matches /openspec-xxx patterns and captures any arguments.
+ */
+export const OPENSPEC_COMMAND_PATTERN = /\/openspec-\w+\s+([^\s]+)/i
+
+/**
+ * Pattern to detect OpenSpec change directory references.
+ * Matches openspec/changes/<change-id>/ paths.
+ */
+export const OPENSPEC_CHANGE_PATH_PATTERN = /openspec\/changes\/([^/\s]+)\//
