@@ -138,11 +138,124 @@ Then reload: `tmux source-file ~/.tmux.conf`
 | Terminal | Tab Colors | Tab Titles |
 |----------|------------|------------|
 | Windows Terminal | Full support | Full support |
-| iTerm2 | Limited | Full support |
+| iTerm2 | No | Full support |
 | Ghostty/Kitty/Alacritty | Varies | Full support |
 | tmux | Requires passthrough | Full support |
 
 > Tab colors are visual enhancements. Core contract enforcement works in any terminal.
+
+---
+
+## 🗺️ Workflow
+
+Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to provide a complete spec-driven development workflow. Here's the recommended flow from planning to completion:
+
+### Command Overview
+
+| Category | Command | Purpose |
+|----------|---------|---------|
+| **Contract** | `/contract` | Establish formal contract with success criteria |
+| | `/contract-quick` | Quick contract for simpler tasks |
+| **Planning** | `/openspec-proposal` | Create new change proposal (design phase) |
+| | `/openspec-prep` | Pre-implementation gap analysis |
+| | `/openspec-status` | Fast overview of project state |
+| | `/openspec-roadmap` | Tiered progress dashboard |
+| **Implementation** | `/openspec-apply` | Implement change under contract enforcement |
+| **Quality** | `/openspec-review` | Post-implementation code review |
+| | `/openspec-harden` | Production-readiness analysis |
+| | `/openspec-audit` | Project-wide drift detection |
+| **Completion** | `/openspec-archive` | Archive completed change |
+
+### OpenSpec CLI Commands
+
+```bash
+openspec list              # List active changes
+openspec list --specs      # List specifications  
+openspec show <item>       # View change or spec details
+openspec validate <id>     # Validate (use --strict)
+openspec archive <id>      # Archive completed change
+```
+
+### Recommended Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         PLANNING PHASE                               │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  1. /openspec-status          Quick project overview                 │
+│         ↓                                                            │
+│  2. /openspec-proposal        Create change proposal                 │
+│         ↓                     (proposal.md, tasks.md, spec deltas)   │
+│  3. openspec validate --strict  Validate structure                   │
+│         ↓                                                            │
+│  4. /openspec-prep <id>       Fill gaps in AC, scenarios, tasks      │
+│         ↓                                                            │
+│  5. [USER APPROVAL]           Review and approve proposal            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                      IMPLEMENTATION PHASE                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  6. /openspec-apply <id>      Implement under contract enforcement   │
+│         │                     (tab shows change name while working)  │
+│         │                                                            │
+│         ├── Reads proposal.md, tasks.md, design.md                   │
+│         ├── Creates CONTRACT from acceptance criteria                │
+│         ├── Works through tasks sequentially                         │
+│         ├── Shows CONTRACT STATUS in every response                  │
+│         └── Commits on CONTRACT FULFILLED                            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                         QUALITY PHASE                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  7. /openspec-review <id>     Code review (correctness, security)    │
+│         ↓                                                            │
+│  8. /openspec-harden <id>     Production-readiness check             │
+│         ↓                     (error handling, logging, edge cases)  │
+│  9. [TESTS & CI]              Run tests, verify build                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                        COMPLETION PHASE                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  10. [DEPLOY]                 Ship to production                     │
+│         ↓                                                            │
+│  11. /openspec-archive <id>   Move to archive, update main specs     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Quick Reference
+
+| I want to... | Use |
+|--------------|-----|
+| See what's in progress | `/openspec-status` or `openspec list` |
+| Plan a new feature | `/openspec-proposal` |
+| Check spec completeness | `/openspec-prep <id>` |
+| Implement an approved change | `/openspec-apply <id>` |
+| Do a simple task without OpenSpec | `/contract` or `/contract-quick` |
+| Review code after implementation | `/openspec-review <id>` |
+| Check production-readiness | `/openspec-harden <id>` |
+| Find spec/code drift | `/openspec-audit` |
+| See progress dashboard | `/openspec-roadmap` |
+| Finish and archive | `/openspec-archive <id>` |
+
+### When to Use Which Contract Command
+
+| Situation | Command |
+|-----------|---------|
+| OpenSpec change with full spec | `/openspec-apply <id>` (contract auto-derived) |
+| Ad-hoc task, needs clear criteria | `/contract` (full negotiation) |
+| Simple task, obvious completion | `/contract-quick` (minimal overhead) |
+| Just exploring/asking questions | No contract needed |
 
 ---
 
