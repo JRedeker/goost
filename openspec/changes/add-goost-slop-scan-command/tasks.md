@@ -1,5 +1,16 @@
 # Tasks: Add /goost-slop-scan command
 
+## Tasks
+
+- [x] Create `/goost-slop-scan` command file with specification
+- [x] Define detection rules in `slop-smells.yaml`
+- [x] Implement scanning logic in plugin
+- [x] Test command with sample files
+- [x] Update AGENTS.md with slop detection guidance
+- [x] Create CHANGELOG entry
+
+**Completion: 6/6 tasks (100%)**
+
 ## 1. Command Implementation
 
 - [x] 1.1 Create `.opencode/command/goost-slop-scan.md` slash command file
