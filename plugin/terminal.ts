@@ -5,6 +5,7 @@
  * Supports tmux passthrough for escape sequences.
  */
 
+import * as fs from "fs"
 import { TAB_COLORS, STATUS_EMOJIS, type GoostStatus } from "./types"
 
 // =============================================================================
@@ -18,11 +19,77 @@ import { TAB_COLORS, STATUS_EMOJIS, type GoostStatus } from "./types"
 export const isTmux = (): boolean => !!process.env.TMUX
 
 // =============================================================================
+// TTY Output
+// =============================================================================
+
+/**
+ * File descriptor for TTY output.
+ * We write directly to the terminal to bypass any stdout capturing by OpenCode.
+ * Falls back to stderr then stdout if terminal is not available.
+ */
+let ttyFd: number | null = null
+let ttyFdAttempted = false
+
+/**
+ * Get file descriptor for TTY output.
+ * Tries multiple approaches to find the actual terminal:
+ * 1. /dev/tty (controlling terminal)
+ * 2. Current process's stdout if it's a tty (via /proc/self/fd/1)
+ * 3. Falls back to null (will use stderr)
+ */
+const getTtyFd = (): number | null => {
+  if (ttyFd !== null) return ttyFd
+  if (ttyFdAttempted) return null
+  ttyFdAttempted = true
+
+  // Try /dev/tty first
+  try {
+    ttyFd = fs.openSync("/dev/tty", "w")
+    return ttyFd
+  } catch {
+    // /dev/tty not available
+  }
+
+  // Try to find our own process's terminal via /proc/self
+  // OpenCode plugins run in the same process, so /proc/self/fd/1 should point to the terminal
+  try {
+    const selfStdout = fs.readlinkSync("/proc/self/fd/1")
+    if (selfStdout.startsWith("/dev/pts/") || selfStdout.startsWith("/dev/tty")) {
+      ttyFd = fs.openSync(selfStdout, "w")
+      return ttyFd
+    }
+  } catch {
+    // Self stdout not accessible or not a tty
+  }
+
+  // Return null - will fall back to stderr in writeTty
+  return null
+}
+
+/**
+ * Write directly to TTY, bypassing stdout.
+ * Falls back to stderr if TTY is not available (stderr is less likely to be captured).
+ */
+const writeTty = (data: string): void => {
+  const fd = getTtyFd()
+  if (fd !== null) {
+    try {
+      fs.writeSync(fd, data)
+      return
+    } catch {
+      // Fall through to stderr
+    }
+  }
+  // Fallback to stderr (less likely to be captured than stdout)
+  process.stderr.write(data)
+}
+
+// =============================================================================
 // OSC Sequence Utilities
 // =============================================================================
 
 /**
- * Write OSC escape sequence to stdout with tmux passthrough support.
+ * Write OSC escape sequence to TTY with tmux passthrough support.
  *
  * When running inside tmux, escape sequences must be wrapped in DCS passthrough:
  * \x1bPtmux;\x1b<escaped_sequence>\x1b\\
@@ -30,16 +97,16 @@ export const isTmux = (): boolean => !!process.env.TMUX
  * Where <escaped_sequence> has all ESC (\x1b) characters doubled.
  *
  * @param sequence - The OSC escape sequence to write
- * @sideeffect Writes to process.stdout
+ * @sideeffect Writes to TTY or stdout
  */
 export const writeOSC = (sequence: string): void => {
   try {
     if (isTmux()) {
       // tmux passthrough: wrap sequence and double all ESC characters
       const escaped = sequence.replace(/\x1b/g, "\x1b\x1b")
-      process.stdout.write(`\x1bPtmux;${escaped}\x1b\\`)
+      writeTty(`\x1bPtmux;${escaped}\x1b\\`)
     } else {
-      process.stdout.write(sequence)
+      writeTty(sequence)
     }
   } catch {
     // Silently ignore write errors (e.g., stdout closed)
@@ -88,13 +155,22 @@ const resetTabTitle = (): void => {
 }
 
 /**
- * Full cleanup - reset both title and color.
+ * Full cleanup - reset both title and color, close TTY fd.
  * Call this on process exit to restore terminal state.
- * @sideeffect Writes to process.stdout via writeOSC
+ * @sideeffect Writes to TTY via writeOSC
  */
 export const cleanupTerminal = (): void => {
   resetTabTitle()
   resetTabColor()
+  // Close TTY file descriptor if open
+  if (ttyFd !== null) {
+    try {
+      fs.closeSync(ttyFd)
+    } catch {
+      // Ignore close errors
+    }
+    ttyFd = null
+  }
 }
 
 // =============================================================================

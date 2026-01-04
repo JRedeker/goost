@@ -36,7 +36,7 @@ import {
   TaskArgsSchema,
   TaskOutputSchema,
 } from "./types"
-import { cleanupTerminal, getProjectName, updateTabColor, updateTitle } from "./terminal"
+import { cleanupTerminal, getProjectName, updateTabColor, updateTitle, isTmux } from "./terminal"
 import {
   createInitialState,
   processMessageContent,
@@ -56,6 +56,7 @@ import {
 // =============================================================================
 
 const DEBUG = process.env.GOOST_DEBUG === "1"
+const TRACE = process.env.GOOST_TRACE === "1"
 
 /**
  * Log debug message to stderr.
@@ -66,6 +67,16 @@ const DEBUG = process.env.GOOST_DEBUG === "1"
 const log = (msg: string): void => {
   if (DEBUG) {
     console.error(`[Goost] ${msg}`)
+  }
+}
+
+/**
+ * Trace log - always outputs to stderr for debugging UI issues.
+ * Only outputs when GOOST_TRACE=1 environment variable is set.
+ */
+const trace = (msg: string): void => {
+  if (TRACE) {
+    console.error(`[Goost:TRACE] ${msg}`)
   }
 }
 
@@ -80,6 +91,7 @@ const log = (msg: string): void => {
  * @param projectName - Project name for title (fallback if no openSpecChange)
  */
 const updateUI = (state: PluginState, projectName: string): void => {
+  trace(`updateUI: status=${state.status}, activeSubAgents=${state.activeSubAgents}`)
   updateTabColor(state.status)
   const statusText = getStatusText(state.status, state.activeSubAgents, state.contract.active)
   updateTitle(projectName, state.status, statusText, state.contract.progress, state.openSpecChange)
@@ -231,6 +243,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
   // Extract project name from directory
   const projectName = getProjectName(directory || process.cwd())
   log(`Project name: ${projectName}`)
+  log(`TTY mode: isTmux=${isTmux()}`)
 
   // Initialize state
   let state = createInitialState()
@@ -288,12 +301,14 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     event: async (input): Promise<void> => {
       try {
         const { event } = input
+        trace(`event: type="${event.type}"`)
         const handler = eventHandlers[event.type]
 
         if (handler) {
           const ctx: EventHandlerContext = { state, projectName, log }
           const newState = handler(event.properties, ctx)
           if (newState !== state) {
+            trace(`event ${event.type} changed state: ${state.status} -> ${newState.status}`)
             setState(newState)
           }
         }
@@ -305,6 +320,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     // Watch for task tool calls (sub-agent spawning)
     // Before: show moon because sub-agent is about to run (we'll be waiting)
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
+      trace(`tool.execute.before: tool="${input.tool}" (expecting "${TOOL_NAMES.TASK}")`)
       try {
         if (input.tool === TOOL_NAMES.TASK) {
           const parsedArgs = TaskArgsSchema.safeParse(toolArgs.args)
@@ -312,6 +328,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
           const description = taskParams.description || "Unknown"
           log(`Sub-agent starting: ${description} (active: ${state.activeSubAgents + 1})`)
+          trace(`Setting status to moon for task: ${description}`)
 
           // Warn if contract active but prompt lacks context (debug only)
           if (state.contract.active && taskParams.prompt) {
