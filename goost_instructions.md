@@ -14,6 +14,7 @@ Goost provides these slash commands:
 |---------|-------------|
 | `/contract` | Establish a formal contract with success criteria |
 | `/contract-quick` | Quick contract for simpler tasks |
+| `/goost-slop-scan` | Scan codebase for AI-generated code quality issues ("slop") |
 | `/openspec-audit` | Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
 | `/openspec-review` | Post-implementation code review for correctness, logic, security, and architecture |

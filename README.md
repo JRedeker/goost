@@ -164,6 +164,7 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | **Quality** | `/openspec-review` | Post-implementation code review |
 | | `/openspec-harden` | Production-readiness analysis |
 | | `/openspec-audit` | Project-wide drift detection |
+| | `/goost-slop-scan` | Scan for AI-generated code quality issues |
 | **Completion** | `/openspec-archive` | Archive completed change |
 
 ### OpenSpec CLI Commands
@@ -502,6 +503,75 @@ The `/openspec-harden` command includes **comprehensive AI-slop detection** base
 - **LOW**: Minor style or preference issue
 
 The command can optionally spawn sub-agents to automatically fix detected issues.
+
+### Slop Scan (`/goost-slop-scan`)
+
+The `/goost-slop-scan` command scans your codebase for AI-generated code quality issues ("slop") using patterns defined in `slop-smells.yaml`.
+
+```text
+User: /goost-slop-scan
+
+============================================================
+              SLOP SCAN REPORT
+============================================================
+
+SCAN SCOPE: 142 files in .
+PHASE 1: 8 findings | PHASE 2: 12 findings
+
+SUMMARY BY SEVERITY
+------------------------------------------------------------
+CRITICAL: 1 | HIGH: 5 | MEDIUM: 10 | LOW: 4
+
+CRITICAL FINDINGS
+------------------------------------------------------------
+[QUAL-003] security_blindness
+  src/api/auth.ts:42
+  SQL query built with string concatenation
+  FIX: Use parameterized queries or an ORM
+
+HIGH FINDINGS
+------------------------------------------------------------
+[AI-007] type_evasion
+  src/utils/parser.ts:89
+  Excessive use of 'as any' bypassing type safety
+  FIX: Define proper types or use type guards
+...
+============================================================
+```
+
+**Two-Phase Detection:**
+
+| Phase | Type | What It Detects |
+|-------|------|-----------------|
+| **Phase 1** | Automatable | Debug artifacts, type evasion, TODO/FIXME, empty catch blocks, hardcoded paths, AI signatures |
+| **Phase 2** | Heuristic | Happy path only, confident incorrectness, context amnesia, premature abstraction, missing corners |
+
+**Command Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--phase 1` | Run Phase 1 only (fast, regex-based) |
+| `--phase 2` | Run Phase 2 only (AI heuristic) |
+| `--json` | Output in JSON format |
+| `--verbose` | Show detailed scan progress |
+| `--timeout N` | Sub-agent timeout in seconds (default: 120) |
+| `--include-untracked` | Include untracked git files |
+| `<path>` | Limit scan to specific directory |
+
+**Examples:**
+```bash
+/goost-slop-scan                      # Full scan
+/goost-slop-scan src/                 # Scan only src/
+/goost-slop-scan --phase 1            # Fast automatable patterns only
+/goost-slop-scan --phase 2            # Heuristic analysis only
+/goost-slop-scan --json               # Machine-readable output
+/goost-slop-scan --verbose --timeout 300  # Verbose with longer timeout
+```
+
+**Workflow Recommendation:**
+1. Run `--phase 1` to catch obvious issues quickly
+2. Fix Phase 1 findings
+3. Run `--phase 2` for deeper heuristic analysis (less noise after Phase 1 fixes)
 
 ---
 

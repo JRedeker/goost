@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add /goost-slop-scan command for AI code quality analysis with two-phase detection (5d71362)
+- Add slop-smells.yaml with 50+ documented AI code smell patterns (5d71362)
 - Add /openspec-status command for fast project state overview (cbaae13)
 - Add /openspec-prep command (renamed from /openspec-review) for pre-implementation validation (64d0759)
 - Add new /openspec-review command for post-implementation code review with sub-agent orchestration (64d0759)
