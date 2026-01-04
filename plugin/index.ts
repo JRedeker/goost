@@ -94,7 +94,7 @@ const updateUI = (state: PluginState, projectName: string): void => {
   trace(`updateUI: status=${state.status}, activeSubAgents=${state.activeSubAgents}`)
   updateTabColor(state.status)
   const statusText = getStatusText(state.status, state.activeSubAgents, state.contract.active)
-  updateTitle(projectName, state.status, statusText, state.contract.progress, state.openSpecChange)
+  updateTitle(projectName, statusText, state.contract.progress, state.openSpecChange)
 }
 
 // =============================================================================
@@ -321,36 +321,43 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     // Before: show moon because sub-agent is about to run (we'll be waiting)
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
       trace(`tool.execute.before: tool="${input.tool}" (expecting "${TOOL_NAMES.TASK}")`)
+      // Debug: log all tool executions
+      if (input.tool !== TOOL_NAMES.TASK) {
+        trace(`Ignoring non-task tool: ${input.tool}`)
+        return
+      }
+
       try {
-        if (input.tool === TOOL_NAMES.TASK) {
-          const parsedArgs = TaskArgsSchema.safeParse(toolArgs.args)
-          const taskParams = parsedArgs.success ? parsedArgs.data : {}
+        const parsedArgs = TaskArgsSchema.safeParse(toolArgs.args)
+        const taskParams = parsedArgs.success ? parsedArgs.data : {}
 
-          const description = taskParams.description || "Unknown"
-          log(`Sub-agent starting: ${description} (active: ${state.activeSubAgents + 1})`)
-          trace(`Setting status to moon for task: ${description}`)
+        const description = taskParams.description || "Unknown"
+        log(`=== SUB-AGENT STARTING: ${description} ===`)
+        log(`Before: activeSubAgents=${state.activeSubAgents}`)
+        trace(`Setting status to MOON for task: ${description}`)
 
-          // Warn if contract active but prompt lacks context (debug only)
-          if (state.contract.active && taskParams.prompt) {
-            const hasContractContext =
-              /parent contract|contract objective|assigned criterion|your assigned/i.test(
-                taskParams.prompt
-              )
-            if (!hasContractContext) {
-              log("Warning: Sub-agent prompt may lack contract context")
-            }
-          }
-
-          setState(
-            updateStateStatus(
-              {
-                ...state,
-                activeSubAgents: state.activeSubAgents + 1,
-              },
-              "moon"
+        // Warn if contract active but prompt lacks context (debug only)
+        if (state.contract.active && taskParams.prompt) {
+          const hasContractContext =
+            /parent contract|contract objective|assigned criterion|your assigned/i.test(
+              taskParams.prompt
             )
-          )
+          if (!hasContractContext) {
+            log("Warning: Sub-agent prompt may lack contract context")
+          }
         }
+
+        const newState = updateStateStatus(
+          {
+            ...state,
+            activeSubAgents: state.activeSubAgents + 1,
+          },
+          "moon"
+        )
+        log(`After: activeSubAgents=${newState.activeSubAgents}, status=${newState.status}`)
+        trace(`Calling setState with moon status`)
+        setState(newState)
+        trace(`setState called, checking UI...`)
       } catch (error) {
         log(`Error in tool.execute.before: ${error}`)
       }
@@ -358,44 +365,53 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
     // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output): Promise<void> => {
+      if (input.tool !== TOOL_NAMES.TASK) {
+        trace(`Ignoring non-task tool in after: ${input.tool}`)
+        return
+      }
+
       try {
-        if (input.tool === TOOL_NAMES.TASK) {
-          const parsedOutput = TaskOutputSchema.safeParse(output)
-          const taskOutput = parsedOutput.success ? parsedOutput.data : {}
+        const parsedOutput = TaskOutputSchema.safeParse(output)
+        const taskOutput = parsedOutput.success ? parsedOutput.data : {}
 
-          const taskTitle = taskOutput.title || "Unknown"
-          const newActiveCount = Math.max(0, state.activeSubAgents - 1)
-          log(`Sub-agent finished: ${taskTitle} (active: ${newActiveCount})`)
+        const taskTitle = taskOutput.title || "Unknown"
+        log(`=== SUB-AGENT FINISHED: ${taskTitle} ===`)
+        log(`Before: activeSubAgents=${state.activeSubAgents}`)
 
-          let newState = {
-            ...state,
-            activeSubAgents: newActiveCount,
-          }
-
-          // Track failures for doom loop detection
-          if (isSubAgentFailure(taskOutput)) {
-            const criterion = extractCriterionFromTask(taskTitle)
-            newState = recordSubAgentFailure(newState, criterion)
-            log(`Sub-agent may have failed: ${taskTitle}`)
-            log("  Reason: Output contains failure indicator")
-
-            if (isDoomLoopReached(newState, criterion)) {
-              log(`Doom loop threshold reached for: ${criterion}`)
-            }
-          } else if (isSubAgentEmpty(taskOutput)) {
-            log(`Sub-agent returned empty output: ${taskTitle}`)
-            log("  Note: May be normal for cleanup/deletion tasks")
-          }
-
-          // Update status based on remaining sub-agents
-          // Preserve terminal states (earth/idle) - they were set by session.status
-          const isTerminalState = newState.status === "earth" || newState.status === "idle"
-          const newStatus: GoostStatus =
-            newActiveCount > 0 ? "moon" : isTerminalState ? newState.status : "work"
-          newState = updateStateStatus(newState, newStatus)
-
-          setState(newState)
+        let newState = {
+          ...state,
+          activeSubAgents: Math.max(0, state.activeSubAgents - 1),
         }
+
+        // Track failures for doom loop detection
+        if (isSubAgentFailure(taskOutput)) {
+          const criterion = extractCriterionFromTask(taskTitle)
+          newState = recordSubAgentFailure(newState, criterion)
+          log(`Sub-agent may have failed: ${taskTitle}`)
+          log("  Reason: Output contains failure indicator")
+
+          if (isDoomLoopReached(newState, criterion)) {
+            log(`Doom loop threshold reached for: ${criterion}`)
+          }
+        } else if (isSubAgentEmpty(taskOutput)) {
+          log(`Sub-agent returned empty output: ${taskTitle}`)
+          log("  Note: May be normal for cleanup/deletion tasks")
+        }
+
+        // Update status based on remaining sub-agents
+        // Preserve terminal states (earth/idle) - they were set by session.status
+        const isTerminalState = newState.status === "earth" || newState.status === "idle"
+        const newStatus: GoostStatus =
+          newState.activeSubAgents > 0 ? "moon" : isTerminalState ? newState.status : "work"
+        log(`After: activeSubAgents=${newState.activeSubAgents}, status=${newStatus}`)
+        trace(
+          `Deciding status: activeCount=${newState.activeSubAgents}, isTerminal=${isTerminalState}`
+        )
+        newState = updateStateStatus(newState, newStatus)
+        trace(`Calling setState after task completion`)
+
+        setState(newState)
+        trace(`setState completed after task completion`)
       } catch (error) {
         log(`Error in tool.execute.after: ${error}`)
       }

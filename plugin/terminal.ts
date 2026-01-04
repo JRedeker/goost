@@ -10,7 +10,7 @@
  */
 
 import * as fs from "fs"
-import { TAB_COLORS, STATUS_EMOJIS, type GoostStatus } from "./types"
+import { TAB_COLORS, type GoostStatus } from "./types"
 
 // =============================================================================
 // Environment Detection
@@ -188,47 +188,6 @@ export const getProjectName = (directory: string): string => {
 }
 
 /**
- * Get status text for tab title based on current state.
- * @param status - Current GoostStatus
- * @param activeSubAgents - Number of active sub-agents
- * @param hasActiveContract - Whether a contract is active
- * @returns Status text string for title
- */
-export const getStatusText = (
-  status: GoostStatus,
-  activeSubAgents: number,
-  hasActiveContract: boolean
-): string => {
-  const emoji = STATUS_EMOJIS[status]
-
-  if (status === "moon") {
-    return `${emoji} Waiting for ${activeSubAgents} task${activeSubAgents > 1 ? "s" : ""}`
-  }
-
-  if (status === "rocket" || status === "work") {
-    return hasActiveContract ? `${emoji} Working (contract)` : `${emoji} Working`
-  }
-
-  if (status === "earth") {
-    return `${emoji} Ready (contract)`
-  }
-
-  if (status === "idle") {
-    return `${emoji} Ready`
-  }
-
-  if (status === "doom_loop") {
-    return `${emoji} Retry cycle`
-  }
-
-  if (status === "mic") {
-    return `${emoji} Approval needed`
-  }
-
-  return `${emoji} Unknown`
-}
-
-/**
  * Update terminal tab color based on status.
  * @param status - Current GoostStatus
  * @sideeffect Writes OSC sequence to terminal
@@ -243,7 +202,6 @@ export const updateTabColor = (status: GoostStatus): void => {
 /**
  * Update terminal tab title.
  * @param projectName - Project name
- * @param status - Current GoostStatus
  * @param statusText - Status text for title
  * @param contractProgress - Optional contract progress (e.g., "1/3")
  * @param openSpecChange - Optional OpenSpec change name
@@ -251,7 +209,6 @@ export const updateTabColor = (status: GoostStatus): void => {
  */
 export const updateTitle = (
   projectName: string,
-  status: GoostStatus,
   statusText: string,
   contractProgress: string | null,
   openSpecChange: string | null
