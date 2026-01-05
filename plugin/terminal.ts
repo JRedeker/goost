@@ -10,7 +10,7 @@
  */
 
 import * as fs from "fs"
-import { TAB_COLORS, type GoostStatus } from "./types"
+import { type GoostStatus } from "./types"
 
 // =============================================================================
 // Environment Detection
@@ -192,6 +192,7 @@ export const writeOSC = (sequence: string): void => {
  * @param color - Hex color string (e.g., "#FF0000") or "0" to reset
  * @sideeffect Writes OSC sequence to terminal
  */
+/*
 const setTabColor = (color: string): void => {
   if (color === "0") {
     writeOSC("\x1b]9;9;0\x07")
@@ -199,6 +200,7 @@ const setTabColor = (color: string): void => {
     writeOSC(`\x1b]9;9;${color}\x07`)
   }
 }
+*/
 
 /**
  * Reset Windows Terminal tab color to default.
@@ -260,11 +262,10 @@ export const getProjectName = (directory: string): string => {
  * @param status - Current GoostStatus
  * @sideeffect Writes OSC sequence to terminal
  */
-export const updateTabColor = (status: GoostStatus): void => {
-  const color = TAB_COLORS[status]
-  if (color) {
-    setTabColor(color)
-  }
+export const updateTabColor = (_status: GoostStatus): void => {
+  // Tab coloration removed as it is not consistently supported in WSL/Windows Terminal
+  // and can cause confusion when it doesn't work.
+  // The emoji status indicators are sufficient.
 }
 
 /**
