@@ -33,6 +33,62 @@ let ttyFd: number | null = null
 let ttyOpenAttempted = false
 
 /**
+ * Find the TTY file descriptor by walking up the process tree.
+ * Checks fd/0 (stdin), fd/1 (stdout), fd/2 (stderr) of process and ancestors.
+ *
+ * @returns Path to TTY (e.g., /dev/pts/11) or null if not found
+ */
+const findTtyPath = (): string | null => {
+  let pid = process.pid
+  const checkedPids = new Set<number>()
+
+  // Check up to 5 levels up the process tree
+  for (let i = 0; i < 5; i++) {
+    if (!pid || checkedPids.has(pid)) break
+    checkedPids.add(pid)
+
+    // Check standard FDs for this PID
+    for (const fd of [0, 1, 2]) {
+      try {
+        const linkPath = `/proc/${pid}/fd/${fd}`
+        if (fs.existsSync(linkPath)) {
+          const target = fs.readlinkSync(linkPath)
+          // Look for pseudo-terminal (pts) or virtual console (tty)
+          if (target.startsWith("/dev/pts/") || target.startsWith("/dev/tty")) {
+            return target
+          }
+        }
+      } catch {
+        // Ignore readlink errors (permission denied, etc.)
+      }
+    }
+
+    // Move to parent process
+    try {
+      const statPath = `/proc/${pid}/stat`
+      if (fs.existsSync(statPath)) {
+        const stat = fs.readFileSync(statPath, "utf8")
+        // PID comm state PPID ... (4th field is PPID)
+        // Handle comm potentially containing spaces/parentheses
+        const rightParenIndex = stat.lastIndexOf(")")
+        const afterComm = stat.substring(rightParenIndex + 1).trim()
+        const parts = afterComm.split(" ")
+        const ppid = parseInt(parts[1], 10) // PPID is 2nd field after comm (so index 1)
+
+        if (pid === ppid || ppid === 0) break
+        pid = ppid
+      } else {
+        break
+      }
+    } catch {
+      break
+    }
+  }
+
+  return null
+}
+
+/**
  * Get a file descriptor for the parent process's TTY.
  *
  * OpenCode plugins have stdout piped for tool output capture, so we need
@@ -52,12 +108,24 @@ const getTtyFd = (): number | null => {
   ttyOpenAttempted = true
 
   try {
+    const ttyPath = findTtyPath()
+    if (ttyPath) {
+      // Use "w" mode (write only) - non-blocking open
+      ttyFd = fs.openSync(ttyPath, "w")
+      return ttyFd
+    }
+  } catch {
+    // TTY detection failed
+  }
+
+  // Fallback: Try parent's FD 1 via procfs (legacy method)
+  try {
     // On Linux, access parent's stdout via /proc/<ppid>/fd/1
     const parentStdout = `/proc/${process.ppid}/fd/1`
     ttyFd = fs.openSync(parentStdout, "w")
     return ttyFd
   } catch {
-    // Parent TTY not accessible (e.g., Windows, or permissions issue)
+    // Parent TTY not accessible
     return null
   }
 }
