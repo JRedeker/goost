@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initialize OpenSpec and create sub-agent enhancement proposal (45152c2)
 
 ### Fixed
+- Disable flaky tab coloration to rely on reliable emoji status indicators (41b8cb8)
 - Fix TTY detection by walking process ancestry to find controlling terminal (1b827a1)
 - Restore status emoji in terminal tab title (541ef82)
 - Update contract completion protocol to commit before changelog (a0f84a3)
