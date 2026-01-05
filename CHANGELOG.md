@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initialize OpenSpec and create sub-agent enhancement proposal (45152c2)
 
 ### Fixed
+- Restore status emoji in terminal tab title (541ef82)
 - Update contract completion protocol to commit before changelog (a0f84a3)
 - Restore tab title/color on exit, show project name in title (4cfe142)
 - Archive completed add-contract-completion-commit change (bf5abaf)
