@@ -148,6 +148,34 @@ Emit a status marker at the START of each response:
 
 These markers are detected by the Goost plugin, which updates the terminal tab color and title accordingly.
 
+### Recommended: Running OpenCode with tmux
+
+For best results, users should run OpenCode via the `oc` shell function:
+
+```bash
+oc              # Launch opencode in isolated tmux session
+oc-list         # List running opencode sessions  
+oc-killall      # Terminate all opencode sessions
+```
+
+This provides:
+- **Crash isolation**: OpenCode crashes won't kill the terminal
+- **Tab titles**: Status indicators update the tmux pane title
+- **ESC handling**: Immediate ESC key passthrough (no delays on Ctrl+C)
+- **Session persistence**: Detach with `Ctrl+B D`, reattach later
+
+Required tmux settings:
+```bash
+set -g allow-passthrough on   # Allow OSC escape sequences
+set -g escape-time 0          # No ESC key delay
+```
+
+**Setup**: The `install.sh` script in the Goost directory automatically:
+- Adds the `oc`, `oc-list`, and `oc-killall` functions to `~/.zshrc` or `~/.bashrc`
+- Configures `~/.tmux.conf` with the required settings
+
+If the user's environment is missing these, you can run `install.sh` or extract the relevant sections from it to configure their shell.
+
 Example:
 ```
 [GOOST:ROCKET]

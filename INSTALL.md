@@ -126,7 +126,10 @@ cp $GOOST_PATH/.opencode/rules/*.md ~/.config/opencode/rules/
 
 ### Step 6: tmux Configuration
 
-For Goost's status indicators (tab titles) to work inside tmux, passthrough must be enabled.
+For Goost's status indicators (tab titles) to work inside tmux, you need two settings:
+
+1. **allow-passthrough**: Lets OSC escape sequences reach your terminal (for tab colors/titles)
+2. **escape-time 0**: Passes ESC key immediately (fixes delay when interrupting commands with Ctrl+C)
 
 Check if user is in tmux:
 
@@ -138,14 +141,102 @@ If in tmux, check current config:
 
 ```bash
 grep -q "allow-passthrough" ~/.tmux.conf 2>/dev/null && echo "PASSTHROUGH_CONFIGURED" || echo "PASSTHROUGH_MISSING"
+grep -q "escape-time" ~/.tmux.conf 2>/dev/null && echo "ESCAPE_TIME_CONFIGURED" || echo "ESCAPE_TIME_MISSING"
 ```
 
-If missing, add it:
+Add missing settings:
 
 ```bash
-echo "set -g allow-passthrough on" >> ~/.tmux.conf
+# If ~/.tmux.conf doesn't exist or is missing settings, add them:
+cat >> ~/.tmux.conf << 'EOF'
+
+# Goost plugin support - allow escape sequences to pass through to terminal
+set -g allow-passthrough on
+
+# Pass ESC key through immediately without delay (helps with interrupting commands)
+set -g escape-time 0
+EOF
+
 tmux source-file ~/.tmux.conf  # Reload config
 ```
+
+#### Recommended: Shell Function for tmux + OpenCode
+
+Add these functions to your `~/.zshrc` or `~/.bashrc` for seamless tmux integration:
+
+```bash
+# Wrap opencode in tmux for crash isolation (prevents cascade failures)
+oc() {
+  local session_name="oc-$(date +%s)-$$"
+
+  if command -v tmux &>/dev/null; then
+    tmux new-session -d -s "$session_name" opencode "$@"
+    tmux attach-session -t "$session_name"
+  else
+    echo "tmux not installed - running opencode directly (no isolation)"
+    command opencode "$@"
+  fi
+}
+
+# List all opencode tmux sessions
+oc-list() {
+  tmux ls 2>/dev/null | grep "^oc-" || echo "No opencode sessions"
+}
+
+# Kill all opencode tmux sessions
+oc-killall() {
+  tmux ls 2>/dev/null | grep "^oc-" | cut -d: -f1 | xargs -r -n1 tmux kill-session -t
+  echo "All opencode sessions terminated"
+}
+```
+
+Then reload your shell: `source ~/.zshrc`
+
+**Usage:**
+```bash
+oc              # Launch opencode in isolated tmux session
+oc -d /path     # Launch with arguments
+oc-list         # Show running opencode sessions
+oc-killall      # Terminate all opencode sessions
+```
+
+**Why use tmux isolation?**
+- Crash isolation: If opencode crashes, it doesn't take down your terminal
+- Session persistence: Detach with `Ctrl+B D`, reattach later
+- Tab titles: Goost status indicators work properly
+- ESC handling: With `escape-time 0`, interrupts work immediately
+
+The tab title will update to show contract status:
+```
+🚀 projectname: Working [2/5]
+🌕 projectname: Agent
+🌍 projectname: Ready
+🎤 projectname: >>> APPROVAL NEEDED <<<
+```
+
+#### Alternative: Manual tmux
+
+If you prefer manual control:
+
+```bash
+# Start a new tmux session named "opencode"
+tmux new-session -s opencode
+
+# Or attach to existing session
+tmux attach -t opencode
+
+# Inside tmux, run opencode
+opencode
+```
+
+**Why escape-time 0 matters:**
+
+Without this setting, tmux waits ~500ms after ESC to see if it's part of an escape sequence. This causes noticeable delay when:
+- Pressing ESC in vim mode
+- Using Ctrl+C to interrupt running commands
+- Any operation that involves the ESC key
+
+With `escape-time 0`, ESC is passed through immediately.
 
 ### Step 7: Verify Installation
 
@@ -182,7 +273,7 @@ Inform the user about their terminal's capabilities:
 | Windows Terminal | Full | Best experience |
 | iTerm2 | Full | Works well |
 | Ghostty | Full | Works well |
-| tmux | Full* | *Requires `allow-passthrough on` |
+| tmux | Full* | *Requires `allow-passthrough on` and `escape-time 0` |
 
 **Note**: Tab colors have been disabled due to inconsistency across environments. We rely on emojis (🚀, 🌕, 🌍) for status indication.
 
@@ -195,6 +286,11 @@ Inform the user about their terminal's capabilities:
 ### "Tab titles not updating"
 - For tmux: verify `allow-passthrough on` is in `~/.tmux.conf`
 - Run `GOOST_DEBUG=1 opencode` to see plugin output
+
+### "ESC key has noticeable delay in tmux"
+- Add `set -g escape-time 0` to `~/.tmux.conf`
+- Reload: `tmux source-file ~/.tmux.conf`
+- This fixes delays when interrupting commands or using vim keybindings
 
 ### "Plugin not loading"
 - Verify absolute path in opencode.json is correct

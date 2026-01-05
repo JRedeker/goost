@@ -124,12 +124,41 @@ cp -r ~/dev/oc-plugins/goost/.opencode /path/to/your/project/
 
 ### 4. tmux Users
 
-Add to `~/.tmux.conf` for tab color support:
-```
+Add to `~/.tmux.conf` for full Goost support:
+```bash
+# Allow escape sequences to pass through to terminal (for tab colors/titles)
 set -g allow-passthrough on
+
+# Pass ESC key immediately without delay (fixes Ctrl+C and vim mode delays)
+set -g escape-time 0
 ```
 
 Then reload: `tmux source-file ~/.tmux.conf`
+
+**Recommended: Shell wrapper for crash isolation**
+
+Add to `~/.zshrc` or `~/.bashrc`:
+```bash
+# Wrap opencode in tmux for crash isolation
+oc() {
+  local session_name="oc-$(date +%s)-$$"
+  if command -v tmux &>/dev/null; then
+    tmux new-session -d -s "$session_name" opencode "$@"
+    tmux attach-session -t "$session_name"
+  else
+    command opencode "$@"
+  fi
+}
+
+# List/kill opencode sessions
+oc-list() { tmux ls 2>/dev/null | grep "^oc-" || echo "No sessions"; }
+oc-killall() { tmux ls 2>/dev/null | grep "^oc-" | cut -d: -f1 | xargs -r -n1 tmux kill-session -t; }
+```
+
+Then just run `oc` instead of `opencode`. Benefits:
+- Crash isolation (opencode crash won't kill your terminal)
+- Session persistence (detach with `Ctrl+B D`, reattach later)
+- Proper tab title/color support
 
 </details>
 
@@ -363,7 +392,7 @@ The plugin automatically detects when OpenCode requests permission for shell com
 
 This works through OpenCode's `permission.updated` and `permission.replied` events - no manual markers needed.
 
-> **Note:** Requires `set -g allow-passthrough on` in your `.tmux.conf` if using tmux.
+> **Note:** Requires `set -g allow-passthrough on` and `set -g escape-time 0` in your `.tmux.conf` if using tmux.
 
 ---
 

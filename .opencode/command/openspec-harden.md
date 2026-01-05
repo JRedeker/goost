@@ -34,9 +34,10 @@ openspec show $ARGUMENTS --json
 - Stop execution
 
 **If change not found:**
-- Display: "Change '$ARGUMENTS' not found"
-- Run `openspec list` and show available changes
-- Stop execution
+- Display: "Change '$ARGUMENTS' not found in active changes"
+- Check the archive: `openspec list --archived` or look in `openspec/changes/archive/`
+- If found in archive: Inform user the change was already archived, then continue with analysis
+- If not found anywhere: Run `openspec list` and show available changes, then stop execution
 
 **If change is archived:**
 - Note: "This change has been archived. Performing post-archive verification."

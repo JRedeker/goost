@@ -126,36 +126,120 @@ EOF
     echo "✅ Created new opencode.json"
 fi
 
-# 7. Check/Configure tmux for tab titles
+# 7. Check/Configure tmux for tab titles and ESC key handling
 # Check for tmux usage or config existence
 if [ -n "$TMUX" ] || [ -f "$TMUX_CONFIG" ]; then
     echo "🖥️  Checking tmux configuration..."
+    TMUX_CHANGED=false
     
     if [ -f "$TMUX_CONFIG" ]; then
+        # Check for allow-passthrough
         if grep -q "allow-passthrough" "$TMUX_CONFIG"; then
-            echo "✅ tmux configured (allow-passthrough detected)"
+            echo "✅ allow-passthrough already configured"
         else
-            echo "⚠️  tmux config missing 'allow-passthrough'"
-            echo "   Adding 'set -g allow-passthrough on' to $TMUX_CONFIG..."
+            echo "⚠️  Adding 'set -g allow-passthrough on'..."
             echo "" >> "$TMUX_CONFIG"
-            echo "# Goost plugin support - allow escape sequences" >> "$TMUX_CONFIG"
+            echo "# Goost plugin support - allow escape sequences to pass through to terminal" >> "$TMUX_CONFIG"
             echo "set -g allow-passthrough on" >> "$TMUX_CONFIG"
-            
-            # Reload if inside tmux
-            if [ -n "$TMUX" ]; then
-                tmux source-file "$TMUX_CONFIG" && echo "✅ tmux config reloaded"
-            fi
+            TMUX_CHANGED=true
+        fi
+        
+        # Check for escape-time
+        if grep -q "escape-time" "$TMUX_CONFIG"; then
+            echo "✅ escape-time already configured"
+        else
+            echo "⚠️  Adding 'set -g escape-time 0'..."
+            echo "" >> "$TMUX_CONFIG"
+            echo "# Pass ESC key through immediately without delay (helps with interrupting commands)" >> "$TMUX_CONFIG"
+            echo "set -g escape-time 0" >> "$TMUX_CONFIG"
+            TMUX_CHANGED=true
+        fi
+        
+        # Reload if changes were made and inside tmux
+        if [ "$TMUX_CHANGED" = true ] && [ -n "$TMUX" ]; then
+            tmux source-file "$TMUX_CONFIG" && echo "✅ tmux config reloaded"
         fi
     else
-        echo "ℹ️  Creating $TMUX_CONFIG with passthrough support..."
-        echo "set -g allow-passthrough on" > "$TMUX_CONFIG"
+        echo "ℹ️  Creating $TMUX_CONFIG with Goost settings..."
+        cat > "$TMUX_CONFIG" << 'TMUXEOF'
+# Goost plugin support - allow escape sequences to pass through to terminal
+set -g allow-passthrough on
+
+# Pass ESC key through immediately without delay (helps with interrupting commands)
+set -g escape-time 0
+TMUXEOF
+        echo "✅ Created $TMUX_CONFIG"
+        
+        # Reload if inside tmux
+        if [ -n "$TMUX" ]; then
+            tmux source-file "$TMUX_CONFIG" && echo "✅ tmux config reloaded"
+        fi
     fi
+fi
+
+# 8. Install shell functions for tmux integration
+# Detect shell config file
+SHELL_RC=""
+if [ -f "${HOME}/.zshrc" ]; then
+    SHELL_RC="${HOME}/.zshrc"
+elif [ -f "${HOME}/.bashrc" ]; then
+    SHELL_RC="${HOME}/.bashrc"
+fi
+
+if [ -n "$SHELL_RC" ]; then
+    echo "🐚 Checking shell functions..."
+    
+    # Check if oc function already exists
+    if grep -q "^oc()" "$SHELL_RC" 2>/dev/null; then
+        echo "✅ oc() function already installed"
+    else
+        echo "⚠️  Adding oc() shell functions to $SHELL_RC..."
+        cat >> "$SHELL_RC" << 'SHELLEOF'
+
+# =============================================================================
+# Goost: OpenCode + tmux integration
+# =============================================================================
+
+# Wrap opencode in tmux for crash isolation (prevents cascade failures)
+oc() {
+  local session_name="oc-$(date +%s)-$$"
+
+  if command -v tmux &>/dev/null; then
+    tmux new-session -d -s "$session_name" opencode "$@"
+    tmux attach-session -t "$session_name"
+  else
+    echo "tmux not installed - running opencode directly (no isolation)"
+    command opencode "$@"
+  fi
+}
+
+# List all opencode tmux sessions
+oc-list() {
+  tmux ls 2>/dev/null | grep "^oc-" || echo "No opencode sessions"
+}
+
+# Kill all opencode tmux sessions
+oc-killall() {
+  tmux ls 2>/dev/null | grep "^oc-" | cut -d: -f1 | xargs -r -n1 tmux kill-session -t
+  echo "All opencode sessions terminated"
+}
+SHELLEOF
+        echo "✅ Shell functions added"
+        echo "   Run 'source $SHELL_RC' or restart your terminal to use 'oc' command"
+    fi
+else
+    echo "ℹ️  No .zshrc or .bashrc found (skipping shell function installation)"
 fi
 
 echo ""
 echo "✅ Goost installation/update complete!"
 echo ""
-echo "Available commands:"
+echo "Recommended usage:"
+echo "  oc                 - Launch opencode in tmux (crash isolation + tab titles)"
+echo "  oc-list            - List running opencode sessions"
+echo "  oc-killall         - Terminate all opencode sessions"
+echo ""
+echo "Available slash commands:"
 echo "  /contract          - Interactive contract creation"
 echo "  /contract-quick    - Quick contract from task description"
 echo "  /openspec-apply    - Implement OpenSpec change under contract"
@@ -172,5 +256,5 @@ echo "  🌍 Earth   - Ready for input"
 echo "  🔄 Loop    - Doom loop detected"
 echo "  🎤 Mic     - Needs user approval"
 echo ""
-echo "👉 Restart OpenCode to apply changes!"
+echo "👉 Restart your shell and OpenCode to apply changes!"
 echo ""
