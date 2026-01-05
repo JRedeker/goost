@@ -93,7 +93,7 @@ const trace = (msg: string): void => {
 const updateUI = (state: PluginState, projectName: string): void => {
   trace(`updateUI: status=${state.status}, activeSubAgents=${state.activeSubAgents}`)
   updateTabColor(state.status)
-  const statusText = getStatusText(state.status, state.activeSubAgents, state.contract.active)
+  const statusText = `${state.icon} ${getStatusText(state.status, state.activeSubAgents, state.contract.active)}`
   updateTitle(projectName, statusText, state.contract.progress, state.openSpecChange)
 }
 
