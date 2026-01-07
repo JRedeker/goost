@@ -702,14 +702,23 @@ plugin/
 
 ## 💡 Tips for Success
 
-- **Be Specific:** "No ESLint errors" is better than "Code is clean".
-- **Keep it Tight:** 3-5 criteria is the sweet spot.
-- **Use Checkpoints:** For tasks >30 mins, break it into phases.
+- Define concrete, measurable success criteria
+- Include verification steps in your criteria
+- Use `/contract-quick` for simple tasks, `/contract` for complex ones
+- Void and restart if you realize the objective was wrong
+
+## 🦆 Why "Goost"?
+
+¯\\\_(ツ)\_/¯
+
+**Goose** + **Boost** = **Goost**
+
+It's a turbo-charged goose that keeps your AI agents honest and on task. Or something like that.
 
 ## ⚖️ License
 
 MIT © [JRedeker](https://github.com/JRedeker)
 
 <p align="center">
-  <sub><strong>Goost</strong> = <strong>Go</strong>al B<strong>oost</strong> — Because sometimes you need a boost to finish the job.</sub>
+  <sub>Built with ❤️ and a bit of confusion about the name.</sub>
 </p>
