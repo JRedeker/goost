@@ -187,7 +187,7 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | | `/contract-quick` | Quick contract for simpler tasks |
 | **Planning** | `/openspec-proposal` | Create new change proposal (design phase) |
 | | `/openspec-clarify` | Socratic questions for acceptance criteria |
-| | `/openspec-research` | Research and validate architectural decisions |
+| | `/openspec-research` | Research and validate architectural decisions; identify simpler alternatives |
 | | `/openspec-prep` | Pre-implementation gap analysis |
 | | `/openspec-status` | Fast overview of project state |
 | | `/openspec-roadmap` | Tiered progress dashboard |
@@ -274,7 +274,7 @@ openspec archive <id>      # Archive completed change
 | Command | When to Use | Why |
 |---------|------------|-----|
 | `/openspec-clarify` | Right after `/openspec-proposal` or after `/openspec-prep` | Uses Socratic questioning to uncover hidden assumptions, edge cases, and ambiguities in requirements before implementation |
-| `/openspec-research` | After `/openspec-proposal`, before `/openspec-prep` | Validates architectural decisions using Context7 docs and web research; findings are automatically incorporated into proposal/design/tasks |
+| `/openspec-research` | After `/openspec-proposal`, before `/openspec-prep` | Validates architectural decisions using Context7 docs and web research; actively searches for simpler alternatives; findings are automatically incorporated into proposal/design/tasks |
 
 #### Optimal Planning Flow
 
@@ -290,9 +290,11 @@ For simpler changes:
 
 **Why research before prep?**
 - Research validates the proposed architecture against best practices
+- **Actively identifies simpler alternatives** that meet the same acceptance criteria
 - Findings update the design.md and spec deltas automatically  
 - Prep can then use validated patterns when filling gaps
-- Prevents building implementation details on flawed foundations
+- Prevents building implementation details on flawed or over-engineered foundations
+- Questions complexity and recommends boring, proven solutions
 
 **Why clarify early?**
 - Surfaces requirement ambiguities before detailed planning
