@@ -52,6 +52,13 @@ For each architectural decision identified, formulate specific research question
 - "What are the performance characteristics of [approach]?"
 - "How does [solution] scale to [expected usage]?"
 
+**Simplicity/Complexity Analysis:**
+- "Could [approach] be simplified without sacrificing the acceptance criteria?"
+- "Is there a simpler, more maintainable pattern that achieves the same requirements?"
+- "Are we over-engineering [solution] for the actual use case?"
+- "What's the simplest proven approach for [requirement]?"
+- "Does [library/framework] provide built-in functionality that eliminates custom implementation?"
+
 **Step 4: Spawn Research Sub-Agents**
 
 For EACH research question, spawn a dedicated sub-agent using the Task tool. Design your sub-agent prompts to:
@@ -99,7 +106,8 @@ YOUR TASK:
 1. Use Context7 to look up authoritative documentation for [technology/pattern]
 2. Use web search to find current best practices and industry consensus
 3. Identify any red flags, anti-patterns, or security concerns
-4. Provide a clear validation result and specific recommendation
+4. Evaluate if a simpler approach could achieve the same acceptance criteria
+5. Provide a clear validation result and specific recommendation
 
 Return your findings in the structured format specified above.
 ```
@@ -133,6 +141,9 @@ After all sub-agents complete, synthesize their findings into a comprehensive re
 ## Validated Decisions ✅
 [Architectural choices that are confirmed as best practices]
 
+## Simplification Opportunities 🎯
+[Simpler approaches that achieve the same acceptance criteria]
+
 ## Concerns Identified ⚠️
 [Decisions that have trade-offs or require attention]
 
@@ -144,6 +155,7 @@ After all sub-agents complete, synthesize their findings into a comprehensive re
 ### [Decision Area 1]
 **Current Spec Decision:** [what the spec says]
 **Research Findings:** [synthesized findings from sub-agents]
+**Simplicity Analysis:** [could this be simpler? what's the simplest proven approach?]
 **Recommendation:** [specific action item]
 **Sources:** [consolidated source list]
 
@@ -152,6 +164,7 @@ After all sub-agents complete, synthesize their findings into a comprehensive re
 
 ## Action Items
 - [ ] [Specific change needed based on research]
+- [ ] [Simplification to consider]
 - [ ] [Additional investigation required]
 - [ ] [Documentation to add]
 
@@ -288,21 +301,24 @@ After applying updates, provide a clear summary:
 8. **Always update files** - research without application is incomplete
 9. **Preserve existing content** - only modify sections related to research findings
 10. **Document research sources** - add source citations in updated files
+11. **Question complexity** - actively search for simpler alternatives that meet the same acceptance criteria
+12. **Prefer boring solutions** - recommend proven, simple patterns over novel complex ones unless complexity is justified
 
 **Example Invocation:**
 
 ```
 User: /openspec-research contract-system
 Agent: Reading openspec/specs/contract-system/spec.md...
-Agent: Identified 5 architectural decisions to validate:
+Agent: Identified 6 architectural decisions to validate:
 1. Git commit automation approach
 2. Conventional commit message derivation
 3. Sub-agent contract context propagation
 4. Failure escalation protocol
 5. OSC escape sequence usage for terminal integration
+6. Simplicity: Could the contract state management be simpler?
 
-Spawning 5 research sub-agents in parallel...
-[Makes 5 Task tool calls in one response]
+Spawning 6 research sub-agents in parallel...
+[Makes 6 Task tool calls in one response]
 [Waits for results]
 [Synthesizes findings]
 [Creates change proposal with spec deltas based on findings]
@@ -314,6 +330,7 @@ Created change proposal: openspec/changes/harden-contract-system/
 - Added OSC escape sequence fallback handling per terminal compatibility research
 - Updated git commit approach to match conventional-commits specification
 - Added sub-agent failure recovery patterns from distributed systems best practices
+- SIMPLIFIED: Replaced custom state serialization with built-in JSON.stringify (reduces code by 40 lines)
 ```
 
 **Output:**
