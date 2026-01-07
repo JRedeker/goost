@@ -186,6 +186,8 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | **Contract** | `/contract` | Establish formal contract with success criteria |
 | | `/contract-quick` | Quick contract for simpler tasks |
 | **Planning** | `/openspec-proposal` | Create new change proposal (design phase) |
+| | `/openspec-clarify` | Socratic questions for acceptance criteria |
+| | `/openspec-research` | Research and validate architectural decisions; identify simpler alternatives |
 | | `/openspec-prep` | Pre-implementation gap analysis |
 | | `/openspec-status` | Fast overview of project state |
 | | `/openspec-roadmap` | Tiered progress dashboard |
@@ -217,11 +219,15 @@ openspec archive <id>      # Archive completed change
 │         ↓                                                            │
 │  2. /openspec-proposal        Create change proposal                 │
 │         ↓                     (proposal.md, tasks.md, spec deltas)   │
-│  3. openspec validate --strict  Validate structure                   │
+│  3. /openspec-clarify <id>    Socratic questions for requirements    │
+│         ↓                     (optional but recommended)             │
+│  4. /openspec-research <id>   Validate architectural decisions       │
+│         ↓                     (optional, uses Context7 + web search) │
+│  5. openspec validate --strict  Validate structure                   │
 │         ↓                                                            │
-│  4. /openspec-prep <id>       Fill gaps in AC, scenarios, tasks      │
+│  6. /openspec-prep <id>       Fill gaps in AC, scenarios, tasks      │
 │         ↓                                                            │
-│  5. [USER APPROVAL]           Review and approve proposal            │
+│  7. [USER APPROVAL]           Review and approve proposal            │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
                                   ↓
@@ -229,7 +235,7 @@ openspec archive <id>      # Archive completed change
 │                      IMPLEMENTATION PHASE                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  6. /openspec-apply <id>      Implement under contract enforcement   │
+│  8. /openspec-apply <id>      Implement under contract enforcement   │
 │         │                     (tab shows change name while working)  │
 │         │                                                            │
 │         ├── Reads proposal.md, tasks.md, design.md                   │
@@ -262,6 +268,40 @@ openspec archive <id>      # Archive completed change
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+### When to Use Planning Commands
+
+| Command | When to Use | Why |
+|---------|------------|-----|
+| `/openspec-clarify` | Right after `/openspec-proposal` or after `/openspec-prep` | Uses Socratic questioning to uncover hidden assumptions, edge cases, and ambiguities in requirements before implementation |
+| `/openspec-research` | After `/openspec-proposal`, before `/openspec-prep` | Validates architectural decisions using Context7 docs and web research; actively searches for simpler alternatives; findings are automatically incorporated into proposal/design/tasks |
+
+#### Optimal Planning Flow
+
+For complex changes with architectural decisions:
+```
+/openspec-proposal → /openspec-clarify → /openspec-research → /openspec-prep
+```
+
+For simpler changes:
+```
+/openspec-proposal → /openspec-prep
+```
+
+**Why research before prep?**
+- Research validates the proposed architecture against best practices
+- **Actively identifies simpler alternatives** that meet the same acceptance criteria
+- Findings update the design.md and spec deltas automatically  
+- Prep can then use validated patterns when filling gaps
+- Prevents building implementation details on flawed or over-engineered foundations
+- Questions complexity and recommends boring, proven solutions
+
+**Why clarify early?**
+- Surfaces requirement ambiguities before detailed planning
+- Cheaper to fix assumptions now than during implementation
+- Can run again after prep if gaps remain unclear
+
+---
 
 ### Quick Reference
 
@@ -664,14 +704,23 @@ plugin/
 
 ## 💡 Tips for Success
 
-- **Be Specific:** "No ESLint errors" is better than "Code is clean".
-- **Keep it Tight:** 3-5 criteria is the sweet spot.
-- **Use Checkpoints:** For tasks >30 mins, break it into phases.
+- Define concrete, measurable success criteria
+- Include verification steps in your criteria
+- Use `/contract-quick` for simple tasks, `/contract` for complex ones
+- Void and restart if you realize the objective was wrong
+
+## 🦆 Why "Goost"?
+
+¯\\\_(ツ)\_/¯
+
+**Goose** + **Boost** = **Goost**
+
+It's a turbo-charged goose that keeps your AI agents honest and on task. Or something like that.
 
 ## ⚖️ License
 
 MIT © [JRedeker](https://github.com/JRedeker)
 
 <p align="center">
-  <sub><strong>Goost</strong> = <strong>Go</strong>al B<strong>oost</strong> — Because sometimes you need a boost to finish the job.</sub>
+  <sub>Built with ❤️ and a bit of confusion about the name.</sub>
 </p>

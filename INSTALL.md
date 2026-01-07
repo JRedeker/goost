@@ -115,7 +115,17 @@ cp $GOOST_PATH/.opencode/command/*.md ~/.config/opencode/command/
 This installs:
 - `/contract` - Interactive contract creation
 - `/contract-quick` - Quick contract from description
-- `/openspec-*` - OpenSpec integration commands
+- `/openspec-proposal` - Create change proposals
+- `/openspec-clarify` - Socratic questions for requirements (use after proposal)
+- `/openspec-research` - Validate architecture via Context7/web (use before prep)
+- `/openspec-prep` - Fill gaps in acceptance criteria
+- `/openspec-apply` - Implement under contract
+- `/openspec-review` - Post-implementation code review
+- `/openspec-harden` - Production-readiness analysis
+- `/openspec-status` - Project state overview
+- `/openspec-roadmap` - Progress dashboard
+- `/openspec-audit` - Drift detection
+- `/openspec-archive` - Archive completed changes
 
 ### Step 5: Install Rules
 
