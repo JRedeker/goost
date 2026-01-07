@@ -19,6 +19,7 @@ import {
   DOOM_LOOP_THRESHOLD,
   OPENSPEC_COMMAND_PATTERN,
   OPENSPEC_CHANGE_PATH_PATTERN,
+  OPENSPEC_USER_REQUEST_PATTERN,
 } from "./types"
 
 // =============================================================================
@@ -156,19 +157,29 @@ export const parseContractStatus = (text: string): string => {
 
 /**
  * Extract OpenSpec change name from message content.
- * Looks for /openspec-xxx command arguments and openspec/changes/<id>/ paths.
+ *
+ * Detection priority:
+ * 1. <UserRequest>change-id</UserRequest> - expanded slash command template
+ * 2. /openspec-xxx change-id - direct command usage (if not expanded)
+ * 3. openspec/changes/<id>/ - path references in assistant messages
  *
  * @param text - Message content to analyze
  * @returns Change name or null if not found
  */
 export const extractOpenSpecChange = (text: string): string | null => {
-  // First, check for direct command usage: /openspec-xxx <change-id>
+  // Primary: Check for expanded slash command template <UserRequest>change-id</UserRequest>
+  const userRequestMatch = text.match(OPENSPEC_USER_REQUEST_PATTERN)
+  if (userRequestMatch) {
+    return userRequestMatch[1]
+  }
+
+  // Secondary: Check for direct command usage: /openspec-xxx <change-id>
   const commandMatch = text.match(OPENSPEC_COMMAND_PATTERN)
   if (commandMatch) {
     return commandMatch[1]
   }
 
-  // Fallback: check for openspec/changes/<id>/ path references
+  // Tertiary: Check for openspec/changes/<id>/ path references
   const pathMatch = text.match(OPENSPEC_CHANGE_PATH_PATTERN)
   if (pathMatch) {
     return pathMatch[1]

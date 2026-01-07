@@ -126,6 +126,7 @@ export const CONTRACT_PATTERNS = {
 export const EVENT_TYPES = {
   SESSION_STATUS: "session.status",
   SESSION_DELETED: "session.deleted",
+  SESSION_UPDATED: "session.updated",
   MESSAGE_UPDATED: "message.updated",
   SESSION_COMPACTED: "session.compacted",
   PERMISSION_UPDATED: "permission.updated",
@@ -213,6 +214,19 @@ export const TaskOutputSchema = z.object({
 
 export type TaskOutput = z.infer<typeof TaskOutputSchema>
 
+/**
+ * Schema for session.updated event properties.
+ * This event fires when session metadata changes, including title.
+ */
+export const SessionUpdatedPropsSchema = z.object({
+  info: z.object({
+    id: z.string(),
+    title: z.string(),
+  }),
+})
+
+export type SessionUpdatedProps = z.infer<typeof SessionUpdatedPropsSchema>
+
 // =============================================================================
 // Failure Detection
 // =============================================================================
@@ -238,3 +252,11 @@ export const OPENSPEC_COMMAND_PATTERN = /\/openspec-\w+\s+([^\s]+)/i
  * Matches openspec/changes/<change-id>/ paths.
  */
 export const OPENSPEC_CHANGE_PATH_PATTERN = /openspec\/changes\/([^/\s]+)\//
+
+/**
+ * Pattern to detect OpenSpec change from expanded slash command template.
+ * Matches <UserRequest>\s*change-id\s*</UserRequest> format.
+ * The change-id is typically a kebab-case identifier.
+ */
+export const OPENSPEC_USER_REQUEST_PATTERN =
+  /<UserRequest>\s*([a-zA-Z0-9][\w-]*)\s*<\/UserRequest>/i

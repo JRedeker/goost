@@ -270,8 +270,14 @@ export const updateTabColor = (_status: GoostStatus): void => {
 
 /**
  * Update terminal tab title.
+ *
+ * Format: "projectName | statusEmoji changeName [progress]"
+ * - projectName and statusEmoji are always shown
+ * - openSpecChange replaces the status text when active
+ * - progress is shown in brackets when available
+ *
  * @param projectName - Project name
- * @param statusText - Status text for title
+ * @param statusText - Status text for title (includes emoji)
  * @param contractProgress - Optional contract progress (e.g., "1/3")
  * @param openSpecChange - Optional OpenSpec change name
  * @sideeffect Writes OSC sequence to terminal
@@ -282,14 +288,20 @@ export const updateTitle = (
   contractProgress: string | null,
   openSpecChange: string | null
 ): void => {
-  let title = `${projectName} | ${statusText}`
+  // Extract just the emoji from statusText (first character/emoji)
+  const emoji = statusText.split(" ")[0] || ""
+
+  let title: string
+  if (openSpecChange) {
+    // When openSpecChange is active: "projectName | emoji changeName"
+    title = `${projectName} | ${emoji} ${openSpecChange}`
+  } else {
+    // Default: "projectName | emoji statusText"
+    title = `${projectName} | ${statusText}`
+  }
 
   if (contractProgress) {
     title += ` [${contractProgress}]`
-  }
-
-  if (openSpecChange) {
-    title += ` (${openSpecChange})`
   }
 
   setTabTitle(title)

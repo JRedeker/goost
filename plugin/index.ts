@@ -32,6 +32,7 @@ import {
   EVENT_TYPES,
   TOOL_NAMES,
   SessionStatusPropsSchema,
+  SessionUpdatedPropsSchema,
   MessageUpdatedPropsSchema,
   TaskArgsSchema,
   TaskOutputSchema,
@@ -48,7 +49,6 @@ import {
   extractCriterionFromTask,
   recordSubAgentFailure,
   isDoomLoopReached,
-  extractOpenSpecChange,
 } from "./contract"
 
 // =============================================================================
@@ -71,7 +71,7 @@ const log = (msg: string): void => {
 }
 
 /**
- * Trace log - always outputs to stderr for debugging UI issues.
+ * Trace log for detailed debugging.
  * Only outputs when GOOST_TRACE=1 environment variable is set.
  */
 const trace = (msg: string): void => {
@@ -91,7 +91,7 @@ const trace = (msg: string): void => {
  * @param projectName - Project name for title (fallback if no openSpecChange)
  */
 const updateUI = (state: PluginState, projectName: string): void => {
-  trace(`updateUI: status=${state.status}, activeSubAgents=${state.activeSubAgents}`)
+  trace(`updateUI: status=${state.status}, openSpecChange=${state.openSpecChange}`)
   updateTabColor(state.status)
   const statusText = `${state.icon} ${getStatusText(state.status, state.activeSubAgents, state.contract.active)}`
   updateTitle(projectName, statusText, state.contract.progress, state.openSpecChange)
@@ -133,11 +133,37 @@ const handleSessionStatus: EventHandler = (properties, ctx) => {
 }
 
 /**
+ * Handle session.updated event.
+ * Extracts OpenSpec change name from session title set by OpenCode.
+ * The title format is typically "Preparing OpenSpec <change-name>" or similar.
+ */
+const handleSessionUpdated: EventHandler = (properties, ctx) => {
+  const parsed = SessionUpdatedPropsSchema.safeParse(properties)
+  if (!parsed.success) {
+    return ctx.state
+  }
+
+  const { info } = parsed.data
+  const title = info.title
+
+  // Extract OpenSpec change name from session title
+  // Matches patterns like "Preparing OpenSpec add-feature" or "Implementing add-feature"
+  const match = title.match(/(?:OpenSpec|Implementing|Applying)\s+([a-zA-Z0-9][\w-]*)/i)
+  if (match && match[1]) {
+    const openSpecChange = match[1]
+    // Only update if different from current
+    if (openSpecChange !== ctx.state.openSpecChange) {
+      ctx.log(`OpenSpec change detected from session title: ${openSpecChange}`)
+      return { ...ctx.state, openSpecChange }
+    }
+  }
+
+  return ctx.state
+}
+
+/**
  * Handle message.updated event.
- * Processes messages for contract state changes and OpenSpec tracking.
- *
- * - Assistant messages: Full processing (contract, status, OpenSpec)
- * - User messages: OpenSpec change detection only (for /openspec-xxx commands)
+ * Processes assistant messages for contract state changes.
  */
 const handleMessageUpdated: EventHandler = (properties, ctx) => {
   const parsed = MessageUpdatedPropsSchema.safeParse(properties)
@@ -147,27 +173,14 @@ const handleMessageUpdated: EventHandler = (properties, ctx) => {
   }
 
   const { info } = parsed.data
+
   if (!info?.parts) {
     return ctx.state
   }
 
   let newState = ctx.state
 
-  // Process user messages for OpenSpec command detection only
-  if (info.role === "user") {
-    for (const part of info.parts) {
-      if (part.type === "text" && part.text) {
-        const openSpecChange = extractOpenSpecChange(part.text)
-        if (openSpecChange) {
-          ctx.log(`OpenSpec change detected from user command: ${openSpecChange}`)
-          newState = { ...newState, openSpecChange }
-        }
-      }
-    }
-    return newState
-  }
-
-  // Process assistant messages for full contract/status tracking
+  // Process assistant messages for contract/status tracking
   if (info.role === "assistant") {
     for (const part of info.parts) {
       if (part.type === "text" && part.text) {
@@ -228,6 +241,7 @@ const handleSessionDeleted: EventHandler = (_properties, ctx) => {
  */
 const eventHandlers: Partial<Record<string, EventHandler>> = {
   [EVENT_TYPES.SESSION_STATUS]: handleSessionStatus,
+  [EVENT_TYPES.SESSION_UPDATED]: handleSessionUpdated,
   [EVENT_TYPES.SESSION_DELETED]: handleSessionDeleted,
   [EVENT_TYPES.MESSAGE_UPDATED]: handleMessageUpdated,
   [EVENT_TYPES.SESSION_COMPACTED]: handleSessionCompacted,
@@ -242,8 +256,7 @@ const eventHandlers: Partial<Record<string, EventHandler>> = {
 const GoostStatusPlugin: Plugin = async ({ directory }) => {
   // Extract project name from directory
   const projectName = getProjectName(directory || process.cwd())
-  log(`Project name: ${projectName}`)
-  log(`TTY mode: isTmux=${isTmux()}`)
+  log(`Plugin loaded: project=${projectName}, isTmux=${isTmux()}`)
 
   // Initialize state
   let state = createInitialState()
