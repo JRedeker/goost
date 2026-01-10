@@ -30,7 +30,7 @@ import {
   type PluginState,
   type GoostStatus,
   EVENT_TYPES,
-  TOOL_NAMES,
+  isTaskTool,
   SessionStatusPropsSchema,
   SessionUpdatedPropsSchema,
   MessageUpdatedPropsSchema,
@@ -267,6 +267,10 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     updateUI(state, projectName)
   }
 
+  // Set initial title immediately on plugin load
+  updateUI(state, projectName)
+  log("Initial UI state set")
+
   // ==========================================================================
   // Process Exit Handlers
   // ==========================================================================
@@ -314,7 +318,8 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     event: async (input): Promise<void> => {
       try {
         const { event } = input
-        trace(`event: type="${event.type}"`)
+        // Always log events when DEBUG is enabled (not just TRACE)
+        log(`event: type="${event.type}"`)
         const handler = eventHandlers[event.type]
 
         if (handler) {
@@ -333,10 +338,9 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     // Watch for task tool calls (sub-agent spawning)
     // Before: show moon because sub-agent is about to run (we'll be waiting)
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
-      trace(`tool.execute.before: tool="${input.tool}" (expecting "${TOOL_NAMES.TASK}")`)
-      // Debug: log all tool executions
-      if (input.tool !== TOOL_NAMES.TASK) {
-        trace(`Ignoring non-task tool: ${input.tool}`)
+      // Log ALL tool executions when DEBUG is enabled
+      log(`tool.execute.before: tool="${input.tool}"`)
+      if (!isTaskTool(input.tool)) {
         return
       }
 
@@ -378,8 +382,7 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
     // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output): Promise<void> => {
-      if (input.tool !== TOOL_NAMES.TASK) {
-        trace(`Ignoring non-task tool in after: ${input.tool}`)
+      if (!isTaskTool(input.tool)) {
         return
       }
 

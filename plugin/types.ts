@@ -135,10 +135,18 @@ export const EVENT_TYPES = {
 
 /**
  * Tool name constants to avoid magic strings.
+ * OpenCode may use either "task" or "mcp_task" depending on version/context.
  */
 export const TOOL_NAMES = {
   TASK: "task",
+  TASK_ALT: "mcp_task",
 } as const
+
+/**
+ * Check if a tool name is a Task tool (sub-agent spawning).
+ */
+export const isTaskTool = (toolName: string): boolean =>
+  toolName === TOOL_NAMES.TASK || toolName === TOOL_NAMES.TASK_ALT
 
 /**
  * Contract status block patterns.
