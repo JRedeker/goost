@@ -1,16 +1,45 @@
 /**
  * Goost Plugin - Terminal Utilities
  *
- * Handles OSC escape sequences for Windows Terminal tab color and title.
- * Supports tmux passthrough for escape sequences.
+ * Handles terminal tab title updates via multiple strategies:
+ * 1. Direct /dev/tty access (most reliable, bypasses TUI buffering)
+ * 2. tmux rename-window command (when in tmux)
+ * 3. OSC escape sequences to stdout (fallback)
  *
- * IMPORTANT: OpenCode plugins run with stdout piped for tool output capture.
- * To write directly to the terminal, we must use the parent process's TTY
- * via /proc/<ppid>/fd/1 on Linux.
+ * Research: See tech-notes/Terminal Title Update Technical Reference
  */
 
 import * as fs from "fs"
+import { execSync } from "child_process"
 import { type GoostStatus } from "./types"
+
+// =============================================================================
+// Debug Logging
+// =============================================================================
+
+const DEBUG = process.env.GOOST_DEBUG === "1"
+
+/**
+ * Log debug message to file for debugging plugin issues.
+ * Always logs to file regardless of DEBUG setting.
+ */
+const logToFile = (msg: string): void => {
+  try {
+    fs.appendFileSync("/tmp/goost-debug.log", `${new Date().toISOString()} ${msg}\n`)
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Log debug message - to file and stderr if DEBUG is enabled.
+ */
+const log = (msg: string): void => {
+  logToFile(msg)
+  if (DEBUG) {
+    console.error(`[Goost:terminal] ${msg}`)
+  }
+}
 
 // =============================================================================
 // Environment Detection
@@ -22,224 +51,224 @@ import { type GoostStatus } from "./types"
  */
 export const isTmux = (): boolean => !!process.env.TMUX
 
-// =============================================================================
-// TTY Access
-// =============================================================================
-
-/** Cached file descriptor for the parent's TTY, or null if unavailable */
-let ttyFd: number | null = null
-
-/** Flag to prevent repeated failed attempts to open TTY */
-let ttyOpenAttempted = false
-
 /**
- * Find the TTY file descriptor by walking up the process tree.
- * Checks fd/0 (stdin), fd/1 (stdout), fd/2 (stderr) of process and ancestors.
- *
- * @returns Path to TTY (e.g., /dev/pts/11) or null if not found
+ * Check if /dev/tty is accessible for direct terminal writes.
  */
-const findTtyPath = (): string | null => {
-  let pid = process.pid
-  const checkedPids = new Set<number>()
-
-  // Check up to 5 levels up the process tree
-  for (let i = 0; i < 5; i++) {
-    if (!pid || checkedPids.has(pid)) break
-    checkedPids.add(pid)
-
-    // Check standard FDs for this PID
-    for (const fd of [0, 1, 2]) {
-      try {
-        const linkPath = `/proc/${pid}/fd/${fd}`
-        if (fs.existsSync(linkPath)) {
-          const target = fs.readlinkSync(linkPath)
-          // Look for pseudo-terminal (pts) or virtual console (tty)
-          if (target.startsWith("/dev/pts/") || target.startsWith("/dev/tty")) {
-            return target
-          }
-        }
-      } catch {
-        // Ignore readlink errors (permission denied, etc.)
-      }
-    }
-
-    // Move to parent process
-    try {
-      const statPath = `/proc/${pid}/stat`
-      if (fs.existsSync(statPath)) {
-        const stat = fs.readFileSync(statPath, "utf8")
-        // PID comm state PPID ... (4th field is PPID)
-        // Handle comm potentially containing spaces/parentheses
-        const rightParenIndex = stat.lastIndexOf(")")
-        const afterComm = stat.substring(rightParenIndex + 1).trim()
-        const parts = afterComm.split(" ")
-        const ppid = parseInt(parts[1], 10) // PPID is 2nd field after comm (so index 1)
-
-        if (pid === ppid || ppid === 0) break
-        pid = ppid
-      } else {
-        break
-      }
-    } catch {
-      break
-    }
+const canAccessTty = (): boolean => {
+  try {
+    fs.accessSync("/dev/tty", fs.constants.W_OK)
+    return true
+  } catch {
+    return false
   }
-
-  return null
 }
 
+// Cache TTY availability check
+let ttyAvailable: boolean | null = null
+const isTtyAvailable = (): boolean => {
+  if (ttyAvailable === null) {
+    ttyAvailable = canAccessTty()
+    log(`TTY availability: ${ttyAvailable}`)
+  }
+  return ttyAvailable
+}
+
+// =============================================================================
+// Title Setting Strategies
+// =============================================================================
+
 /**
- * Get a file descriptor for the parent process's TTY.
+ * Strategy 1: Set title via tmux command (most reliable in tmux).
  *
- * OpenCode plugins have stdout piped for tool output capture, so we need
- * to write directly to the parent's TTY for OSC sequences to work.
+ * Uses `tmux rename-window` which directly updates the window name
+ * without needing passthrough escape sequences.
  *
- * @returns File descriptor number, or null if TTY unavailable
+ * @returns true if successful
  */
-const getTtyFd = (): number | null => {
-  if (ttyFd !== null) {
-    return ttyFd
+const setTitleViaTmux = (title: string): boolean => {
+  if (!isTmux()) {
+    return false
   }
-
-  if (ttyOpenAttempted) {
-    return null
-  }
-
-  ttyOpenAttempted = true
 
   try {
-    const ttyPath = findTtyPath()
-    if (ttyPath) {
-      // Use "w" mode (write only) - non-blocking open
-      ttyFd = fs.openSync(ttyPath, "w")
-      return ttyFd
-    }
-  } catch {
-    // TTY detection failed
-  }
-
-  // Fallback: Try parent's FD 1 via procfs (legacy method)
-  try {
-    // On Linux, access parent's stdout via /proc/<ppid>/fd/1
-    const parentStdout = `/proc/${process.ppid}/fd/1`
-    ttyFd = fs.openSync(parentStdout, "w")
-    return ttyFd
-  } catch {
-    // Parent TTY not accessible
-    return null
+    // Escape double quotes and special shell characters
+    const safeTitle = title.replace(/"/g, '\\"').replace(/\$/g, "\\$")
+    execSync(`tmux rename-window "${safeTitle}"`, {
+      stdio: "ignore",
+      timeout: 1000,
+    })
+    log(`setTitleViaTmux: SUCCESS - "${title}"`)
+    return true
+  } catch (error) {
+    log(`setTitleViaTmux: FAILED - ${error}`)
+    return false
   }
 }
 
 /**
- * Close the TTY file descriptor if open.
- * Called during cleanup to release resources.
+ * Strategy 2: Write OSC sequence directly to /dev/tty.
+ *
+ * Bypasses stdout buffering and TUI interception by writing
+ * directly to the controlling terminal.
+ *
+ * @returns true if successful
  */
-const closeTtyFd = (): void => {
-  if (ttyFd !== null) {
-    try {
-      fs.closeSync(ttyFd)
-    } catch {
-      // Ignore close errors
-    }
-    ttyFd = null
+const setTitleViaTty = (title: string): boolean => {
+  if (!isTtyAvailable()) {
+    return false
+  }
+
+  try {
+    const sequence = `\x1b]0;${title}\x07`
+    const fd = fs.openSync("/dev/tty", "w")
+    fs.writeSync(fd, sequence)
+    fs.closeSync(fd)
+    log(`setTitleViaTty: SUCCESS - "${title}"`)
+    return true
+  } catch (error) {
+    log(`setTitleViaTty: FAILED - ${error}`)
+    // Mark TTY as unavailable to avoid repeated failures
+    ttyAvailable = false
+    return false
   }
 }
 
-// =============================================================================
-// OSC Sequence Utilities
-// =============================================================================
-
 /**
- * Write OSC escape sequence to the terminal with tmux passthrough support.
+ * Strategy 3: Write OSC sequence to stdout with tmux passthrough.
  *
- * This function writes directly to the parent process's TTY to bypass
- * OpenCode's stdout capture. Falls back to process.stdout if TTY is unavailable.
+ * This is the original approach - may not work if OpenCode's TUI
+ * intercepts stdout, but worth trying as a fallback.
  *
- * When running inside tmux, escape sequences are wrapped in DCS passthrough:
+ * When running inside tmux, escape sequences must be wrapped in DCS passthrough:
  * \x1bPtmux;\x1b<escaped_sequence>\x1b\\
- * Where <escaped_sequence> has all ESC (\x1b) characters doubled.
  *
- * @param sequence - The OSC escape sequence to write
- * @sideeffect Writes to terminal (parent's TTY or stdout)
+ * @returns true (always, since we can't verify success)
  */
-export const writeOSC = (sequence: string): void => {
+const setTitleViaStdout = (title: string): boolean => {
   try {
-    let output: string
+    const sequence = `\x1b]0;${title}\x07`
+
     if (isTmux()) {
       // tmux passthrough: wrap sequence and double all ESC characters
       const escaped = sequence.replace(/\x1b/g, "\x1b\x1b")
-      output = `\x1bPtmux;${escaped}\x1b\\`
+      process.stdout.write(`\x1bPtmux;${escaped}\x1b\\`)
     } else {
-      output = sequence
+      process.stdout.write(sequence)
     }
 
-    // Try writing to parent's TTY first (bypasses OpenCode's stdout capture)
-    const fd = getTtyFd()
-    if (fd !== null) {
-      fs.writeSync(fd, output)
-    } else {
-      // Fallback to stdout (may not work if piped, but worth trying)
-      process.stdout.write(output)
-    }
-  } catch {
-    // Silently ignore write errors (e.g., TTY closed, stdout closed)
+    log(`setTitleViaStdout: ATTEMPTED - "${title}" (in tmux: ${isTmux()})`)
+    return true
+  } catch (error) {
+    log(`setTitleViaStdout: FAILED - ${error}`)
+    return false
   }
-}
-
-/**
- * Set Windows Terminal tab color using OSC 9;9.
- * This is a Windows Terminal proprietary extension.
- * @param color - Hex color string (e.g., "#FF0000") or "0" to reset
- * @sideeffect Writes OSC sequence to terminal
- */
-/*
-const setTabColor = (color: string): void => {
-  if (color === "0") {
-    writeOSC("\x1b]9;9;0\x07")
-  } else if (color && /^#[0-9A-Fa-f]{6}$/.test(color)) {
-    writeOSC(`\x1b]9;9;${color}\x07`)
-  }
-}
-*/
-
-/**
- * Reset Windows Terminal tab color to default.
- * @sideeffect Writes OSC sequence to terminal
- */
-const resetTabColor = (): void => {
-  writeOSC("\x1b]9;9;0\x07")
-}
-
-/**
- * Set window/tab title using OSC 0 (standard xterm title).
- * @param title - The title string to display
- * @sideeffect Writes OSC sequence to terminal
- */
-const setTabTitle = (title: string): void => {
-  writeOSC(`\x1b]0;${title}\x07`)
-}
-
-/**
- * Reset tab title to default.
- * @sideeffect Writes OSC sequence to terminal
- */
-const resetTabTitle = (): void => {
-  writeOSC(`\x1b]0;\x07`)
-}
-
-/**
- * Full cleanup - reset both title and color, close TTY handle.
- * Call this on process exit to restore terminal state.
- * @sideeffect Writes to terminal, closes file descriptor
- */
-export const cleanupTerminal = (): void => {
-  resetTabTitle()
-  resetTabColor()
-  closeTtyFd()
 }
 
 // =============================================================================
-// Tab Title Assembly
+// Title Management
+// =============================================================================
+
+/**
+ * Set the terminal/pane title using all applicable methods.
+ *
+ * In tmux on Windows Terminal, we need BOTH:
+ * 1. tmux rename-window - updates tmux status bar
+ * 2. OSC sequence - updates Windows Terminal tab title
+ *
+ * These are not mutually exclusive - we want both to succeed.
+ *
+ * @param title - The title to set
+ */
+const setTitle = (title: string): void => {
+  log(`setTitle: "${title}"`)
+
+  // In tmux: do BOTH tmux rename AND OSC sequence
+  // tmux rename-window updates the tmux status bar
+  // OSC sequence (via passthrough) updates Windows Terminal tab
+  if (isTmux()) {
+    setTitleViaTmux(title)
+    // Also send OSC via TTY or stdout passthrough for Windows Terminal
+    if (!setTitleViaTty(title)) {
+      setTitleViaStdout(title)
+    }
+    return
+  }
+
+  // Not in tmux: try TTY first, then stdout
+  if (setTitleViaTty(title)) {
+    return
+  }
+
+  setTitleViaStdout(title)
+}
+
+/**
+ * Reset the terminal title to empty.
+ */
+const resetTitle = (): void => {
+  log("resetTitle")
+
+  // In tmux: reset BOTH tmux window name AND send OSC for Windows Terminal
+  if (isTmux()) {
+    try {
+      execSync('tmux rename-window ""', { stdio: "ignore", timeout: 1000 })
+    } catch {
+      // Continue anyway
+    }
+
+    // Also send OSC via TTY or stdout passthrough for Windows Terminal
+    if (isTtyAvailable()) {
+      try {
+        const fd = fs.openSync("/dev/tty", "w")
+        fs.writeSync(fd, "\x1b]0;\x07")
+        fs.closeSync(fd)
+      } catch {
+        // Try stdout passthrough
+        try {
+          process.stdout.write("\x1bPtmux;\x1b\x1b]0;\x07\x1b\\")
+        } catch {
+          // Ignore
+        }
+      }
+    } else {
+      try {
+        process.stdout.write("\x1bPtmux;\x1b\x1b]0;\x07\x1b\\")
+      } catch {
+        // Ignore
+      }
+    }
+    return
+  }
+
+  // Not in tmux: try TTY first, then stdout
+  if (isTtyAvailable()) {
+    try {
+      const fd = fs.openSync("/dev/tty", "w")
+      fs.writeSync(fd, "\x1b]0;\x07")
+      fs.closeSync(fd)
+      return
+    } catch {
+      // Continue to fallback
+    }
+  }
+
+  try {
+    process.stdout.write("\x1b]0;\x07")
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Full cleanup - reset title.
+ * Call this on process exit to restore terminal state.
+ */
+export const cleanupTerminal = (): void => {
+  resetTitle()
+}
+
+// =============================================================================
+// Public API
 // =============================================================================
 
 /**
@@ -250,8 +279,7 @@ export const cleanupTerminal = (): void => {
 export const getProjectName = (directory: string): string => {
   try {
     const parts = directory.split("/")
-    const projectName = parts[parts.length - 1] || "Unknown"
-    return projectName
+    return parts[parts.length - 1] || "Unknown"
   } catch {
     return "Unknown"
   }
@@ -259,28 +287,21 @@ export const getProjectName = (directory: string): string => {
 
 /**
  * Update terminal tab color based on status.
- * @param status - Current GoostStatus
- * @sideeffect Writes OSC sequence to terminal
+ * Currently a no-op - tab colors are not reliably supported.
  */
 export const updateTabColor = (_status: GoostStatus): void => {
-  // Tab coloration removed as it is not consistently supported in WSL/Windows Terminal
-  // and can cause confusion when it doesn't work.
-  // The emoji status indicators are sufficient.
+  // Tab coloration removed - not consistently supported
 }
 
 /**
  * Update terminal tab title.
  *
- * Format: "projectName | statusEmoji changeName [progress]"
- * - projectName and statusEmoji are always shown
- * - openSpecChange replaces the status text when active
- * - progress is shown in brackets when available
+ * Format: "emoji projectName: status [progress]"
  *
  * @param projectName - Project name
  * @param statusText - Status text for title (includes emoji)
  * @param contractProgress - Optional contract progress (e.g., "1/3")
  * @param openSpecChange - Optional OpenSpec change name
- * @sideeffect Writes OSC sequence to terminal
  */
 export const updateTitle = (
   projectName: string,
@@ -288,21 +309,23 @@ export const updateTitle = (
   contractProgress: string | null,
   openSpecChange: string | null
 ): void => {
-  // Extract just the emoji from statusText (first character/emoji)
-  const emoji = statusText.split(" ")[0] || ""
+  log(
+    `updateTitle: project=${projectName}, status=${statusText}, progress=${contractProgress}, change=${openSpecChange}`
+  )
+
+  const progressText = contractProgress ? ` [${contractProgress}]` : ""
 
   let title: string
   if (openSpecChange) {
-    // When openSpecChange is active: "projectName | emoji changeName"
-    title = `${projectName} | ${emoji} ${openSpecChange}`
+    // Show OpenSpec change name
+    const emoji = statusText.split(" ")[0] || ""
+    title = `${emoji} ${projectName}: ${openSpecChange}${progressText}`
+  } else if (statusText.trim()) {
+    title = `${statusText} ${projectName}${progressText}`
   } else {
-    // Default: "projectName | emoji statusText"
-    title = `${projectName} | ${statusText}`
+    // Idle with no contract - just show project name with emoji
+    title = `🌍 ${projectName}${progressText}`
   }
 
-  if (contractProgress) {
-    title += ` [${contractProgress}]`
-  }
-
-  setTabTitle(title)
+  setTitle(title)
 }
