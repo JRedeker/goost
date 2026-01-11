@@ -207,7 +207,7 @@ const setTitleViaStdout = (title: string): boolean => {
 // =============================================================================
 
 /**
- * Set the terminal/pane title using all applicable methods.
+ * Set terminal/pane title using all applicable methods.
  *
  * In tmux on Windows Terminal:
  * 1. DCS passthrough to pane TTY → Windows Terminal tab
@@ -217,19 +217,21 @@ const setTitleViaStdout = (title: string): boolean => {
  */
 const setTitle = (title: string): void => {
   log(`setTitle: "${title}"`)
+  log(`isTmux=${isTmux()}`)
 
   if (isTmux()) {
     // Update Windows Terminal tab via DCS passthrough to pane TTY
-    setTitleViaPaneTty(title)
+    const success1 = setTitleViaPaneTty(title)
     // Also update tmux status bar
-    setTitleViaTmuxRename(title)
+    const success2 = setTitleViaTmuxRename(title)
+    log(`setTitle: paneTty=${success1}, tmuxRename=${success2}`)
     return
   }
 
   // Not in tmux: try /dev/tty, then stdout
-  if (!setTitleViaTty(title)) {
-    setTitleViaStdout(title)
-  }
+  const ttySuccess = setTitleViaTty(title)
+  const stdoutSuccess = !ttySuccess && setTitleViaStdout(title)
+  log(`setTitle: tty=${ttySuccess}, stdout=${stdoutSuccess}`)
 }
 
 /**

@@ -91,7 +91,9 @@ const trace = (msg: string): void => {
  * @param projectName - Project name for title (fallback if no openSpecChange)
  */
 const updateUI = (state: PluginState, projectName: string): void => {
-  trace(`updateUI: status=${state.status}, openSpecChange=${state.openSpecChange}`)
+  trace(
+    `updateUI: status=${state.status}, icon=${state.icon}, openSpecChange=${state.openSpecChange}`
+  )
   updateTabColor(state.status)
   const statusText = `${state.icon} ${getStatusText(state.status, state.activeSubAgents, state.contract.active)}`
   updateTitle(projectName, statusText, state.contract.progress, state.openSpecChange)
@@ -178,12 +180,21 @@ const handleMessageUpdated: EventHandler = (properties, ctx) => {
     return ctx.state
   }
 
+  // Debug: log message role and content
+  if (DEBUG && info.role) {
+    ctx.log(`message.updated: role=${info.role}, parts=${info.parts.length}`)
+  }
+
   let newState = ctx.state
 
   // Process assistant messages for contract/status tracking
   if (info.role === "assistant") {
     for (const part of info.parts) {
       if (part.type === "text" && part.text) {
+        if (DEBUG) {
+          const textPreview = part.text.substring(0, 100).replace(/\n/g, "\\n")
+          ctx.log(`Processing text part: "${textPreview}..."`)
+        }
         newState = processMessageContent(newState, part.text)
       }
     }

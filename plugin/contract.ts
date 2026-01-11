@@ -205,6 +205,23 @@ export const extractOpenSpecChange = (text: string): string | null => {
  * @returns Detected GoostStatus
  */
 export const detectStatus = (text: string, contractActive: boolean): GoostStatus => {
+  // Debug: trace which markers we're checking
+  const DEBUG = process.env.GOOST_DEBUG === "1"
+  if (DEBUG) {
+    const hasDoom = GOOST_MARKERS.doom_loop.test(text)
+    const hasMic = GOOST_MARKERS.mic.test(text)
+    const hasMoon = GOOST_MARKERS.moon.test(text)
+    const hasRocket = GOOST_MARKERS.rocket.test(text)
+    const hasEarth = GOOST_MARKERS.earth.test(text)
+    const hasWork = GOOST_MARKERS.work.test(text)
+    const hasIdle = GOOST_MARKERS.idle.test(text)
+    if (hasDoom || hasMic || hasMoon || hasRocket || hasEarth || hasWork || hasIdle) {
+      console.error(
+        `[Goost:detectStatus] Markers found - doom:${hasDoom} mic:${hasMic} moon:${hasMoon} rocket:${hasRocket} earth:${hasEarth} work:${hasWork} idle:${hasIdle}`
+      )
+    }
+  }
+
   // Check for explicit goost markers first (doom_loop and mic take priority)
   if (GOOST_MARKERS.doom_loop.test(text)) return "doom_loop"
   if (GOOST_MARKERS.mic.test(text)) return "mic"
@@ -311,19 +328,19 @@ export const processMessageContent = (state: PluginState, content: string): Plug
   }
 
   // Detect and apply status
-  // Only override status if:
-  // 1. There's an explicit [GOOST:*] marker in the content
-  // 2. Contract state changed (fulfilled/voided → earth, activated → work)
-  // 3. Current state is NOT a terminal state (earth/idle)
-  //
-  // This prevents message processing from overriding session-derived terminal states
-  // when the message doesn't contain explicit markers.
+  // Priority: Explicit markers > Contract state changes > Current state
   const detectedStatus = detectStatus(content, newState.contract.active)
-  const isTerminalState = newState.status === "earth" || newState.status === "idle"
   const hasExplicitMarker = Object.values(GOOST_MARKERS).some((pattern) => pattern.test(content))
 
-  // Apply status if: explicit marker, contract ended, or not in terminal state
-  if (hasExplicitMarker || contractEnded || !isTerminalState) {
+  // Always update status if there's an explicit marker
+  // Otherwise, only update if contract ended
+  if (hasExplicitMarker || contractEnded) {
+    const DEBUG = process.env.GOOST_DEBUG === "1"
+    if (DEBUG) {
+      console.error(
+        `[Goost:processMessageContent] Applying status: ${detectedStatus} (explicit=${hasExplicitMarker}, ended=${contractEnded})`
+      )
+    }
     newState = updateStateStatus(newState, detectedStatus)
   }
 
@@ -426,9 +443,7 @@ export const buildPreservationContext = (contract: ContractState): string => {
       : "  No criteria tracked yet"
 
   return `
-\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
-\u2551             CRITICAL: ACTIVE CONTRACT - MUST PRESERVE            \u2551
-\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
 
 ${contract.text}
 
