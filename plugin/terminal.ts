@@ -2,11 +2,12 @@
  * Goost Plugin - Terminal Utilities
  *
  * Handles terminal tab title updates via multiple strategies:
- * 1. Direct /dev/tty access (most reliable, bypasses TUI buffering)
- * 2. tmux rename-window command (when in tmux)
- * 3. OSC escape sequences to stdout (fallback)
+ * 1. tmux pane TTY with DCS passthrough (for Windows Terminal tab)
+ * 2. tmux rename-window command (for tmux status bar)
+ * 3. Direct /dev/tty or stdout (non-tmux fallback)
  *
- * Research: See tech-notes/Terminal Title Update Technical Reference
+ * Key insight: In tmux, we need DCS passthrough (\x1bPtmux;...\x1b\\) written
+ * to the pane's actual TTY (e.g., /dev/pts/6) to reach Windows Terminal.
  */
 
 import * as fs from "fs"
@@ -21,7 +22,6 @@ const DEBUG = process.env.GOOST_DEBUG === "1"
 
 /**
  * Log debug message to file for debugging plugin issues.
- * Always logs to file regardless of DEBUG setting.
  */
 const logToFile = (msg: string): void => {
   try {
@@ -47,30 +47,43 @@ const log = (msg: string): void => {
 
 /**
  * Detect if running inside tmux session.
- * @returns true if TMUX environment variable is set
  */
 export const isTmux = (): boolean => !!process.env.TMUX
 
 /**
- * Check if /dev/tty is accessible for direct terminal writes.
+ * Get the tmux pane's TTY path (e.g., /dev/pts/6).
+ * This is the actual terminal device we need to write to.
  */
-const canAccessTty = (): boolean => {
-  try {
-    fs.accessSync("/dev/tty", fs.constants.W_OK)
-    return true
-  } catch {
-    return false
+const getTmuxPaneTty = (): string | null => {
+  if (!isTmux()) {
+    return null
   }
+
+  try {
+    const result = execSync("tmux display-message -p '#{pane_tty}'", {
+      encoding: "utf8",
+      timeout: 1000,
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const tty = result.trim()
+    if (tty && tty.startsWith("/dev/")) {
+      log(`getTmuxPaneTty: ${tty}`)
+      return tty
+    }
+  } catch (error) {
+    log(`getTmuxPaneTty: FAILED - ${error}`)
+  }
+
+  return null
 }
 
-// Cache TTY availability check
-let ttyAvailable: boolean | null = null
-const isTtyAvailable = (): boolean => {
-  if (ttyAvailable === null) {
-    ttyAvailable = canAccessTty()
-    log(`TTY availability: ${ttyAvailable}`)
+// Cache the pane TTY path
+let cachedPaneTty: string | null | undefined = undefined
+const getPaneTty = (): string | null => {
+  if (cachedPaneTty === undefined) {
+    cachedPaneTty = getTmuxPaneTty()
   }
-  return ttyAvailable
+  return cachedPaneTty
 }
 
 // =============================================================================
@@ -78,47 +91,74 @@ const isTtyAvailable = (): boolean => {
 // =============================================================================
 
 /**
- * Strategy 1: Set title via tmux command (most reliable in tmux).
+ * Strategy 1: Write DCS passthrough to tmux pane TTY.
  *
- * Uses `tmux rename-window` which directly updates the window name
- * without needing passthrough escape sequences.
+ * This sends the OSC title sequence wrapped in tmux DCS passthrough
+ * directly to the pane's TTY device, which reaches Windows Terminal.
+ *
+ * Format: \x1bPtmux;\x1b\x1b]0;TITLE\x07\x1b\\
  *
  * @returns true if successful
  */
-const setTitleViaTmux = (title: string): boolean => {
-  if (!isTmux()) {
+const setTitleViaPaneTty = (title: string): boolean => {
+  const paneTty = getPaneTty()
+  if (!paneTty) {
     return false
   }
 
   try {
-    // Escape double quotes and special shell characters
-    const safeTitle = title.replace(/"/g, '\\"').replace(/\$/g, "\\$")
-    execSync(`tmux rename-window "${safeTitle}"`, {
-      stdio: "ignore",
-      timeout: 1000,
-    })
-    log(`setTitleViaTmux: SUCCESS - "${title}"`)
+    // DCS passthrough: ESC P tmux; ESC ESC ] 0 ; title BEL ESC \
+    // The inner ESC is doubled for passthrough
+    const sequence = `\x1bPtmux;\x1b\x1b]0;${title}\x07\x1b\\`
+    const fd = fs.openSync(paneTty, "w")
+    fs.writeSync(fd, sequence)
+    fs.closeSync(fd)
+    log(`setTitleViaPaneTty: SUCCESS - "${title}" via ${paneTty}`)
     return true
   } catch (error) {
-    log(`setTitleViaTmux: FAILED - ${error}`)
+    log(`setTitleViaPaneTty: FAILED - ${error}`)
+    // Invalidate cache in case TTY changed
+    cachedPaneTty = undefined
     return false
   }
 }
 
 /**
- * Strategy 2: Write OSC sequence directly to /dev/tty.
+ * Strategy 2: Set title via tmux rename-window command.
  *
- * Bypasses stdout buffering and TUI interception by writing
- * directly to the controlling terminal.
+ * Updates the tmux status bar window name.
  *
  * @returns true if successful
  */
-const setTitleViaTty = (title: string): boolean => {
-  if (!isTtyAvailable()) {
+const setTitleViaTmuxRename = (title: string): boolean => {
+  if (!isTmux()) {
     return false
   }
 
   try {
+    const safeTitle = title.replace(/"/g, '\\"').replace(/\$/g, "\\$")
+    execSync(`tmux rename-window "${safeTitle}"`, {
+      stdio: "ignore",
+      timeout: 1000,
+    })
+    log(`setTitleViaTmuxRename: SUCCESS - "${title}"`)
+    return true
+  } catch (error) {
+    log(`setTitleViaTmuxRename: FAILED - ${error}`)
+    return false
+  }
+}
+
+/**
+ * Strategy 3: Write OSC sequence directly to /dev/tty.
+ *
+ * Fallback for non-tmux environments.
+ *
+ * @returns true if successful
+ */
+const setTitleViaTty = (title: string): boolean => {
+  try {
+    fs.accessSync("/dev/tty", fs.constants.W_OK)
     const sequence = `\x1b]0;${title}\x07`
     const fd = fs.openSync("/dev/tty", "w")
     fs.writeSync(fd, sequence)
@@ -127,36 +167,22 @@ const setTitleViaTty = (title: string): boolean => {
     return true
   } catch (error) {
     log(`setTitleViaTty: FAILED - ${error}`)
-    // Mark TTY as unavailable to avoid repeated failures
-    ttyAvailable = false
     return false
   }
 }
 
 /**
- * Strategy 3: Write OSC sequence to stdout with tmux passthrough.
+ * Strategy 4: Write OSC sequence to stdout.
  *
- * This is the original approach - may not work if OpenCode's TUI
- * intercepts stdout, but worth trying as a fallback.
+ * Last resort fallback - may not work if stdout is piped.
  *
- * When running inside tmux, escape sequences must be wrapped in DCS passthrough:
- * \x1bPtmux;\x1b<escaped_sequence>\x1b\\
- *
- * @returns true (always, since we can't verify success)
+ * @returns true (always, since we can't verify)
  */
 const setTitleViaStdout = (title: string): boolean => {
   try {
     const sequence = `\x1b]0;${title}\x07`
-
-    if (isTmux()) {
-      // tmux passthrough: wrap sequence and double all ESC characters
-      const escaped = sequence.replace(/\x1b/g, "\x1b\x1b")
-      process.stdout.write(`\x1bPtmux;${escaped}\x1b\\`)
-    } else {
-      process.stdout.write(sequence)
-    }
-
-    log(`setTitleViaStdout: ATTEMPTED - "${title}" (in tmux: ${isTmux()})`)
+    process.stdout.write(sequence)
+    log(`setTitleViaStdout: ATTEMPTED - "${title}"`)
     return true
   } catch (error) {
     log(`setTitleViaStdout: FAILED - ${error}`)
@@ -171,35 +197,27 @@ const setTitleViaStdout = (title: string): boolean => {
 /**
  * Set the terminal/pane title using all applicable methods.
  *
- * In tmux on Windows Terminal, we need BOTH:
- * 1. tmux rename-window - updates tmux status bar
- * 2. OSC sequence - updates Windows Terminal tab title
- *
- * These are not mutually exclusive - we want both to succeed.
+ * In tmux on Windows Terminal:
+ * 1. DCS passthrough to pane TTY → Windows Terminal tab
+ * 2. tmux rename-window → tmux status bar
  *
  * @param title - The title to set
  */
 const setTitle = (title: string): void => {
   log(`setTitle: "${title}"`)
 
-  // In tmux: do BOTH tmux rename AND OSC sequence
-  // tmux rename-window updates the tmux status bar
-  // OSC sequence (via passthrough) updates Windows Terminal tab
   if (isTmux()) {
-    setTitleViaTmux(title)
-    // Also send OSC via TTY or stdout passthrough for Windows Terminal
-    if (!setTitleViaTty(title)) {
-      setTitleViaStdout(title)
-    }
+    // Update Windows Terminal tab via DCS passthrough to pane TTY
+    setTitleViaPaneTty(title)
+    // Also update tmux status bar
+    setTitleViaTmuxRename(title)
     return
   }
 
-  // Not in tmux: try TTY first, then stdout
-  if (setTitleViaTty(title)) {
-    return
+  // Not in tmux: try /dev/tty, then stdout
+  if (!setTitleViaTty(title)) {
+    setTitleViaStdout(title)
   }
-
-  setTitleViaStdout(title)
 }
 
 /**
@@ -208,60 +226,41 @@ const setTitle = (title: string): void => {
 const resetTitle = (): void => {
   log("resetTitle")
 
-  // In tmux: reset BOTH tmux window name AND send OSC for Windows Terminal
   if (isTmux()) {
-    try {
-      execSync('tmux rename-window ""', { stdio: "ignore", timeout: 1000 })
-    } catch {
-      // Continue anyway
-    }
-
-    // Also send OSC via TTY or stdout passthrough for Windows Terminal
-    if (isTtyAvailable()) {
+    // Reset Windows Terminal tab
+    const paneTty = getPaneTty()
+    if (paneTty) {
       try {
-        const fd = fs.openSync("/dev/tty", "w")
-        fs.writeSync(fd, "\x1b]0;\x07")
+        const sequence = `\x1bPtmux;\x1b\x1b]0;\x07\x1b\\`
+        const fd = fs.openSync(paneTty, "w")
+        fs.writeSync(fd, sequence)
         fs.closeSync(fd)
-      } catch {
-        // Try stdout passthrough
-        try {
-          process.stdout.write("\x1bPtmux;\x1b\x1b]0;\x07\x1b\\")
-        } catch {
-          // Ignore
-        }
-      }
-    } else {
-      try {
-        process.stdout.write("\x1bPtmux;\x1b\x1b]0;\x07\x1b\\")
       } catch {
         // Ignore
       }
     }
+
+    // Reset tmux window name
+    try {
+      execSync('tmux rename-window ""', { stdio: "ignore", timeout: 1000 })
+    } catch {
+      // Ignore
+    }
     return
   }
 
-  // Not in tmux: try TTY first, then stdout
-  if (isTtyAvailable()) {
+  // Not in tmux
+  if (!setTitleViaTty("")) {
     try {
-      const fd = fs.openSync("/dev/tty", "w")
-      fs.writeSync(fd, "\x1b]0;\x07")
-      fs.closeSync(fd)
-      return
+      process.stdout.write("\x1b]0;\x07")
     } catch {
-      // Continue to fallback
+      // Ignore
     }
-  }
-
-  try {
-    process.stdout.write("\x1b]0;\x07")
-  } catch {
-    // Ignore
   }
 }
 
 /**
  * Full cleanup - reset title.
- * Call this on process exit to restore terminal state.
  */
 export const cleanupTerminal = (): void => {
   resetTitle()
@@ -273,8 +272,6 @@ export const cleanupTerminal = (): void => {
 
 /**
  * Extract project name from directory path.
- * @param directory - Full directory path
- * @returns Last directory name or "Unknown" if cannot determine
  */
 export const getProjectName = (directory: string): string => {
   try {
@@ -297,11 +294,6 @@ export const updateTabColor = (_status: GoostStatus): void => {
  * Update terminal tab title.
  *
  * Format: "emoji projectName: status [progress]"
- *
- * @param projectName - Project name
- * @param statusText - Status text for title (includes emoji)
- * @param contractProgress - Optional contract progress (e.g., "1/3")
- * @param openSpecChange - Optional OpenSpec change name
  */
 export const updateTitle = (
   projectName: string,
@@ -317,13 +309,11 @@ export const updateTitle = (
 
   let title: string
   if (openSpecChange) {
-    // Show OpenSpec change name
     const emoji = statusText.split(" ")[0] || ""
     title = `${emoji} ${projectName}: ${openSpecChange}${progressText}`
   } else if (statusText.trim()) {
     title = `${statusText} ${projectName}${progressText}`
   } else {
-    // Idle with no contract - just show project name with emoji
     title = `🌍 ${projectName}${progressText}`
   }
 

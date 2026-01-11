@@ -154,6 +154,18 @@ if [ -n "$TMUX" ] || [ -f "$TMUX_CONFIG" ]; then
             echo "set -g escape-time 0" >> "$TMUX_CONFIG"
             TMUX_CHANGED=true
         fi
+
+        # Check for set-titles (required for Windows Terminal tab updates)
+        if grep -q "set-titles on" "$TMUX_CONFIG"; then
+            echo "✅ set-titles already configured"
+        else
+            echo "⚠️  Adding 'set -g set-titles on'..."
+            echo "" >> "$TMUX_CONFIG"
+            echo "# Enable title propagation to outer terminal (Windows Terminal, etc.)" >> "$TMUX_CONFIG"
+            echo "set -g set-titles on" >> "$TMUX_CONFIG"
+            echo "set -g set-titles-string '#{pane_title}'" >> "$TMUX_CONFIG"
+            TMUX_CHANGED=true
+        fi
         
         # Reload if changes were made and inside tmux
         if [ "$TMUX_CHANGED" = true ] && [ -n "$TMUX" ]; then
@@ -167,6 +179,10 @@ set -g allow-passthrough on
 
 # Pass ESC key through immediately without delay (helps with interrupting commands)
 set -g escape-time 0
+
+# Enable title propagation to outer terminal (Windows Terminal, etc.)
+set -g set-titles on
+set -g set-titles-string '#{pane_title}'
 TMUXEOF
         echo "✅ Created $TMUX_CONFIG"
         
