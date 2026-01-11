@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initialize OpenSpec and create sub-agent enhancement proposal (45152c2)
 
 ### Fixed
+- Fix tab title showing "OC | ---" instead of emoji and project name - use simple OSC sequence instead of DCS passthrough to correctly set tmux pane_title (c7c2651)
 - Fix Windows Terminal tab title not updating in tmux - use pane TTY with DCS passthrough (d9499ae)
 - Disable flaky tab coloration to rely on reliable emoji status indicators (41b8cb8)
 - Fix TTY detection by walking process ancestry to find controlling terminal (1b827a1)

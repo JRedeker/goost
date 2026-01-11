@@ -7,11 +7,11 @@ This document explains how Goost updates Windows Terminal tab titles when runnin
 OpenCode plugins run in a context where:
 1. **stdout is piped** - OpenCode captures tool output, so `process.stdout.write()` doesn't reach the terminal
 2. **`/dev/tty` is inaccessible** - The plugin process doesn't have a controlling terminal
-3. **tmux intercepts escape sequences** - Standard OSC sequences are consumed by tmux, not passed to Windows Terminal
+3. **tmux manages escape sequences** - Sequences need to be sent to the right place
 
 ## The Solution
 
-We use a three-part approach:
+We use a two-part approach to update both tmux's internal state and the outer terminal:
 
 ### 1. Get the Pane's Actual TTY
 
@@ -20,44 +20,57 @@ const result = execSync("tmux display-message -p '#{pane_tty}'")
 // Returns: /dev/pts/6 (or similar)
 ```
 
-This gives us the actual pseudo-terminal device that tmux is using.
+This gives us the actual pseudo-terminal device that tmux is using for this pane.
 
-### 2. Use DCS Passthrough
+### 2. Send OSC Sequence to Pane TTY
 
-tmux requires escape sequences to be wrapped in DCS (Device Control String) passthrough format:
-
-```
-\x1bPtmux;\x1b<escaped_sequence>\x1b\\
-```
-
-Where `<escaped_sequence>` has all ESC (`\x1b`) characters doubled.
-
-For OSC 0 (set title):
-- Original: `\x1b]0;TITLE\x07`
-- Passthrough: `\x1bPtmux;\x1b\x1b]0;TITLE\x07\x1b\\`
-
-### 3. Write Directly to Pane TTY
+Write a simple OSC 0 sequence directly to the pane's TTY:
 
 ```typescript
-const sequence = `\x1bPtmux;\x1b\x1b]0;${title}\x07\x1b\\`
+const sequence = `\x1b]0;${title}\x07`
 const fd = fs.openSync("/dev/pts/6", "w")
 fs.writeSync(fd, sequence)
 fs.closeSync(fd)
 ```
 
-This bypasses both OpenCode's stdout capture and tmux's sequence interception.
+This sets the `pane_title` variable in tmux.
+
+### 3. tmux Forwards to Outer Terminal
+
+With the proper configuration, tmux automatically forwards the `pane_title` to the outer terminal:
+
+```bash
+set -g set-titles on
+set -g set-titles-string '#{pane_title}'
+```
+
+## Why Simple OSC (Not DCS Passthrough)
+
+There are two ways to send escape sequences in tmux:
+
+| Method | Format | What It Does |
+|--------|--------|--------------|
+| Simple OSC | `\x1b]0;TITLE\x07` | Sets tmux's `pane_title` variable |
+| DCS Passthrough | `\x1bPtmux;\x1b\x1b]0;TITLE\x07\x1b\\` | Bypasses tmux, sends directly to outer terminal |
+
+**We use simple OSC** because:
+1. It sets the `pane_title` tmux variable
+2. tmux then forwards this to the outer terminal via `set-titles-string`
+3. The title persists correctly and works with tmux's title management
+
+DCS passthrough is designed for cases where you want to bypass tmux entirely (like querying terminal capabilities). For setting titles that tmux should know about, simple OSC is correct.
 
 ## Required tmux Configuration
 
 These settings must be in `~/.tmux.conf`:
 
 ```bash
-# Allow escape sequences to pass through to outer terminal
-set -g allow-passthrough on
-
-# Propagate pane title to terminal
+# Forward pane titles to outer terminal
 set -g set-titles on
 set -g set-titles-string '#{pane_title}'
+
+# Allow passthrough sequences (for other uses)
+set -g allow-passthrough on
 
 # No ESC key delay (helps with Ctrl+C)
 set -g escape-time 0
@@ -69,16 +82,16 @@ set -g escape-time 0
 |----------|--------------|
 | `process.stdout.write(osc)` | Stdout piped by OpenCode TUI |
 | `fs.writeSync("/dev/tty", osc)` | No controlling TTY in plugin context |
-| `tmux rename-window` alone | Only updates tmux status bar, not Windows Terminal |
-| OSC without DCS passthrough | tmux intercepts and doesn't forward |
+| `tmux rename-window` alone | Only updates tmux status bar, not Windows Terminal tab |
+| DCS passthrough to pane TTY | Bypasses tmux, doesn't set `pane_title` variable |
 
 ## Escape Sequence Reference
 
 | Sequence | Purpose |
 |----------|---------|
-| `\x1b]0;TITLE\x07` | OSC 0 - Set window title |
-| `\x1bPtmux;...\x1b\\` | DCS passthrough wrapper for tmux |
-| `\x1b\x1b` | Escaped ESC inside passthrough |
+| `\x1b]0;TITLE\x07` | OSC 0 - Set window/icon title |
+| `\x1b]2;TITLE\x07` | OSC 2 - Set window title only |
+| `\x1bPtmux;...\x1b\\` | DCS passthrough (bypasses tmux) |
 
 ## Testing
 
@@ -88,15 +101,19 @@ To manually test title updates:
 # Get pane TTY
 PANE_TTY=$(tmux display-message -p '#{pane_tty}')
 
-# Send title with DCS passthrough
-printf '\033Ptmux;\033\033]0;Test Title\007\033\\' > "$PANE_TTY"
+# Send simple OSC title sequence
+printf '\033]0;Test Title\007' > "$PANE_TTY"
+
+# Verify pane_title was set
+tmux display-message -p '#{pane_title}'
+# Should output: Test Title
 ```
 
-The Windows Terminal tab should update immediately.
+The Windows Terminal tab should update immediately if `set-titles` is configured.
 
 ## Implementation
 
 See `plugin/terminal.ts`:
-- `getTmuxPaneTty()` - Gets the pane TTY path
-- `setTitleViaPaneTty()` - Sends DCS passthrough to pane TTY
-- `setTitleViaTmuxRename()` - Updates tmux status bar (secondary)
+- `getTmuxPaneTty()` - Gets the pane TTY path via `tmux display-message`
+- `setTitleViaPaneTty()` - Sends simple OSC sequence to pane TTY (sets `pane_title`)
+- `setTitleViaTmuxRename()` - Updates tmux status bar window name (secondary)

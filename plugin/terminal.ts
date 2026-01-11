@@ -2,12 +2,17 @@
  * Goost Plugin - Terminal Utilities
  *
  * Handles terminal tab title updates via multiple strategies:
- * 1. tmux pane TTY with DCS passthrough (for Windows Terminal tab)
+ * 1. OSC sequence to tmux pane TTY (sets pane_title, forwarded by tmux)
  * 2. tmux rename-window command (for tmux status bar)
  * 3. Direct /dev/tty or stdout (non-tmux fallback)
  *
- * Key insight: In tmux, we need DCS passthrough (\x1bPtmux;...\x1b\\) written
- * to the pane's actual TTY (e.g., /dev/pts/6) to reach Windows Terminal.
+ * Key insight: In tmux, we send simple OSC sequences (\x1b]0;title\x07) to
+ * the pane's TTY. This sets the pane_title variable, which tmux forwards
+ * to the outer terminal via set-titles-string "#{pane_title}".
+ *
+ * Note: We do NOT use DCS passthrough (\x1bPtmux;...) for setting titles.
+ * DCS passthrough bypasses tmux and sends directly to the outer terminal,
+ * but it doesn't set the pane_title variable that tmux uses for forwarding.
  */
 
 import * as fs from "fs"
@@ -91,12 +96,18 @@ const getPaneTty = (): string | null => {
 // =============================================================================
 
 /**
- * Strategy 1: Write DCS passthrough to tmux pane TTY.
+ * Strategy 1: Write OSC sequence directly to tmux pane TTY.
  *
- * This sends the OSC title sequence wrapped in tmux DCS passthrough
- * directly to the pane's TTY device, which reaches Windows Terminal.
+ * This sends the OSC title sequence directly to the pane's TTY device.
+ * The simple OSC sequence sets the pane_title, which tmux can then
+ * forward to the outer terminal via set-titles-string.
  *
- * Format: \x1bPtmux;\x1b\x1b]0;TITLE\x07\x1b\\
+ * Format: \x1b]0;TITLE\x07
+ *
+ * Note: We use the simple OSC sequence, NOT DCS passthrough. The DCS
+ * passthrough (\x1bPtmux;...) is for when you want sequences to bypass
+ * tmux and reach the outer terminal directly. But for setting pane_title,
+ * which is a tmux variable, we need the simple OSC sequence.
  *
  * @returns true if successful
  */
@@ -107,9 +118,10 @@ const setTitleViaPaneTty = (title: string): boolean => {
   }
 
   try {
-    // DCS passthrough: ESC P tmux; ESC ESC ] 0 ; title BEL ESC \
-    // The inner ESC is doubled for passthrough
-    const sequence = `\x1bPtmux;\x1b\x1b]0;${title}\x07\x1b\\`
+    // Simple OSC sequence: ESC ] 0 ; title BEL
+    // This sets the pane_title in tmux, which then gets forwarded
+    // to the outer terminal via set-titles-string "#{pane_title}"
+    const sequence = `\x1b]0;${title}\x07`
     const fd = fs.openSync(paneTty, "w")
     fs.writeSync(fd, sequence)
     fs.closeSync(fd)
@@ -227,11 +239,11 @@ const resetTitle = (): void => {
   log("resetTitle")
 
   if (isTmux()) {
-    // Reset Windows Terminal tab
+    // Reset pane title via simple OSC sequence
     const paneTty = getPaneTty()
     if (paneTty) {
       try {
-        const sequence = `\x1bPtmux;\x1b\x1b]0;\x07\x1b\\`
+        const sequence = `\x1b]0;\x07`
         const fd = fs.openSync(paneTty, "w")
         fs.writeSync(fd, sequence)
         fs.closeSync(fd)
@@ -317,5 +329,6 @@ export const updateTitle = (
     title = `🌍 ${projectName}${progressText}`
   }
 
+  log(`updateTitle: FINAL title="${title}"`)
   setTitle(title)
 }
