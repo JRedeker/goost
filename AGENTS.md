@@ -92,6 +92,11 @@ The plugin follows a modular architecture:
 - Maintain the contract format exactly (the `====` borders matter for detection)
 - Keep criteria verifiable (yes/no checkable)
 - Preserve the confirmation step before locking
+- For multi-phase commands with sub-agents, include **Anti-Loop Protocol** sections at phase transitions:
+  - Add explicit state markers (e.g., `>>> SYNTHESIS COMPLETE <<<`)
+  - Require immediate tool calls after synthesis phases
+  - Warn against re-stating plans in prose before acting
+  - See existing commands for examples (openspec-prep.md has the most comprehensive protections)
 
 ### If modifying the plugin:
 - Add types to `types.ts`, keep Zod schemas in sync

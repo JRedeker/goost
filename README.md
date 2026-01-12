@@ -656,15 +656,36 @@ When a contract is active and you spawn sub-agents, Goost provides guidance for:
 
 ---
 
-## 🔄 Loop Anomaly Detection
+## 🔄 Loop Detection & Prevention
+
+Goost provides two layers of loop protection:
+
+### Response-Level: Loop Anomaly Detection
 
 Goost automatically detects and terminates **runaway AI responses** containing repetitive content. This catches generation-level failures where models output the same phrase repeatedly (common with Gemini and other models).
-
-### How It Works
 
 Detection triggers when BOTH conditions are met:
 1. Response exceeds **20,000 characters**
 2. Any **80+ character substring** appears **3 or more times**
+
+### Command-Level: Anti-Loop Protocol
+
+Multi-phase commands with sub-agent orchestration include **anti-loop protections** to prevent planning loops during phase transitions. These occur when the model gets stuck repeating planning statements instead of emitting tool calls.
+
+**Protected Commands:**
+- `/openspec-prep` - SYNTHESIS COMPLETE marker + immediate tool call + sequential gap processing
+- `/openspec-apply` - Immediate tool call after contract display
+- `/openspec-research` - Synthesis marker after sub-agent completion
+- `/openspec-audit`, `/openspec-harden`, `/openspec-review` - Direct aggregation after sub-agents
+- `/openspec-coordinate`, `/goost-slop-scan` - Direct report/aggregation
+
+**How It Works:**
+1. Explicit state transition markers (e.g., `>>> SYNTHESIS COMPLETE <<<`)
+2. Requirement to emit tool calls immediately after synthesis
+3. Warnings against re-stating plans in prose
+4. Word limits before requiring tool calls (500 words in some commands)
+
+See `slop-smells.yaml` entry `AI-011: planning_loop` for the full pattern documentation.
 
 When detected:
 - Plugin calls `client.session.abort()` to terminate the response

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Add vitest test infrastructure with 62 tests covering loop anomaly detection (d546274)
+- Add AI-011 `planning_loop` smell to slop-smells.yaml v1.2 - documents planning loop failure mode with indicators, triggers, and mitigations (e04b042)
+
+### Fixed
+- Add anti-loop protections to 8 multi-phase commands to prevent planning loops during sub-agent synthesis (e04b042):
+  - `openspec-prep`: SYNTHESIS COMPLETE marker, sequential gap processing, 500-word limit
+  - `openspec-apply`: Immediate tool call after contract display
+  - `openspec-coordinate`: Direct report generation after analysis
+  - `openspec-research`: Synthesis marker after sub-agent completion
+  - `openspec-audit`: Direct aggregation in Phase 3
+  - `openspec-harden`: Direct aggregation in Phase 2
+  - `openspec-review`: Direct aggregation in Phase 2
+  - `goost-slop-scan`: Direct aggregation after Phase 2
 - Add loop anomaly detection to auto-terminate responses with repetitive content (>20K chars + 80-char substring repeated 3+ times) (7d9b573)
 - Add /openspec-coordinate command for multi-agent synchronization and conflict detection (8af10f9)
 - Add /goost-slop-scan command for AI code quality analysis with two-phase detection (5d71362)
