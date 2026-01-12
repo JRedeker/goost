@@ -330,8 +330,14 @@ export const TEST_RUNNER_PATTERNS =
  * Parse environment variable as integer with fallback to default.
  * Returns default if value is non-numeric or invalid.
  * Logs warning in debug mode when value is invalid.
+ *
+ * @internal Exported for testing only
  */
-const parseEnvInt = (value: string | undefined, defaultValue: number, envName?: string): number => {
+export const parseEnvInt = (
+  value: string | undefined,
+  defaultValue: number,
+  envName?: string
+): number => {
   if (!value) return defaultValue
   const parsed = parseInt(value, 10)
   if (Number.isNaN(parsed)) {
@@ -348,8 +354,10 @@ const parseEnvInt = (value: string | undefined, defaultValue: number, envName?: 
 /**
  * Parse environment variable as boolean (1/0 string).
  * Default is true (enabled).
+ *
+ * @internal Exported for testing only
  */
-const parseEnvBool = (value: string | undefined, defaultValue: boolean): boolean => {
+export const parseEnvBool = (value: string | undefined, defaultValue: boolean): boolean => {
   if (value === undefined) return defaultValue
   return value !== "0"
 }
