@@ -244,6 +244,28 @@ export const TaskOutputSchema = z.object({
 export type TaskOutput = z.infer<typeof TaskOutputSchema>
 
 /**
+ * Schema for bash tool output.
+ * Used in tool.execute.after hook for test runner detection.
+ */
+export const BashOutputSchema = z.object({
+  output: z.string().optional(),
+  metadata: z
+    .object({
+      exitCode: z.number().optional(),
+    })
+    .optional(),
+})
+
+export type BashOutput = z.infer<typeof BashOutputSchema>
+
+/**
+ * Patterns that indicate test failure in output (when exitCode is unavailable).
+ * More robust than simple "error" matching - looks for test-specific failure indicators.
+ */
+export const TEST_FAILURE_PATTERNS =
+  /\b(FAIL|FAILED|FAILURES?|ERROR|ERRORS|✕|✖|×)\b|\d+\s+(?:failing|failed)|AssertionError|expect\(.*\)\.to/i
+
+/**
  * Schema for session.updated event properties.
  * This event fires when session metadata changes, including title.
  */

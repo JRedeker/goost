@@ -47,6 +47,8 @@ import {
   MessageUpdatedPropsSchema,
   TaskArgsSchema,
   TaskOutputSchema,
+  BashOutputSchema,
+  TEST_FAILURE_PATTERNS,
 } from "./types"
 import { cleanupTerminal, getProjectName, updateTabColor, updateTitle, isTmux } from "./terminal"
 import {
@@ -428,9 +430,14 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
       // Check for test runner execution
       if (input.tool === "bash" && lastBashCommand) {
         if (isTestRunner(lastBashCommand)) {
-          const typedOutput = output as { metadata?: { exitCode?: number }; output?: string }
+          // Parse output with Zod schema for type safety
+          const parsed = BashOutputSchema.safeParse(output)
+          const bashOutput = parsed.success ? parsed.data : { output: "", metadata: undefined }
+
+          // Prefer explicit exitCode, fallback to pattern matching for test failures
           const exitCode =
-            typedOutput.metadata?.exitCode ?? (typedOutput.output?.includes("error") ? 1 : 0)
+            bashOutput.metadata?.exitCode ??
+            (bashOutput.output && TEST_FAILURE_PATTERNS.test(bashOutput.output) ? 1 : 0)
           log(`Test runner detected: "${lastBashCommand}" (exitCode=${exitCode})`)
 
           const tddStatus: GoostStatus = exitCode === 0 ? "tdd_green" : "tdd_red"
