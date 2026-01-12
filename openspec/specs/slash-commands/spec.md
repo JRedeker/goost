@@ -970,3 +970,54 @@ RECOMMENDATIONS
 ============================================================
 ```
 
+### Requirement: OpenSpec Coordinate Command
+
+The `/openspec-coordinate` command SHALL synchronize multiple active OpenSpec changes to prevent requirement conflicts, task invalidation, and implementation drift during high-concurrency development.
+
+#### Scenario: Detect overlapping file changes
+- **GIVEN** two active changes `A` and `B` exist
+- **AND** both changes list `src/core/engine.ts` in their "Affected code" section
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL flag `src/core/engine.ts` as an overlapping file
+- **AND** identify the specific requirements in each spec that affect this file
+
+#### Scenario: Detect conflicting requirements
+- **GIVEN** Change `A` adds a requirement to "Rename `getUser` to `fetchUser`"
+- **AND** Change `B` adds a requirement to "Add `email` parameter to `getUser`"
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL extract the identifier `getUser` and associated actions ("Rename", "Add parameter")
+- **AND** flag a "Semantic Conflict" in the Identifier-Action Matrix
+- **AND** suggest a synchronization meeting or priority resolution
+
+#### Scenario: Detect task drift with hunk anchoring
+- **GIVEN** Change `A` has a task with a stored anchor (pre-context, code-hash, post-context)
+- **AND** Change `B` has modified the file such that the code has shifted by 15 lines
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL perform a fuzzy search for the context anchor
+- **AND** if found at a new location, mark the task as "MOVED" and update the reference
+- **AND** if not found, mark the task as "DRIFTED" or "LOST"
+
+#### Scenario: Enforce resource locking
+- **GIVEN** Change `A` is actively being implemented and has locked `src/auth.ts`
+- **AND** Change `B` also lists `src/auth.ts` in its affected code
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL identify the resource contention
+- **AND** mark the relevant tasks in Change `B` as `BLOCKED` by Change `A`
+- **AND** display the lock status in the coordination report
+
+#### Scenario: Task dependency alignment
+- **GIVEN** Change `B` depends on a capability being implemented in Change `A`
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL identify the dependency (via spec references or manual links)
+- **AND** recommend that Change `B` tasks be deferred until Change `A` reaches a specific milestone
+- **AND** visualize this in a cross-change roadmap
+
+#### Scenario: Coordination report generation
+- **GIVEN** coordination analysis is complete
+- **WHEN** displaying results
+- **THEN** the command SHALL output a "Coordination Dashboard" including:
+  - Hot Files (overlapping files)
+  - Semantic Conflicts (requirement collisions)
+  - Task Drift status
+  - Suggested Sequence (task ordering recommendations)
+

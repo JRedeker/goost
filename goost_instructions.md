@@ -14,6 +14,7 @@ Goost provides these slash commands:
 |---------|-------------|
 | `/contract` | Establish a formal contract with success criteria |
 | `/contract-quick` | Quick contract for simpler tasks |
+| `/openspec-coordinate` | Synchronize multiple active OpenSpec changes, detect conflicts, and align task lists |
 | `/goost-slop-scan` | Scan codebase for AI-generated code quality issues ("slop") |
 | `/openspec-audit` | Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
@@ -147,6 +148,8 @@ Emit a status marker at the START of each response:
 | `[GOOST:MIC]` | 🎤 | **Magenta** | Needs user approval (auto-detected by plugin) |
 
 These markers are detected by the Goost plugin, which updates the terminal tab color and title accordingly.
+
+> **CRITICAL: Sub-agents must NOT emit status markers.** Status markers only affect the main session's terminal tab. Sub-agents (spawned via the `task` tool) run in isolated contexts without terminal access. Emitting markers in sub-agents wastes output tokens and can cause buffer overflow, preventing useful results from being returned. If you are a sub-agent, skip all `[GOOST:*]` markers and CONTRACT STATUS blocks - just return your findings directly.
 
 ### Recommended: Running OpenCode with tmux
 

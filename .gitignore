@@ -5,6 +5,7 @@ node_modules/
 dist/
 *.js
 !*.config.js
+!scripts/**/*.js
 
 # Logs
 *.log

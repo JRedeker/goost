@@ -189,6 +189,7 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | | `/openspec-clarify` | Socratic questions for acceptance criteria |
 | | `/openspec-research` | Research and validate architectural decisions; identify simpler alternatives |
 | | `/openspec-prep` | Pre-implementation gap analysis |
+| | `/openspec-coordinate` | Cross-agent synchronization and conflict detection |
 | | `/openspec-status` | Fast overview of project state |
 | | `/openspec-roadmap` | Tiered progress dashboard |
 | **Implementation** | `/openspec-apply` | Implement change under contract enforcement |
