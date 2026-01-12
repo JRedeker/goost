@@ -52,12 +52,22 @@ function logEvent(event, data = {}) {
   console.error(JSON.stringify(entry));
 }
 
+/**
+ * Ensures the .openspec metadata directory exists.
+ * Creates it recursively if it doesn't exist.
+ */
 function ensureMetadataDir() {
   if (!fs.existsSync(METADATA_DIR)) {
     fs.mkdirSync(METADATA_DIR, { recursive: true });
   }
 }
 
+/**
+ * Reads and parses a JSON file with error handling.
+ * @param {string} file - Path to the JSON file
+ * @param {Object} def - Default value to return if file doesn't exist or is invalid
+ * @returns {Object} Parsed JSON object or default value
+ */
 function readJson(file, def = {}) {
   if (!fs.existsSync(file)) return def;
   try { 
@@ -68,6 +78,11 @@ function readJson(file, def = {}) {
   }
 }
 
+/**
+ * Writes data to a JSON file atomically using write-to-temp-then-rename pattern.
+ * @param {string} file - Path to the JSON file
+ * @param {Object} data - Data to write
+ */
 function writeJson(file, data) {
   ensureMetadataDir();
   const tmpFile = `${file}.tmp`;
@@ -131,8 +146,73 @@ function extractRequirements(id) {
 }
 
 /**
- * Rebuild coordination state from proposal files
- * This is the "--rebuild" mechanism for state resilience
+ * Process a single change directory and update coordination state.
+ * Validates the change ID, reads proposal.md, extracts affected files,
+ * handles quota exceeded logic, and updates state.changes, state.locks,
+ * and state.requirements. Adds warnings for missing proposals or parse errors.
+ * 
+ * @param {string} id - The change directory name (change ID)
+ * @param {string} changesDir - Path to the changes directory
+ * @param {Object} config - Configuration object with lockQuota setting
+ * @param {Object} state - Coordination state object to update (mutated in place)
+ * @returns {void}
+ */
+function processChangeDirectory(id, changesDir, config, state) {
+  try {
+    validateChangeId(id);
+    const proposalPath = path.join(changesDir, id, 'proposal.md');
+    if (fs.existsSync(proposalPath)) {
+      const content = fs.readFileSync(proposalPath, 'utf8');
+      const files = extractAffectedFiles(content);
+      const quotaExceeded = files.length > config.lockQuota;
+      const activeFiles = files.slice(0, config.lockQuota);
+      
+      state.changes[id] = { 
+        files: activeFiles, 
+        totalFiles: files.length,
+        quotaExceeded,
+      };
+      
+      if (quotaExceeded) {
+        state.warnings.push({
+          changeId: id,
+          type: 'quota_exceeded',
+          message: `Change ${id} affects ${files.length} files but quota is ${config.lockQuota}`,
+        });
+        logEvent('quota_exceeded', { changeId: id, files: files.length, quota: config.lockQuota });
+      }
+      
+      activeFiles.forEach(file => {
+        if (!state.locks[file]) state.locks[file] = [];
+        state.locks[file].push(id);
+      });
+      
+      state.requirements[id] = extractRequirements(id);
+      logEvent('change_indexed', { changeId: id, files: activeFiles.length });
+    } else {
+      state.warnings.push({
+        changeId: id,
+        type: 'missing_proposal',
+        message: `Change ${id} has no proposal.md`,
+      });
+    }
+  } catch (e) {
+    state.warnings.push({
+      changeId: id,
+      type: 'parse_error',
+      message: e.message,
+    });
+    logEvent('change_parse_error', { changeId: id, error: e.message });
+  }
+}
+
+/**
+ * Rebuild coordination state from proposal files.
+ * This is the "--rebuild" mechanism for state resilience.
+ * Scans all change directories, processes each one, and writes
+ * the aggregated state to the coordination state file.
+ * 
+ * @returns {Object} The rebuilt coordination state
  */
 function rebuildState() {
   const config = loadConfig();
@@ -152,59 +232,12 @@ function rebuildState() {
     return state;
   }
 
-  const changes = fs.readdirSync(changesDir).filter(f => {
+  const changeIds = fs.readdirSync(changesDir).filter(f => {
     const p = path.join(changesDir, f);
     return fs.statSync(p).isDirectory() && !f.startsWith('.');
   });
 
-  changes.forEach(id => {
-    try {
-      validateChangeId(id);
-      const proposalPath = path.join(changesDir, id, 'proposal.md');
-      if (fs.existsSync(proposalPath)) {
-        const content = fs.readFileSync(proposalPath, 'utf8');
-        const files = extractAffectedFiles(content);
-        const quotaExceeded = files.length > config.lockQuota;
-        const activeFiles = files.slice(0, config.lockQuota);
-        
-        state.changes[id] = { 
-          files: activeFiles, 
-          totalFiles: files.length,
-          quotaExceeded,
-        };
-        
-        if (quotaExceeded) {
-          state.warnings.push({
-            changeId: id,
-            type: 'quota_exceeded',
-            message: `Change ${id} affects ${files.length} files but quota is ${config.lockQuota}`,
-          });
-          logEvent('quota_exceeded', { changeId: id, files: files.length, quota: config.lockQuota });
-        }
-        
-        activeFiles.forEach(file => {
-          if (!state.locks[file]) state.locks[file] = [];
-          state.locks[file].push(id);
-        });
-        
-        state.requirements[id] = extractRequirements(id);
-        logEvent('change_indexed', { changeId: id, files: activeFiles.length });
-      } else {
-        state.warnings.push({
-          changeId: id,
-          type: 'missing_proposal',
-          message: `Change ${id} has no proposal.md`,
-        });
-      }
-    } catch (e) {
-      state.warnings.push({
-        changeId: id,
-        type: 'parse_error',
-        message: e.message,
-      });
-      logEvent('change_parse_error', { changeId: id, error: e.message });
-    }
-  });
+  changeIds.forEach(id => processChangeDirectory(id, changesDir, config, state));
 
   logEvent('rebuild_complete', { 
     changes: Object.keys(state.changes).length,
@@ -468,6 +501,103 @@ function visualizeDependencies() {
 }
 
 /**
+ * Render the HOT FILES section showing file overlaps between changes.
+ * @param {Array} overlaps - Array of overlap objects with file, owners, count
+ * @param {Object} config - Configuration with maxOverlaps limit
+ */
+function renderHotFilesSection(overlaps, config) {
+  console.log('HOT FILES (Overlaps)');
+  console.log('------------------------------------------------------------');
+  if (overlaps.length === 0) {
+    console.log('None detected.');
+    return;
+  }
+  const truncatedOverlaps = overlaps.slice(0, config.maxOverlaps);
+  truncatedOverlaps.forEach(o => {
+    console.log(`! ${o.file} : Modified by ${o.owners.join(', ')}`);
+  });
+  if (overlaps.length > config.maxOverlaps) {
+    console.log(`\n... and ${overlaps.length - config.maxOverlaps} more overlaps.`);
+    console.log(`> Total: ${overlaps.length} overlapping files. Use --filter to narrow.`);
+  }
+}
+
+/**
+ * Render the SEMANTIC CONFLICTS section showing identifier conflicts.
+ * @param {Array} conflicts - Array of conflict objects with identifier and usage
+ * @param {Object} config - Configuration with maxConflicts limit
+ */
+function renderConflictsSection(conflicts, config) {
+  console.log('\nSEMANTIC CONFLICTS');
+  console.log('------------------------------------------------------------');
+  if (conflicts.length === 0) {
+    console.log('None detected.');
+    return;
+  }
+  const truncatedConflicts = conflicts.slice(0, config.maxConflicts);
+  truncatedConflicts.forEach(c => {
+    console.log(`? ${c.identifier} :`);
+    c.usage.forEach(u => console.log(`  - ${u.id} (${u.action}): ${u.title}`));
+  });
+  if (conflicts.length > config.maxConflicts) {
+    console.log(`\n... and ${conflicts.length - config.maxConflicts} more conflicts.`);
+    console.log(`> Total: ${conflicts.length} conflicts. Use --filter to narrow.`);
+  }
+}
+
+/**
+ * Render the DEPENDENCIES & DRIFT section showing dependency cycles.
+ * @param {Array} cycles - Array of cycle paths (each is an array of change IDs)
+ */
+function renderDependenciesSection(cycles) {
+  console.log('\nDEPENDENCIES & DRIFT');
+  console.log('------------------------------------------------------------');
+  if (cycles.length > 0) {
+    cycles.forEach((cycle, i) => {
+      console.log(`X CYCLE ${i + 1}: ${cycle.join(' -> ')} (BLOCKING)`);
+    });
+  } else {
+    console.log('No dependency cycles detected.');
+  }
+}
+
+/**
+ * Render the WARNINGS section if there are any warnings.
+ * @param {Array} warnings - Array of warning objects with type and message
+ */
+function renderWarningsSection(warnings) {
+  if (!warnings || warnings.length === 0) {
+    return;
+  }
+  console.log('\nWARNINGS');
+  console.log('------------------------------------------------------------');
+  warnings.forEach(w => {
+    console.log(`⚠ [${w.type}] ${w.message}`);
+  });
+}
+
+/**
+ * Render the SUGGESTED SEQUENCE section with recommendations.
+ * @param {Array} cycles - Dependency cycles (if any)
+ * @param {Array} overlaps - File overlaps between changes
+ */
+function renderSuggestedSequence(cycles, overlaps) {
+  console.log('\nSUGGESTED SEQUENCE');
+  console.log('------------------------------------------------------------');
+  if (cycles.length > 0) {
+    console.log('> RESOLVE DEPENDENCY CYCLES BEFORE PROCEEDING');
+    console.log('> Break the cycle by removing or reordering dependencies');
+  } else if (overlaps.length > 0) {
+    console.log('1. Coordinate work on hot files to avoid merge conflicts.');
+    console.log('2. Consider sequential implementation for overlapping changes.');
+    console.log('3. Follow implicit dependencies from spec requirements.');
+  } else {
+    console.log('1. Changes can proceed in parallel (no overlaps detected).');
+    console.log('2. Monitor for new conflicts as implementation progresses.');
+  }
+}
+
+/**
  * Generate coordination report with truncation for large outputs
  */
 function generateReport() {
@@ -515,73 +645,11 @@ function generateReport() {
   console.log('                COORDINATION DASHBOARD');
   console.log('============================================================\n');
   
-  // Hot files section
-  console.log('HOT FILES (Overlaps)');
-  console.log('------------------------------------------------------------');
-  if (overlaps.length === 0) {
-    console.log('None detected.');
-  } else {
-    const truncatedOverlaps = overlaps.slice(0, config.maxOverlaps);
-    truncatedOverlaps.forEach(o => {
-      console.log(`! ${o.file} : Modified by ${o.owners.join(', ')}`);
-    });
-    if (overlaps.length > config.maxOverlaps) {
-      console.log(`\n... and ${overlaps.length - config.maxOverlaps} more overlaps.`);
-      console.log(`> Total: ${overlaps.length} overlapping files. Use --filter to narrow.`);
-    }
-  }
-  
-  // Semantic conflicts section
-  console.log('\nSEMANTIC CONFLICTS');
-  console.log('------------------------------------------------------------');
-  if (conflicts.length === 0) {
-    console.log('None detected.');
-  } else {
-    const truncatedConflicts = conflicts.slice(0, config.maxConflicts);
-    truncatedConflicts.forEach(c => {
-      console.log(`? ${c.identifier} :`);
-      c.usage.forEach(u => console.log(`  - ${u.id} (${u.action}): ${u.title}`));
-    });
-    if (conflicts.length > config.maxConflicts) {
-      console.log(`\n... and ${conflicts.length - config.maxConflicts} more conflicts.`);
-      console.log(`> Total: ${conflicts.length} conflicts. Use --filter to narrow.`);
-    }
-  }
-  
-  // Dependencies & Drift section
-  console.log('\nDEPENDENCIES & DRIFT');
-  console.log('------------------------------------------------------------');
-  if (cycles.length > 0) {
-    cycles.forEach((cycle, i) => {
-      console.log(`X CYCLE ${i + 1}: ${cycle.join(' -> ')} (BLOCKING)`);
-    });
-  } else {
-    console.log('No dependency cycles detected.');
-  }
-  
-  // Warnings section (if any)
-  if (state.warnings && state.warnings.length > 0) {
-    console.log('\nWARNINGS');
-    console.log('------------------------------------------------------------');
-    state.warnings.forEach(w => {
-      console.log(`⚠ [${w.type}] ${w.message}`);
-    });
-  }
-  
-  // Suggested sequence
-  console.log('\nSUGGESTED SEQUENCE');
-  console.log('------------------------------------------------------------');
-  if (cycles.length > 0) {
-    console.log('> RESOLVE DEPENDENCY CYCLES BEFORE PROCEEDING');
-    console.log('> Break the cycle by removing or reordering dependencies');
-  } else if (overlaps.length > 0) {
-    console.log('1. Coordinate work on hot files to avoid merge conflicts.');
-    console.log('2. Consider sequential implementation for overlapping changes.');
-    console.log('3. Follow implicit dependencies from spec requirements.');
-  } else {
-    console.log('1. Changes can proceed in parallel (no overlaps detected).');
-    console.log('2. Monitor for new conflicts as implementation progresses.');
-  }
+  renderHotFilesSection(overlaps, config);
+  renderConflictsSection(conflicts, config);
+  renderDependenciesSection(cycles);
+  renderWarningsSection(state.warnings);
+  renderSuggestedSequence(cycles, overlaps);
   
   console.log('\n============================================================');
   
