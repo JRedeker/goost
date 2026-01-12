@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Enhance openspec-roadmap spec with edge cases, verification steps, and schema (d414eb4)
 
 ### Changed
+- Further mandate TDD across rules, commands, and plugin using the RSTC (Requirement-Spec-Test-Code) protocol
+- Update /contract, /contract-quick, and /openspec-apply to link TEST PLAN to SUCCESS CRITERIA
+- Enhance plugin to detect test runner execution and provide visual feedback (red/green phases)
+- Add TDD sequence audit to /openspec-harden
 - Enhance /openspec-coordinate with full coordination implementation including configurable quotas, structured logging, blocked task detection, and result truncation (c9be1d1)
 - Add contract enforcement to /openspec-prep command for active gap fixing (aaab0cc)
 - Refactor plugin into modular architecture (types.ts, terminal.ts, contract.ts, index.ts) (71f604d)

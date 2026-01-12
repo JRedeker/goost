@@ -17,7 +17,7 @@
 
 import * as fs from "fs"
 import { execSync } from "child_process"
-import { type GoostStatus } from "./types"
+import { type GoostStatus, TAB_COLORS } from "./types"
 
 // =============================================================================
 // Debug Logging
@@ -373,10 +373,38 @@ export const getProjectName = (directory: string): string => {
 
 /**
  * Update terminal tab color based on status.
- * Currently a no-op - tab colors are not reliably supported.
+ * Uses OSC 9;9 extension for Windows Terminal and others.
+ *
+ * @param status - Current Goost status
  */
-export const updateTabColor = (_status: GoostStatus): void => {
-  // Tab coloration removed - not consistently supported
+export const updateTabColor = (status: GoostStatus): void => {
+  const color = TAB_COLORS[status]
+  if (!color) return
+
+  log(`updateTabColor: status=${status}, color=${color}`)
+
+  // OSC 9;9;1;color sequence
+  // 1 means set color, 0 means reset
+  const sequence = `\x1b]9;9;1;${color}\x07`
+
+  if (isTmux()) {
+    const clientTty = getClientTty()
+    if (clientTty) {
+      try {
+        fs.writeFileSync(clientTty, sequence)
+        log(`updateTabColor: SUCCESS via clientTty ${clientTty}`)
+      } catch (error) {
+        log(`updateTabColor: FAILED via clientTty - ${error}`)
+      }
+    }
+  } else {
+    try {
+      process.stdout.write(sequence)
+      log(`updateTabColor: SUCCESS via stdout`)
+    } catch (error) {
+      log(`updateTabColor: FAILED via stdout - ${error}`)
+    }
+  }
 }
 
 /**

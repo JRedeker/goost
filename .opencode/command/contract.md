@@ -14,9 +14,10 @@ You are establishing a **binding contract** with the user. This contract defines
 Parse the provided task description to extract:
 
 1. **Objective**: The one-sentence definition of "done"
-2. **Success Criteria**: 3-5 specific, verifiable conditions that must be true when complete
-3. **Constraints**: Hard boundaries - things that MUST or MUST NOT happen
-4. **Checkpoints**: Phase gates for multi-step work (if applicable)
+2. **Success Criteria**: 3-5 specific, verifiable conditions that must be true when complete. Link to Test Plan scenarios using IDs (e.g., C1, C2).
+3. **Test Plan**: Specific test scenarios mapping to each criterion.
+4. **Constraints**: Hard boundaries - things that MUST or MUST NOT happen
+5. **Checkpoints**: Phase gates for multi-step work (if applicable)
 
 If the request is ambiguous or missing critical information, ask clarifying questions before generating the contract. Otherwise, proceed directly to formatting.
 
@@ -32,10 +33,15 @@ Once gathered, output the contract in this exact format:
 OBJECTIVE: <one sentence definition of done>
 
 SUCCESS CRITERIA:
-- [ ] <criterion 1 - must be verifiable>
-- [ ] <criterion 2 - must be verifiable>
-- [ ] <criterion 3 - must be verifiable>
+- [ ] (C1) <criterion 1 - must be verifiable>
+- [ ] (C2) <criterion 2 - must be verifiable>
+- [ ] (C3) <criterion 3 - must be verifiable>
 [additional criteria as needed]
+
+TEST PLAN:
+- [ ] (C1) <test scenario 1 - file: path/to/test.ts>
+- [ ] (C2) <test scenario 2 - file: path/to/test.ts>
+- [ ] (C3) <test scenario 3 - file: path/to/test.ts>
 
 CONSTRAINTS:
 - MUST NOT: <hard boundary>
@@ -72,16 +78,21 @@ Once confirmed, the contract is **IMMUTABLE**. Neither you nor the user can modi
    ```
    ---
    CONTRACT STATUS:
-   - [x] Criterion 1 (completed: <brief evidence>)
-   - [ ] Criterion 2 (in progress / blocked / pending)
-   - [ ] Criterion 3 (pending)
+   - [x] (C1) Criterion 1 (evidence: <link to logs or commit>)
+   - [ ] (C2) Criterion 2 (status: pending|in progress|blocked | phase: red|green)
+   - [ ] (C3) Criterion 3 (pending)
    Phase: 1 of 2 | Criteria: 1/3 complete
    ---
    ```
 
-2. **Update checkboxes** only when you have concrete evidence the criterion is met (test passes, file exists, behavior verified).
+2. **TDD Protocol (RSTC)**: You MUST follow the Requirement-Spec-Test-Code sequence.
+   - Provide **Red Phase Evidence** (failing logs) before implementation.
+   - Provide **Green Phase Evidence** (passing logs) after implementation.
+   - Do NOT mark a criterion `[x]` until both Red and Green evidence are provided.
 
-3. **Never skip the status block** - it's your accountability anchor.
+3. **Update checkboxes** only when you have concrete evidence the criterion is met (test passes, file exists, behavior verified).
+
+4. **Never skip the status block** - it's your accountability anchor.
 
 ### Completion Rules
 
@@ -175,11 +186,16 @@ If user provides vague criteria, help them sharpen it:
 OBJECTIVE: Add dark mode toggle to the settings page that persists user preference.
 
 SUCCESS CRITERIA:
-- [ ] Toggle component renders on settings page
-- [ ] Clicking toggle switches between light/dark themes
-- [ ] Preference persists across page refreshes (localStorage)
-- [ ] All existing tests pass
-- [ ] No TypeScript errors
+- [ ] (C1) Toggle component renders on settings page
+- [ ] (C2) Clicking toggle switches between light/dark themes
+- [ ] (C3) Preference persists across page refreshes (localStorage)
+- [ ] (C4) No TypeScript errors
+
+TEST PLAN:
+- [ ] (C1) Renders toggle: `npm test Toggle.test.ts`
+- [ ] (C2) Switches theme: `npm test Theme.test.ts`
+- [ ] (C3) Persists preference: `npm test Storage.test.ts`
+- [ ] (C4) Type check: `npm run tsc`
 
 CONSTRAINTS:
 - MUST NOT: Break existing light theme styles

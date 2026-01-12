@@ -30,7 +30,8 @@ When invoked with a task description, **skip the questions** and directly propos
 
 1. **Parse the user's input** for:
    - Implicit objective (what they want done)
-   - Implicit success criteria (what "done" means)
+   - Implicit success criteria (what "done" means). Link to Test Plan (C1, C2).
+   - Implicit test plan (how to verify each criterion)
    - Implicit constraints (things they care about preserving)
 
 2. **Generate a contract** with reasonable defaults
@@ -57,11 +58,16 @@ Based on your request, here's a proposed contract:
 OBJECTIVE: Add JWT-based user authentication to the application.
 
 SUCCESS CRITERIA:
-- [ ] Login endpoint accepts credentials and returns JWT
-- [ ] Protected routes reject requests without valid JWT
-- [ ] Protected routes accept requests with valid JWT
-- [ ] JWT includes user ID and expiration
-- [ ] Existing unprotected routes continue to function
+- [ ] (C1) Login endpoint accepts credentials and returns JWT
+- [ ] (C2) Protected routes reject requests without valid JWT
+- [ ] (C3) Protected routes accept requests with valid JWT
+- [ ] (C4) Existing unprotected routes continue to function
+
+TEST PLAN:
+- [ ] (C1) `npm test auth.login.test.ts`
+- [ ] (C2) `npm test auth.middleware.test.ts`
+- [ ] (C3) `npm test auth.middleware.test.ts`
+- [ ] (C4) `npm test routes.test.ts`
 
 CONSTRAINTS:
 - MUST NOT: Break existing route functionality

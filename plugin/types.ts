@@ -22,8 +22,19 @@ import { z } from "zod"
  * - idle: Idle without active contract (same icon as earth, different semantic)
  * - doom_loop: Stuck in retry cycle - needs intervention
  * - mic: Needs user approval for command execution
+ * - tdd_red: Red Phase - test failing (TDD mandate)
+ * - tdd_green: Green Phase - test passing (TDD mandate)
  */
-export type GoostStatus = "moon" | "rocket" | "earth" | "work" | "idle" | "doom_loop" | "mic"
+export type GoostStatus =
+  | "moon"
+  | "rocket"
+  | "earth"
+  | "work"
+  | "idle"
+  | "doom_loop"
+  | "mic"
+  | "tdd_red"
+  | "tdd_green"
 
 /**
  * Contract state tracking structure
@@ -34,6 +45,10 @@ export interface ContractState {
   objective: string | null
   criteriaStatus: string[]
   progress: string
+  /** Whether a Red Phase (failing test) has been detected for the current contract */
+  redPhaseSeen: boolean
+  /** Whether a Green Phase (passing test) has been detected for the current contract */
+  greenPhaseSeen: boolean
 }
 
 /**
@@ -74,6 +89,8 @@ export const STATUS_EMOJIS: Record<GoostStatus, string> = {
   idle: "\u{1F30D}", // Earth - idle without contract (same icon, different semantic)
   doom_loop: "\u{1F504}", // Loop - stuck in retry cycle
   mic: "\u{1F3A4}", // Mic - needs user approval
+  tdd_red: "\u{1F534}\u{1F9EA}", // Red Circle + Test Tube
+  tdd_green: "\u{1F7E2}\u{1F9EA}", // Green Circle + Test Tube
 }
 
 /**
@@ -88,6 +105,8 @@ export const TAB_COLORS: Record<GoostStatus, string> = {
   idle: "#57F287", // Green - idle/ready for input
   doom_loop: "#FFA500", // Orange - warning, stuck in loop
   mic: "#FF00FF", // Magenta/hot pink - URGENT: needs user approval
+  tdd_red: "#FFA500", // Orange - Red Phase (failing)
+  tdd_green: "#57F287", // Green - Green Phase (passing)
 }
 
 /**
@@ -102,6 +121,8 @@ export const GOOST_MARKERS: Record<GoostStatus, RegExp> = {
   idle: /\[GOOST:IDLE\]/,
   doom_loop: /\[GOOST:DOOM_LOOP\]/,
   mic: /\[GOOST:MIC\]/,
+  tdd_red: /\[GOOST:TDD_RED\]/,
+  tdd_green: /\[GOOST:TDD_GREEN\]/,
 }
 
 /**
@@ -268,3 +289,9 @@ export const OPENSPEC_CHANGE_PATH_PATTERN = /openspec\/changes\/([^/\s]+)\//
  */
 export const OPENSPEC_USER_REQUEST_PATTERN =
   /<UserRequest>\s*([a-zA-Z0-9][\w-]*)\s*<\/UserRequest>/i
+
+/**
+ * Patterns for detecting test runner execution in bash commands.
+ */
+export const TEST_RUNNER_PATTERNS =
+  /\b(npm test|yarn test|pnpm test|jest|mocha|pytest|vitest|go test|cargo test|rspec|bundle exec rspec|phpunit|npm run test|npm run spec|npm run coverage|pytest|tox|nox|nosetests)\b/i

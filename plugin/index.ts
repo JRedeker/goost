@@ -60,6 +60,7 @@ import {
   extractCriterionFromTask,
   recordSubAgentFailure,
   isDoomLoopReached,
+  isTestRunner,
 } from "./contract"
 
 // =============================================================================
@@ -294,6 +295,9 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
   // Initialize state
   let state = createInitialState()
 
+  /** Last bash command executed, used to detect test runners in .after hook */
+  let lastBashCommand: string | null = null
+
   // Helper to update state and UI
   const setState = (newState: PluginState): void => {
     state = newState
@@ -373,6 +377,12 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
       // Log ALL tool executions when DEBUG is enabled
       log(`tool.execute.before: tool="${input.tool}"`)
+
+      // Track bash commands for test runner detection in .after
+      if (input.tool === "bash" && toolArgs.args && "command" in toolArgs.args) {
+        lastBashCommand = String(toolArgs.args.command)
+      }
+
       if (!isTaskTool(input.tool)) {
         return
       }
@@ -415,6 +425,33 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
     // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output): Promise<void> => {
+      // Check for test runner execution
+      if (input.tool === "bash" && lastBashCommand) {
+        if (isTestRunner(lastBashCommand)) {
+          const typedOutput = output as { metadata?: { exitCode?: number }; output?: string }
+          const exitCode =
+            typedOutput.metadata?.exitCode ?? (typedOutput.output?.includes("error") ? 1 : 0)
+          log(`Test runner detected: "${lastBashCommand}" (exitCode=${exitCode})`)
+
+          const tddStatus: GoostStatus = exitCode === 0 ? "tdd_green" : "tdd_red"
+          const newState = updateStateStatus(state, tddStatus)
+
+          // Also update contract state tracking if active
+          if (newState.contract.active) {
+            if (exitCode === 0) {
+              newState.contract.greenPhaseSeen = true
+            } else {
+              newState.contract.redPhaseSeen = true
+            }
+          }
+
+          setState(newState)
+          lastBashCommand = null
+          return
+        }
+        lastBashCommand = null
+      }
+
       if (!isTaskTool(input.tool)) {
         return
       }

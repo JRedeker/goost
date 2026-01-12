@@ -1,9 +1,6 @@
 # Core Agent Instructions
 # Mandatory rules for all AI Agents / Programmers.
 # Use `hint` field for runtime decision-making; resolve conflicts by `priority` (higher wins).
-#
-# This file is distributed with Goost and installed to ~/.config/opencode/rules.yaml
-# if it doesn't already exist. It provides the core rules referenced by /openspec-review.
 
 meta:
   version: "2.0"
@@ -57,8 +54,8 @@ rules:
 
   P07:
     name: verify
-    rule: Prove behavior with tests or observable checks before trusting; never assume code works.
-    tags: [testing, observability]
+    rule: Prove behavior with tests or observable checks before implementation (TDD); never assume code works.
+    tags: [testing, observability, tdd]
     hint: verify_first
     priority: 8
 
@@ -85,8 +82,8 @@ rules:
 
   P11:
     name: lifecycle
-    rule: "Follow: Understand → Research → Plan → Implement → Verify."
-    tags: [process]
+    rule: "Follow the RSTC protocol: Understand → Research → Plan (RSTC: Requirement → Spec → Test) → Implement (Code) → Verify."
+    tags: [process, tdd]
     hint: plan_first
     priority: 7
 
@@ -173,3 +170,10 @@ rules:
     tags: [quality, refactoring, debt]
     hint: leave_it_better
     priority: 6
+
+  P24:
+    name: tdd-first
+    rule: Write tests before implementation. Every new feature or bug fix MUST start with a test that fails without the change (Red Phase) and passes with it (Green Phase).
+    tags: [testing, tdd, quality]
+    hint: tdd_mandatory
+    priority: 9

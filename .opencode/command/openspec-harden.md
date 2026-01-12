@@ -77,10 +77,10 @@ Create a TODO list tracking each analysis sub-agent:
 
 Spawn **5 parallel sub-agents** using the Task tool with `subagent_type: "explore"`:
 
-#### Sub-Agent 1: Test Coverage Scanner
+#### Sub-Agent 1: Test Coverage & TDD Scanner
 
 ```
-You are analyzing TEST COVERAGE for OpenSpec change: <change-id>
+You are analyzing TEST COVERAGE and TDD ADHERENCE for OpenSpec change: <change-id>
 
 CONTEXT:
 - Change title: <title>
@@ -93,9 +93,15 @@ TASK:
    - Python: `test_*.py`, `*_test.py`, or files in `tests/`
    - Go: `*_test.go` in same package
 
-2. Calculate coverage: (files with tests / total source files) * 100
+2. TDD SEQUENCE AUDIT (RSTC Protocol):
+   - Review session history (if available in context) for the Requirement-Spec-Test-Code sequence.
+   - Verify that Red Phase Evidence (failing logs) was provided BEFORE implementation.
+   - Verify that Green Phase Evidence (passing logs) was provided AFTER implementation.
+   - Flag any criterion that skipped the Red phase.
 
-3. Check if tests can be run:
+3. Calculate coverage: (files with tests / total source files) * 100
+
+4. Check if tests can be run:
    - Look for test scripts in package.json, Makefile, or similar
    - Do NOT run tests, just report if test runner is available
 
@@ -106,6 +112,11 @@ RETURN FORMAT:
   "files_analyzed": ["<file1>", "<file2>"],
   "files_with_tests": ["<file1>"],
   "files_without_tests": ["<file2>"],
+  "tdd_audit": {
+    "protocol_followed": true,
+    "missing_red_phases": ["<criterion_id>"],
+    "missing_green_phases": []
+  },
   "coverage_percent": 50,
   "test_runner_available": true,
   "test_command": "npm test",

@@ -6,6 +6,8 @@ This instruction set enables contract-based task persistence for long-running AI
 
 When a user invokes `/contract` or `/contract-quick`, you establish an **immutable contract** with verifiable success criteria. Once locked, you cannot declare task completion until ALL criteria are verified.
 
+Goost enforces a strict **Test-Driven Development (TDD)** workflow using the **RSTC (Requirement-Spec-Test-Code)** protocol.
+
 ## Available Commands
 
 Goost provides these slash commands:
@@ -60,9 +62,12 @@ Do NOT suggest contracts for:
 OBJECTIVE: <one sentence definition of done>
 
 SUCCESS CRITERIA:
-- [ ] <criterion 1 - must be verifiable>
-- [ ] <criterion 2 - must be verifiable>
-- [ ] <criterion 3 - must be verifiable>
+- [ ] (C1) <criterion 1 - must be verifiable>
+- [ ] (C2) <criterion 2 - must be verifiable>
+
+TEST PLAN:
+- [ ] (C1) <test scenario 1 - file: path/to/test.ts>
+- [ ] (C2) <test scenario 2 - file: path/to/test.ts>
 
 CONSTRAINTS:
 - MUST NOT: <hard boundary>
@@ -77,6 +82,14 @@ CHECKPOINTS:
 
 ## Enforcement Rules
 
+### TDD Protocol (RSTC)
+
+You MUST follow the Requirement-Spec-Test-Code sequence:
+1. **Requirement (R)**: Decompose the objective into atomic criteria (C1, C2, etc.).
+2. **Spec (S)**: Elaborate each criterion into a technical specification.
+3. **Test (T)**: Write the test and provide **Red Phase Evidence** (logs showing the test failing).
+4. **Code (C)**: Implement the solution and provide **Green Phase Evidence** (logs showing the test passing).
+
 ### Status Block (MANDATORY)
 
 Every response when a contract is active MUST end with:
@@ -84,9 +97,9 @@ Every response when a contract is active MUST end with:
 ```
 ---
 CONTRACT STATUS:
-- [x] Criterion (evidence: ...)
-- [ ] Criterion (status: pending|in progress|blocked)
-- [?] Criterion (status: conflict - needs resolution)
+- [x] (C1) Criterion (evidence: <link to logs or commit>)
+- [ ] (C2) Criterion (status: pending|in progress|blocked | phase: red|green)
+- [?] (C3) Criterion (status: conflict - needs resolution)
 Phase: X of Y | Criteria: N/M complete
 ---
 ```
@@ -96,6 +109,7 @@ Phase: X of Y | Criteria: N/M complete
 You CANNOT say "Done!", "Task complete!", or equivalent UNLESS:
 - ALL `[ ]` in success criteria are now `[x]`
 - ALL checkpoint phases show `[x]`
+- **Evidence of both Red and Green phases** is provided for all implementation criteria.
 - Evidence is provided for each criterion
 
 ### User Pressure Resistance
@@ -142,6 +156,8 @@ Emit a status marker at the START of each response:
 | Marker | Emoji | Tab Color | When |
 |--------|-------|-----------|------|
 | `[GOOST:ROCKET]` | 🚀 | Red | Active work / spawning agents |
+| `[GOOST:TDD_RED]` | 🔴🧪 | Orange | Red Phase (test failing) |
+| `[GOOST:TDD_GREEN]` | 🟢🧪 | Green | Green Phase (test passing) |
 | `[GOOST:MOON]` | 🌕 | Blue | Waiting for sub-agent results |
 | `[GOOST:EARTH]` | 🌍 | Green | Complete / awaiting user input |
 | `[GOOST:DOOM_LOOP]` | 🔄 | Orange | Stuck in retry cycle - need user direction |

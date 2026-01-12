@@ -20,6 +20,7 @@ import {
   OPENSPEC_COMMAND_PATTERN,
   OPENSPEC_CHANGE_PATH_PATTERN,
   OPENSPEC_USER_REQUEST_PATTERN,
+  TEST_RUNNER_PATTERNS,
 } from "./types"
 
 // =============================================================================
@@ -36,6 +37,8 @@ export const createEmptyContract = (): ContractState => ({
   objective: null,
   criteriaStatus: [],
   progress: "",
+  redPhaseSeen: false,
+  greenPhaseSeen: false,
 })
 
 /**
@@ -50,6 +53,8 @@ export const createActiveContract = (block: string): ContractState => ({
   objective: extractObjective(block),
   criteriaStatus: extractCriteria(block),
   progress: "",
+  redPhaseSeen: false,
+  greenPhaseSeen: false,
 })
 
 /**
@@ -135,6 +140,30 @@ const extractCriteria = (text: string): string[] => {
     criteria.push(`[${checkChar}] ${match[2]}`)
   }
   return criteria
+}
+
+/**
+ * Extract TDD phase from status block (e.g., "phase: red|green").
+ *
+ * @param text - Text containing phase info
+ * @returns "red" | "green" | null
+ */
+export const extractTestPhase = (text: string): "red" | "green" | null => {
+  const match = text.match(/phase:\s*(red|green)/i)
+  if (match) {
+    return match[1].toLowerCase() as "red" | "green"
+  }
+  return null
+}
+
+/**
+ * Check if a command string is a known test runner.
+ *
+ * @param command - The command string to check
+ * @returns true if command matches test runner patterns
+ */
+export const isTestRunner = (command: string): boolean => {
+  return TEST_RUNNER_PATTERNS.test(command)
 }
 
 /**
@@ -276,6 +305,10 @@ export const getStatusText = (
       return "Working"
     case "idle":
       return contractActive ? "Contract" : ""
+    case "tdd_red":
+      return "RED PHASE"
+    case "tdd_green":
+      return "GREEN PHASE"
     default:
       return ""
   }
@@ -311,6 +344,20 @@ export const processMessageContent = (state: PluginState, content: string): Plug
   // Update criteria status from status blocks
   if (newState.contract.active) {
     newState = processStatusBlock(newState, content)
+
+    // Update TDD phase from status block
+    const phase = extractTestPhase(content)
+    if (phase) {
+      const status: GoostStatus = phase === "red" ? "tdd_red" : "tdd_green"
+      newState = updateStateStatus(newState, status)
+
+      // Update contract state with phases seen
+      if (phase === "red") {
+        newState.contract.redPhaseSeen = true
+      } else if (phase === "green") {
+        newState.contract.greenPhaseSeen = true
+      }
+    }
   }
 
   // Check for contract end

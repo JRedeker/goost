@@ -21,9 +21,10 @@ Generate a contract from the proposal for **visibility and tracking**. The user'
 
 Derive the contract:
 1. **OBJECTIVE**: From the proposal's title/summary
-2. **SUCCESS CRITERIA**: Convert acceptance criteria from `proposal.md` into verifiable checkboxes
-3. **CONSTRAINTS**: Extract any MUST/MUST NOT requirements
-4. **CHECKPOINTS**: Group tasks from `tasks.md` into logical phases
+2. **SUCCESS CRITERIA**: Convert acceptance criteria from `proposal.md` into verifiable checkboxes. Link to Test Plan (C1, C2).
+3. **TEST PLAN**: Derived from `tasks.md` and spec scenarios.
+4. **CONSTRAINTS**: Extract any MUST/MUST NOT requirements
+5. **CHECKPOINTS**: Group tasks from `tasks.md` into logical phases
 
 Display the contract:
 ```
@@ -34,10 +35,16 @@ Display the contract:
 OBJECTIVE: <derived from proposal summary>
 
 SUCCESS CRITERIA:
-- [ ] <acceptance criterion 1 from proposal>
-- [ ] <acceptance criterion 2 from proposal>
-- [ ] All tasks in tasks.md completed
-- [ ] No TypeScript/build errors introduced
+- [ ] (C1) <acceptance criterion 1 from proposal>
+- [ ] (C2) <acceptance criterion 2 from proposal>
+- [ ] (C3) All tasks in tasks.md completed
+- [ ] (C4) No TypeScript/build errors introduced
+
+TEST PLAN:
+- [ ] (C1) <test scenario for C1>
+- [ ] (C2) <test scenario for C2>
+- [ ] (C3) <verification task from tasks.md>
+- [ ] (C4) `npm run build` or equivalent
 
 CONSTRAINTS:
 - MUST NOT: <from proposal constraints>
@@ -52,7 +59,13 @@ CHECKPOINTS:
 
 Then immediately proceed to implementation.
 
-**Step 3: Implement Under Contract**
+**Step 3: Implement Under Contract (RSTC Protocol)**
+
+You MUST follow the Requirement-Spec-Test-Code sequence for each criterion:
+1. **Requirement (R)**: Review criterion and linked test scenario.
+2. **Spec (S)**: Detail technical implementation and edge cases.
+3. **Test (T)**: Write/update test and provide **Red Phase Evidence** (failing logs).
+4. **Code (C)**: Implement solution and provide **Green Phase Evidence** (passing logs).
 
 With the contract established:
 - Work through tasks sequentially from `tasks.md`
