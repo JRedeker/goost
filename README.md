@@ -654,6 +654,46 @@ When a contract is active and you spawn sub-agents, Goost provides guidance for:
 - **Conflict Resolution**: Contradictory results are flagged with `[?]` until resolved
 - **Tight Scoping**: Prefer narrow tasks ("Search src/auth/") over broad ones ("Search entire codebase")
 
+---
+
+## 🔄 Loop Anomaly Detection
+
+Goost automatically detects and terminates **runaway AI responses** containing repetitive content. This catches generation-level failures where models output the same phrase repeatedly (common with Gemini and other models).
+
+### How It Works
+
+Detection triggers when BOTH conditions are met:
+1. Response exceeds **20,000 characters**
+2. Any **80+ character substring** appears **3 or more times**
+
+When detected:
+- Plugin calls `client.session.abort()` to terminate the response
+- Status changes to `doom_loop` (🔄 orange tab)
+- Terminal bell sounds (if enabled)
+- Debug logs record the repeated substring
+
+### Configuration
+
+Set environment variables before starting OpenCode:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOOST_ANOMALY_SIZE` | `20000` | Size threshold in characters |
+| `GOOST_ANOMALY_BELL` | `1` | Enable terminal bell (`1`) or disable (`0`) |
+
+```bash
+# Example: Higher threshold, no bell
+GOOST_ANOMALY_SIZE=30000 GOOST_ANOMALY_BELL=0 opencode
+```
+
+### Safety Features
+
+- **State-based throttle**: Only one abort per response
+- **Tool execution protection**: Won't abort during tool execution
+- **Automatic reset**: Throttle resets when new response starts
+
+---
+
 ### Debug Logging
 
 Enable `GOOST_DEBUG=1` to see sub-agent tracking:

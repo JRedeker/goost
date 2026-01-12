@@ -58,6 +58,17 @@ export const createActiveContract = (block: string): ContractState => ({
 })
 
 /**
+ * Create initial anomaly detection state.
+ * Reset when session status changes (new response starts).
+ */
+export const createInitialAnomalyState = () => ({
+  lastAnalyzedLength: 0,
+  abortedThisResponse: false,
+  toolExecuting: false,
+  abortQueued: false,
+})
+
+/**
  * Create initial plugin state.
  * Use on plugin initialization.
  */
@@ -68,6 +79,8 @@ export const createInitialState = (): PluginState => ({
   contract: createEmptyContract(),
   subAgentFailures: new Map<string, number>(),
   openSpecChange: null,
+  sessionID: null,
+  anomalyState: createInitialAnomalyState(),
 })
 
 // =============================================================================

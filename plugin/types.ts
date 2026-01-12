@@ -67,6 +67,10 @@ export interface PluginState {
   subAgentFailures: Map<string, number>
   /** Current OpenSpec change name (for tab title display) */
   openSpecChange: string | null
+  /** Current session ID for abort calls */
+  sessionID: string | null
+  /** Anomaly detection state for current response */
+  anomalyState: AnomalyState
 }
 
 // =============================================================================
@@ -317,3 +321,65 @@ export const OPENSPEC_USER_REQUEST_PATTERN =
  */
 export const TEST_RUNNER_PATTERNS =
   /\b(npm test|yarn test|pnpm test|jest|mocha|pytest|vitest|go test|cargo test|rspec|bundle exec rspec|phpunit|npm run test|npm run spec|npm run coverage|pytest|tox|nox|nosetests)\b/i
+
+// =============================================================================
+// Loop Anomaly Detection
+// =============================================================================
+
+/**
+ * Parse environment variable as integer with fallback to default.
+ * Returns default if value is non-numeric or invalid.
+ */
+const parseEnvInt = (value: string | undefined, defaultValue: number): number => {
+  if (!value) return defaultValue
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? defaultValue : parsed
+}
+
+/**
+ * Parse environment variable as boolean (1/0 string).
+ * Default is true (enabled).
+ */
+const parseEnvBool = (value: string | undefined, defaultValue: boolean): boolean => {
+  if (value === undefined) return defaultValue
+  return value !== "0"
+}
+
+/**
+ * Anomaly detection configuration.
+ * Loaded from environment variables with sensible defaults.
+ */
+export const ANOMALY_CONFIG = {
+  /** Size threshold in characters before detection runs (default: 20000) */
+  SIZE_THRESHOLD: parseEnvInt(process.env.GOOST_ANOMALY_SIZE, 20000),
+
+  /** Minimum substring length to check for repetition (80 chars ~= 10-15 words) */
+  REPETITION_MIN_LENGTH: 80,
+
+  /** Minimum occurrences to trigger detection */
+  REPETITION_MIN_COUNT: 3,
+
+  /** Interval between analysis checks during streaming (2000 chars) */
+  ANALYSIS_INTERVAL: 2000,
+
+  /** Whether to emit terminal bell on detection */
+  BELL_ENABLED: parseEnvBool(process.env.GOOST_ANOMALY_BELL, true),
+} as const
+
+/**
+ * State for anomaly detection within a single response.
+ * Reset when session status changes (new response starts).
+ */
+export interface AnomalyState {
+  /** Length of content when last analysis was performed */
+  lastAnalyzedLength: number
+
+  /** Whether an abort has been triggered for the current response */
+  abortedThisResponse: boolean
+
+  /** Whether a tool is currently executing (prevents abort during tool) */
+  toolExecuting: boolean
+
+  /** Whether an abort is queued pending tool completion */
+  abortQueued: boolean
+}

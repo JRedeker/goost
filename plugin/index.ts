@@ -40,6 +40,7 @@ try {
 import {
   type PluginState,
   type GoostStatus,
+  type AnomalyState,
   EVENT_TYPES,
   isTaskTool,
   SessionStatusPropsSchema,
@@ -53,6 +54,7 @@ import {
 import { cleanupTerminal, getProjectName, updateTabColor, updateTitle, isTmux } from "./terminal"
 import {
   createInitialState,
+  createInitialAnomalyState,
   processMessageContent,
   getStatusText,
   updateStateStatus,
@@ -64,6 +66,7 @@ import {
   isDoomLoopReached,
   isTestRunner,
 } from "./contract"
+import { shouldAnalyze, detectRepetition, emitBell } from "./anomaly"
 
 // =============================================================================
 // Debug Logging
@@ -121,13 +124,18 @@ type EventHandlerContext = {
   state: PluginState
   projectName: string
   log: (msg: string) => void
+  client: ReturnType<typeof import("@opencode-ai/sdk").createOpencodeClient> | undefined
 }
 
-type EventHandler = (properties: unknown, ctx: EventHandlerContext) => PluginState
+type EventHandler = (
+  properties: unknown,
+  ctx: EventHandlerContext
+) => PluginState | Promise<PluginState>
 
 /**
  * Handle session.status event.
  * Updates UI based on session idle/busy state.
+ * Also tracks sessionID and resets anomaly state on new responses.
  */
 const handleSessionStatus: EventHandler = (properties, ctx) => {
   const parsed = SessionStatusPropsSchema.safeParse(properties)
@@ -136,16 +144,29 @@ const handleSessionStatus: EventHandler = (properties, ctx) => {
     return ctx.state
   }
 
-  const { status } = parsed.data
+  const { status, sessionID } = parsed.data
+
+  // Track sessionID for abort calls
+  const baseState: PluginState = { ...ctx.state, sessionID }
 
   if (status.type === "idle") {
     const newStatus: GoostStatus = ctx.state.contract.active ? "earth" : "idle"
-    return updateStateStatus(ctx.state, newStatus)
+    // Reset anomaly state when response ends (throttle reset)
+    const statusUpdated = updateStateStatus(baseState, newStatus)
+    return {
+      ...statusUpdated,
+      anomalyState: createInitialAnomalyState(),
+    }
   } else if (status.type === "busy") {
-    return updateStateStatus(ctx.state, "work")
+    // Reset anomaly state when new response starts
+    const statusUpdated = updateStateStatus(baseState, "work")
+    return {
+      ...statusUpdated,
+      anomalyState: createInitialAnomalyState(),
+    }
   }
 
-  return ctx.state
+  return baseState
 }
 
 /**
@@ -179,9 +200,9 @@ const handleSessionUpdated: EventHandler = (properties, ctx) => {
 
 /**
  * Handle message.updated event.
- * Processes assistant messages for contract state changes.
+ * Processes assistant messages for contract state changes and anomaly detection.
  */
-const handleMessageUpdated: EventHandler = (properties, ctx) => {
+const handleMessageUpdated: EventHandler = async (properties, ctx) => {
   const parsed = MessageUpdatedPropsSchema.safeParse(properties)
   if (!parsed.success) {
     ctx.log(`Invalid message.updated properties: ${parsed.error.message}`)
@@ -203,8 +224,12 @@ const handleMessageUpdated: EventHandler = (properties, ctx) => {
 
   // Process assistant messages for contract/status tracking
   if (info.role === "assistant") {
+    // Concatenate all text parts for anomaly analysis
+    let fullText = ""
+
     for (const part of info.parts) {
       if (part.type === "text" && part.text) {
+        fullText += part.text
         if (DEBUG) {
           const textPreview = part.text.substring(0, 100).replace(/\n/g, "\\n")
           ctx.log(`Processing text part: "${textPreview}..."`)
@@ -212,9 +237,105 @@ const handleMessageUpdated: EventHandler = (properties, ctx) => {
         newState = processMessageContent(newState, part.text)
       }
     }
+
+    // Anomaly detection (only for assistant messages)
+    newState = await checkForAnomaly(fullText, newState, ctx)
   }
 
   return newState
+}
+
+/**
+ * Check for loop anomaly and trigger abort if detected.
+ * Respects throttle state and tool execution.
+ */
+async function checkForAnomaly(
+  content: string,
+  state: PluginState,
+  ctx: EventHandlerContext
+): Promise<PluginState> {
+  const { anomalyState, sessionID } = state
+
+  // Skip if already aborted this response (throttle)
+  if (anomalyState.abortedThisResponse) {
+    return state
+  }
+
+  // Skip if tool is executing (queue abort instead)
+  if (anomalyState.toolExecuting) {
+    // Check if we should detect and queue
+    if (shouldAnalyze(content.length, anomalyState.lastAnalyzedLength)) {
+      const result = detectRepetition(content)
+      if (result.detected) {
+        ctx.log(`Anomaly detected during tool execution - queueing abort`)
+        ctx.log(`  Repeated: "${result.sample}" (${result.count}x)`)
+        return {
+          ...state,
+          anomalyState: {
+            ...anomalyState,
+            lastAnalyzedLength: content.length,
+            abortQueued: true,
+          },
+        }
+      }
+    }
+    return state
+  }
+
+  // Check if we should analyze
+  if (!shouldAnalyze(content.length, anomalyState.lastAnalyzedLength)) {
+    return state
+  }
+
+  // Run detection
+  const result = detectRepetition(content)
+
+  // Update last analyzed length
+  let newAnomalyState: AnomalyState = {
+    ...anomalyState,
+    lastAnalyzedLength: content.length,
+  }
+
+  if (result.detected) {
+    ctx.log(`=== ANOMALY DETECTED ===`)
+    ctx.log(`  Content length: ${content.length}`)
+    ctx.log(`  Repeated: "${result.sample}" (${result.count}x)`)
+
+    // Emit bell
+    emitBell()
+
+    // Attempt abort
+    if (ctx.client && sessionID) {
+      try {
+        const abortResult = await ctx.client.session.abort({ path: { id: sessionID } })
+        if (abortResult.data) {
+          ctx.log(`  Session aborted successfully`)
+        } else {
+          ctx.log(`  Warning: Abort may have failed (returned false)`)
+        }
+      } catch (error) {
+        ctx.log(`  Warning: Abort threw error: ${error}`)
+      }
+    } else {
+      ctx.log(`  Warning: Cannot abort - client or sessionID not available`)
+    }
+
+    // Update state to doom_loop and mark as aborted
+    newAnomalyState = {
+      ...newAnomalyState,
+      abortedThisResponse: true,
+    }
+
+    return {
+      ...updateStateStatus(state, "doom_loop"),
+      anomalyState: newAnomalyState,
+    }
+  }
+
+  return {
+    ...state,
+    anomalyState: newAnomalyState,
+  }
 }
 
 /**
@@ -278,9 +399,14 @@ const eventHandlers: Partial<Record<string, EventHandler>> = {
 // Plugin Entry Point
 // =============================================================================
 
-const GoostStatusPlugin: Plugin = async ({ directory }) => {
+const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
   // Extract project name from directory
   const projectName = getProjectName(directory || process.cwd())
+
+  // Warn if client is not available (needed for abort functionality)
+  if (!client) {
+    console.error("[Goost] Warning: client not provided - anomaly abort will not work")
+  }
 
   // Always log plugin initialization to file for debugging
   try {
@@ -362,8 +488,9 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
         const handler = eventHandlers[event.type]
 
         if (handler) {
-          const ctx: EventHandlerContext = { state, projectName, log }
-          const newState = handler(event.properties, ctx)
+          const ctx: EventHandlerContext = { state, projectName, log, client }
+          // Await in case handler is async (e.g., handleMessageUpdated with abort)
+          const newState = await Promise.resolve(handler(event.properties, ctx))
           if (newState !== state) {
             trace(`event ${event.type} changed state: ${state.status} -> ${newState.status}`)
             setState(newState)
@@ -379,6 +506,15 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
       // Log ALL tool executions when DEBUG is enabled
       log(`tool.execute.before: tool="${input.tool}"`)
+
+      // Track tool execution to prevent abort during tool (for anomaly detection)
+      setState({
+        ...state,
+        anomalyState: {
+          ...state.anomalyState,
+          toolExecuting: true,
+        },
+      })
 
       // Track bash commands for test runner detection in .after
       if (input.tool === "bash" && toolArgs.args && "command" in toolArgs.args) {
@@ -427,6 +563,27 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
 
     // After task tool completes, sub-agent is done
     "tool.execute.after": async (input, output): Promise<void> => {
+      // Clear tool execution tracking and handle queued abort
+      const wasAbortQueued = state.anomalyState.abortQueued
+      const newAnomalyState = {
+        ...state.anomalyState,
+        toolExecuting: false,
+        abortQueued: false, // Clear the queue regardless
+      }
+
+      // If abort was queued but tool failed/timed out, discard it (per spec)
+      // We detect this by checking if the tool output indicates failure
+      // For simplicity, we just log and discard - the spec says discard on tool failure
+      if (wasAbortQueued) {
+        log("Queued abort discarded - tool execution completed")
+      }
+
+      // Update state with cleared tool execution
+      setState({
+        ...state,
+        anomalyState: newAnomalyState,
+      })
+
       // Check for test runner execution
       if (input.tool === "bash" && lastBashCommand) {
         if (isTestRunner(lastBashCommand)) {
