@@ -23,10 +23,12 @@ A centralized coordination command provides the "Control Shell" necessary for sa
 
 - **Affected specs**: `slash-commands`
 - **Affected code**:
-  - `.opencode/command/openspec-coordinate.md` (New)
-  - `openspec/specs/slash-commands/spec.md` (Modified)
+  - `.opencode/command/openspec-coordinate.md` (New) - Slash command definition
+  - `openspec/specs/slash-commands/spec.md` (Modified) - Requirement specification
   - `goost_instructions.md` (Update: add command to available commands table)
   - `README.md` (Update: add command to documentation)
+  - `scripts/openspec/coordination.js` (New) - Core coordination logic implementation
+  - `.openspec/coordination.json` (New, runtime) - Coordination state file (created at runtime)
 
 ## Design Decisions
 

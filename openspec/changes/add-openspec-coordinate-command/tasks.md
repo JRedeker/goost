@@ -1,26 +1,30 @@
 # Tasks: OpenSpec Coordinate Command
 
-- [ ] Task 1: Implement coordination state management (`.openspec/coordination.json`) with atomic write/rename logic
+- [x] Task 1: Implement coordination state management (`.openspec/coordination.json`) with atomic write/rename logic
   - Verify: Check for `.openspec/coordination.json` creation and atomic updates during concurrent writes.
-- [ ] Task 2: Implement change-id regex validation and --rebuild state reconstruction logic
+- [x] Task 2: Implement change-id regex validation and --rebuild state reconstruction logic
   - Verify: Test with invalid change IDs and verify `--rebuild` restores state from `proposal.md` files.
-- [ ] Task 3: Implement overlap analysis and File-Level Resource Locking with quotas
+- [x] Task 3: Implement overlap analysis and File-Level Resource Locking with quotas
   - Verify: Create two changes with overlapping files and check if locks are correctly assigned and quotas enforced.
-- [ ] Task 4: Implement Identifier-Action Matrix parser and LLM similarity check with resource budgets
+- [x] Task 4: Implement Identifier-Action Matrix parser and LLM similarity check with resource budgets
   - Verify: Test with conflicting requirements (Rename vs Update) and verify LLM fallback on timeout.
-- [ ] Task 5: Implement 3-tier Contextual Hunk Anchoring with Uniqueness Score and Ambiguity Escalation
+- [x] Task 5: Implement 3-tier Contextual Hunk Anchoring with Uniqueness Score and Ambiguity Escalation
   - Verify: Modify a file and check if tasks correctly identify as "MOVED", "DRIFTED", or "AMBIGUOUS".
-- [ ] Task 6: Implement Directed Acyclic Graph (DAG) validator for dependency cycle detection
+- [x] Task 6: Implement Directed Acyclic Graph (DAG) validator for dependency cycle detection
   - Verify: Create a dependency cycle between changes and ensure it is detected and blocked.
-- [ ] Task 7: Create `/openspec-coordinate` command definition in `.opencode/command/openspec-coordinate.md`
+- [x] Task 7: Create `/openspec-coordinate` command definition in `.opencode/command/openspec-coordinate.md`
   - Verify: Command appears in OpenCode and correctly orchestrates sub-agents.
-- [ ] Task 8: Add coordination requirements to `openspec/specs/slash-commands/spec.md`
+- [x] Task 8: Add coordination requirements to `openspec/specs/slash-commands/spec.md`
   - Verify: `openspec validate` passes.
-- [ ] Task 9: Implement Blocking Task state logic and dependency visualization
+- [x] Task 9: Implement Blocking Task state logic and dependency visualization
   - Verify: Blocked tasks show correctly in the coordination dashboard.
-- [ ] Task 10: Verify coordination report output format and suggest sequencing
+- [x] Task 10: Verify coordination report output format and suggest sequencing
   - Verify: Check dashboard output for Hot Files, Conflicts, Drift, and Suggested Sequence.
-- [ ] Task 11: Test with simulated conflicting changes, dependency cycles, and injection attempts
+- [x] Task 11: Test with simulated conflicting changes, dependency cycles, and injection attempts
   - Verify: End-to-end integration tests pass.
-- [ ] Task 12: Update `goost_instructions.md` and `README.md` with `/openspec-coordinate` documentation
+- [x] Task 12: Update `goost_instructions.md` and `README.md` with `/openspec-coordinate` documentation
   - Verify: Command is listed in the available commands table in both files.
+- [x] Task 13: Implement edge case handling (no changes, single change, CLI unavailable, malformed proposal)
+  - Verify: Command gracefully handles all edge cases with clear user messages.
+- [x] Task 14: Implement result truncation for large coordination outputs (>50 overlaps, >20 conflicts)
+  - Verify: Large result sets are truncated with totals and filtering guidance.

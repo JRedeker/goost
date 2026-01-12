@@ -81,3 +81,49 @@ The `/openspec-coordinate` command SHALL synchronize multiple active OpenSpec ch
 - **AND** include the `change-id` and timestamp for each event
 
 > **Note**: Observability is handled via stderr logging to ensure compatibility with non-interactive environments and log aggregators.
+
+#### Scenario: No active changes exist
+- **GIVEN** no active OpenSpec changes exist in `openspec/changes/`
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL display: "No active changes to coordinate"
+- **AND** suggest running `/openspec-proposal` to create a new change
+
+#### Scenario: Only one active change exists
+- **GIVEN** exactly one active OpenSpec change exists
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL display: "Only one active change found - coordination not needed"
+- **AND** show the change name and its current progress
+- **AND** suggest checking back when multiple changes are active
+
+#### Scenario: OpenSpec CLI unavailable
+- **GIVEN** the `openspec` CLI is not installed or not in PATH
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL display: "OpenSpec CLI not available"
+- **AND** suggest checking installation with `which openspec`
+
+#### Scenario: Malformed proposal.md in a change
+- **GIVEN** an active change has a `proposal.md` with invalid or missing sections
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL log a warning for the malformed change
+- **AND** exclude it from coordination analysis
+- **AND** continue processing other valid changes
+- **AND** include the warning in the final report
+
+#### Scenario: Large result set truncation
+- **GIVEN** coordination analysis finds more than 50 overlapping files or 20 conflicts
+- **WHEN** generating the coordination report
+- **THEN** the command SHALL truncate results to the top 50 overlaps and 20 conflicts
+- **AND** note the truncation with total counts
+- **AND** suggest filtering by specific change-id for detailed view
+
+#### Scenario: Partial anchor verification failure
+- **GIVEN** a change has 10 tasks with stored anchors
+- **AND** 3 anchors are found at original locations (STABLE)
+- **AND** 4 anchors are found at shifted locations (MOVED)
+- **AND** 3 anchors cannot be found (LOST)
+- **WHEN** user invokes `/openspec-coordinate`
+- **THEN** the command SHALL report each task with its anchor status
+- **AND** group tasks by status (STABLE, MOVED, LOST) in the report
+- **AND** prioritize LOST tasks in the "Suggested Sequence" section
+
+> **Note**: Configuration for quotas (default: 20 files/change) and timeouts (default: 60s for LLM) can be adjusted in `.openspec/coordination.json` under the `config` key. If not specified, defaults are used.
