@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add loop anomaly detection to auto-terminate responses with repetitive content (>20K chars + 80-char substring repeated 3+ times) (7d9b573)
 - Add /openspec-coordinate command for multi-agent synchronization and conflict detection (8af10f9)
 - Add /goost-slop-scan command for AI code quality analysis with two-phase detection (5d71362)
 - Add slop-smells.yaml with 50+ documented AI code smell patterns (5d71362)
