@@ -103,6 +103,43 @@ For libraries/frameworks mentioned in the spec:
 
 **Flag gaps**: Outdated patterns, version mismatches, missing error handling.
 
+### 1.6 Cross-Spec Consistency
+
+Check for conflicts between this change and existing deployed specs:
+
+1. **Scan existing specs**:
+   ```bash
+   ls openspec/specs/
+   ```
+   Read `openspec/specs/*/spec.md` for all deployed capabilities.
+
+2. **Extract requirements from the change**:
+   - Parse `openspec/changes/$ARGUMENTS/specs/*/spec.md` for requirements
+   - Note any identifiers, behaviors, or state transitions defined
+
+3. **Conflict detection** - Compare against deployed specs for:
+
+   | Conflict Type | Example |
+   |---------------|---------|
+   | **Direct conflicts** | Two specs define contradicting behavior for same action |
+   | **Behavioral conflicts** | Same API endpoint with different response contracts |
+   | **State conflicts** | Incompatible state transitions (e.g., session timeout: 1hr vs 24hr) |
+   | **Scope overlaps** | Multiple specs claiming responsibility for same feature |
+   | **Terminology inconsistencies** | Same concept with different names across specs |
+
+4. **Cross-reference check**:
+   ```bash
+   # Find requirements in deployed specs that mention same identifiers
+   rg -n "Requirement:" openspec/specs/ | grep -i "<key-terms-from-change>"
+   ```
+
+**Flag gaps**: Conflicting requirements, inconsistent terminology, scope overlaps.
+
+**Resolution options** (add to gaps list):
+- Update the change's spec to align with existing specs
+- Note that existing spec needs a separate change proposal to resolve conflict
+- Add explicit supersedes/overrides note if intentional
+
 ---
 
 ## Phase 2: Contract Establishment
@@ -123,6 +160,7 @@ SUCCESS CRITERIA:
 - [ ] Tasks cover all requirements with verification steps
 - [ ] Cross-cutting concerns addressed (or marked N/A with reason)
 - [ ] Affected code section complete
+- [ ] No unresolved cross-spec conflicts
 - [ ] openspec validate passes with --strict
 
 GAPS TO FIX:
@@ -184,6 +222,26 @@ Add requirements or scenarios addressing the concern, OR add explicit N/A note:
 
 Update `proposal.md` "Affected code" section with discovered files.
 
+### For Cross-Spec Conflicts
+
+When conflicts with deployed specs are found, resolve by one of:
+
+1. **Align with existing spec** - Update this change's requirements to match:
+   ```markdown
+   > **Aligned with [spec-name]**: Using <value> to match existing behavior.
+   ```
+
+2. **Document intentional override** - If this change intentionally supersedes:
+   ```markdown
+   > **Supersedes [spec-name]**: This change updates <behavior> from <old> to <new>.
+   > A follow-up change proposal will update the affected spec.
+   ```
+
+3. **Flag for separate resolution** - If conflict requires broader discussion:
+   - Add to `proposal.md` under a new "## Spec Conflicts" section
+   - List the conflicting specs and requirements
+   - Note that resolution is out of scope for this change
+
 ---
 
 ## Phase 4: Validation
@@ -214,6 +272,7 @@ ALL CRITERIA MET:
 - [x] Tasks cover all requirements with verification steps
 - [x] Cross-cutting concerns addressed
 - [x] Affected code section complete
+- [x] No unresolved cross-spec conflicts
 - [x] openspec validate passes with --strict
 
 CHANGES MADE:
