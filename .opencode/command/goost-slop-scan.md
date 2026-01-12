@@ -6,6 +6,8 @@ agent: general
 
 # Goost Slop Scan
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 You are orchestrating a **codebase scan for AI-generated code quality issues ("slop")** using patterns defined in `slop-smells.yaml`.
 
 This command uses a **two-phase detection strategy**:

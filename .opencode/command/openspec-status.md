@@ -6,6 +6,8 @@ agent: general
 
 # OpenSpec Status
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 You are providing a **fast, formatted status overview** of the OpenSpec project.
 
 > **IMPORTANT**: This command prioritizes speed. Do NOT spawn sub-agents. Do NOT perform deep file analysis. Complete within 2-3 seconds.

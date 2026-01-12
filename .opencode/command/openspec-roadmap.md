@@ -6,6 +6,8 @@ agent: general
 
 # OpenSpec Roadmap Dashboard
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 Display a tiered progress dashboard showing project roadmap status.
 
 ## Data Collection

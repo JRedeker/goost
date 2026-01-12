@@ -6,6 +6,8 @@ agent: general
 
 # OpenSpec Pre-Implementation Preparation
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 You are performing **pre-implementation preparation** on the OpenSpec change: `$ARGUMENTS`
 
 This command **analyzes AND improves** the spec by adding missing acceptance criteria, scenarios, and tasks. Changes to spec files are made under contract enforcement.

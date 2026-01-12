@@ -6,6 +6,8 @@ agent: general
 
 # /contract-quick - Rapid Contract Creation
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 For when you don't want the interactive flow. Parse the user's request and immediately propose a contract.
 
 ## Pre-flight Check

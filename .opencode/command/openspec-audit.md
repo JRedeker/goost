@@ -6,6 +6,8 @@ agent: general
 
 # OpenSpec Project Audit
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 You are orchestrating a **project-wide spec/implementation audit** for: `$ARGUMENTS`
 
 This is a **multi-phase orchestration** - you spawn sub-agents to analyze different dimensions, then synthesize findings into a comprehensive report.

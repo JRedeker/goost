@@ -24,6 +24,17 @@
  */
 
 import type { Plugin } from "@opencode-ai/plugin"
+import * as fs from "fs"
+
+// Immediately log on module import to confirm plugin is being loaded
+try {
+  fs.appendFileSync(
+    "/tmp/goost-debug.log",
+    `${new Date().toISOString()} === GOOST INDEX MODULE LOADED ===\n`
+  )
+} catch {
+  /* ignore */
+}
 
 // Internal modules
 import {
@@ -267,6 +278,17 @@ const eventHandlers: Partial<Record<string, EventHandler>> = {
 const GoostStatusPlugin: Plugin = async ({ directory }) => {
   // Extract project name from directory
   const projectName = getProjectName(directory || process.cwd())
+
+  // Always log plugin initialization to file for debugging
+  try {
+    fs.appendFileSync(
+      "/tmp/goost-debug.log",
+      `${new Date().toISOString()} Plugin init: project=${projectName}, isTmux=${isTmux()}\n`
+    )
+  } catch {
+    /* ignore */
+  }
+
   log(`Plugin loaded: project=${projectName}, isTmux=${isTmux()}`)
 
   // Initialize state

@@ -6,6 +6,8 @@ agent: general
 
 # OpenSpec Code Review
 
+> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+
 You are orchestrating a **post-implementation code review** on the OpenSpec change: `$ARGUMENTS`
 
 This is a **multi-phase orchestration** - you spawn sub-agents for analysis, synthesize findings, then optionally spawn targeted sub-agents for fixes.

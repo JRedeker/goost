@@ -27,6 +27,7 @@ const DEBUG = process.env.GOOST_DEBUG === "1"
 
 /**
  * Log debug message to file for debugging plugin issues.
+ * Always writes to file regardless of DEBUG setting.
  */
 const logToFile = (msg: string): void => {
   try {
@@ -35,6 +36,9 @@ const logToFile = (msg: string): void => {
     // ignore
   }
 }
+
+// Immediately log on module load to confirm plugin is being loaded
+logToFile("=== GOOST TERMINAL MODULE LOADED ===")
 
 /**
  * Log debug message - to file and stderr if DEBUG is enabled.
@@ -82,6 +86,34 @@ const getTmuxPaneTty = (): string | null => {
   return null
 }
 
+/**
+ * Get the tmux client's TTY path (e.g., /dev/pts/12).
+ * This is the outer terminal that Windows Terminal is connected to.
+ * Writing here bypasses tmux's title handling and goes direct to WT.
+ */
+const getTmuxClientTty = (): string | null => {
+  if (!isTmux()) {
+    return null
+  }
+
+  try {
+    const result = execSync("tmux display-message -p '#{client_tty}'", {
+      encoding: "utf8",
+      timeout: 1000,
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+    const tty = result.trim()
+    if (tty && tty.startsWith("/dev/")) {
+      log(`getTmuxClientTty: ${tty}`)
+      return tty
+    }
+  } catch (error) {
+    log(`getTmuxClientTty: FAILED - ${error}`)
+  }
+
+  return null
+}
+
 // Cache the pane TTY path
 let cachedPaneTty: string | null | undefined = undefined
 const getPaneTty = (): string | null => {
@@ -89,6 +121,15 @@ const getPaneTty = (): string | null => {
     cachedPaneTty = getTmuxPaneTty()
   }
   return cachedPaneTty
+}
+
+// Cache the client TTY path
+let cachedClientTty: string | null | undefined = undefined
+const getClientTty = (): string | null => {
+  if (cachedClientTty === undefined) {
+    cachedClientTty = getTmuxClientTty()
+  }
+  return cachedClientTty
 }
 
 // =============================================================================
@@ -122,15 +163,41 @@ const setTitleViaPaneTty = (title: string): boolean => {
     // This sets the pane_title in tmux, which then gets forwarded
     // to the outer terminal via set-titles-string "#{pane_title}"
     const sequence = `\x1b]0;${title}\x07`
-    const fd = fs.openSync(paneTty, "w")
-    fs.writeSync(fd, sequence)
-    fs.closeSync(fd)
+    fs.writeFileSync(paneTty, sequence)
     log(`setTitleViaPaneTty: SUCCESS - "${title}" via ${paneTty}`)
     return true
   } catch (error) {
     log(`setTitleViaPaneTty: FAILED - ${error}`)
     // Invalidate cache in case TTY changed
     cachedPaneTty = undefined
+    return false
+  }
+}
+
+/**
+ * Strategy 1b: Write OSC sequence directly to tmux client TTY.
+ *
+ * This sends the OSC title sequence directly to the outer terminal
+ * (Windows Terminal), bypassing tmux's pane_title mechanism entirely.
+ *
+ * Uses writeFileSync for atomic write (avoids buffering issues).
+ *
+ * @returns true if successful
+ */
+const setTitleViaClientTty = (title: string): boolean => {
+  const clientTty = getClientTty()
+  if (!clientTty) {
+    return false
+  }
+
+  try {
+    const sequence = `\x1b]0;${title}\x07`
+    fs.writeFileSync(clientTty, sequence)
+    log(`setTitleViaClientTty: SUCCESS - "${title}" via ${clientTty}`)
+    return true
+  } catch (error) {
+    log(`setTitleViaClientTty: FAILED - ${error}`)
+    cachedClientTty = undefined
     return false
   }
 }
@@ -172,9 +239,7 @@ const setTitleViaTty = (title: string): boolean => {
   try {
     fs.accessSync("/dev/tty", fs.constants.W_OK)
     const sequence = `\x1b]0;${title}\x07`
-    const fd = fs.openSync("/dev/tty", "w")
-    fs.writeSync(fd, sequence)
-    fs.closeSync(fd)
+    fs.writeFileSync("/dev/tty", sequence)
     log(`setTitleViaTty: SUCCESS - "${title}"`)
     return true
   } catch (error) {
@@ -210,8 +275,9 @@ const setTitleViaStdout = (title: string): boolean => {
  * Set terminal/pane title using all applicable methods.
  *
  * In tmux on Windows Terminal:
- * 1. DCS passthrough to pane TTY → Windows Terminal tab
- * 2. tmux rename-window → tmux status bar
+ * 1. Client TTY → Windows Terminal tab (direct, bypasses tmux title handling)
+ * 2. Pane TTY → sets pane_title (backup, relies on tmux set-titles)
+ * 3. tmux rename-window → tmux status bar
  *
  * @param title - The title to set
  */
@@ -220,11 +286,13 @@ const setTitle = (title: string): void => {
   log(`isTmux=${isTmux()}`)
 
   if (isTmux()) {
-    // Update Windows Terminal tab via DCS passthrough to pane TTY
-    const success1 = setTitleViaPaneTty(title)
+    // Primary: Write directly to client TTY (outer terminal / Windows Terminal)
+    const success1 = setTitleViaClientTty(title)
+    // Backup: Write to pane TTY (sets pane_title for tmux's set-titles)
+    const success2 = setTitleViaPaneTty(title)
     // Also update tmux status bar
-    const success2 = setTitleViaTmuxRename(title)
-    log(`setTitle: paneTty=${success1}, tmuxRename=${success2}`)
+    const success3 = setTitleViaTmuxRename(title)
+    log(`setTitle: clientTty=${success1}, paneTty=${success2}, tmuxRename=${success3}`)
     return
   }
 
@@ -241,14 +309,21 @@ const resetTitle = (): void => {
   log("resetTitle")
 
   if (isTmux()) {
-    // Reset pane title via simple OSC sequence
+    // Reset client TTY (Windows Terminal tab)
+    const clientTty = getClientTty()
+    if (clientTty) {
+      try {
+        fs.writeFileSync(clientTty, `\x1b]0;\x07`)
+      } catch {
+        // Ignore
+      }
+    }
+
+    // Reset pane title
     const paneTty = getPaneTty()
     if (paneTty) {
       try {
-        const sequence = `\x1b]0;\x07`
-        const fd = fs.openSync(paneTty, "w")
-        fs.writeSync(fd, sequence)
-        fs.closeSync(fd)
+        fs.writeFileSync(paneTty, `\x1b]0;\x07`)
       } catch {
         // Ignore
       }

@@ -330,15 +330,17 @@ export const processMessageContent = (state: PluginState, content: string): Plug
   // Detect and apply status
   // Priority: Explicit markers > Contract state changes > Current state
   const detectedStatus = detectStatus(content, newState.contract.active)
+  const isTerminalState = newState.status === "earth" || newState.status === "idle"
   const hasExplicitMarker = Object.values(GOOST_MARKERS).some((pattern) => pattern.test(content))
 
   // Always update status if there's an explicit marker
-  // Otherwise, only update if contract ended
-  if (hasExplicitMarker || contractEnded) {
+  // Also update if contract ended
+  // Also update if not in terminal state (allows status inference from message content)
+  if (hasExplicitMarker || contractEnded || !isTerminalState) {
     const DEBUG = process.env.GOOST_DEBUG === "1"
     if (DEBUG) {
       console.error(
-        `[Goost:processMessageContent] Applying status: ${detectedStatus} (explicit=${hasExplicitMarker}, ended=${contractEnded})`
+        `[Goost:processMessageContent] Applying status: ${detectedStatus} (explicit=${hasExplicitMarker}, ended=${contractEnded}, terminal=${isTerminalState})`
       )
     }
     newState = updateStateStatus(newState, detectedStatus)

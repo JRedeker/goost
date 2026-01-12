@@ -1,0 +1,275 @@
+{
+  "changes": {
+    "add-goost-slop-scan-command": {
+      "files": [],
+      "totalFiles": 0,
+      "quotaExceeded": false
+    },
+    "add-openspec-coordinate-command": {
+      "files": [
+        ".opencode/command/openspec-coordinate.md",
+        "openspec/specs/slash-commands/spec.md",
+        "goost_instructions.md",
+        "README.md",
+        "scripts/openspec/coordination.js",
+        ".openspec/coordination.json"
+      ],
+      "totalFiles": 6,
+      "quotaExceeded": false
+    },
+    "add-openspec-tab-title": {
+      "files": [],
+      "totalFiles": 0,
+      "quotaExceeded": false
+    }
+  },
+  "locks": {
+    ".opencode/command/openspec-coordinate.md": [
+      "add-openspec-coordinate-command"
+    ],
+    "openspec/specs/slash-commands/spec.md": [
+      "add-openspec-coordinate-command"
+    ],
+    "goost_instructions.md": [
+      "add-openspec-coordinate-command"
+    ],
+    "README.md": [
+      "add-openspec-coordinate-command"
+    ],
+    "scripts/openspec/coordination.js": [
+      "add-openspec-coordinate-command"
+    ],
+    ".openspec/coordination.json": [
+      "add-openspec-coordinate-command"
+    ]
+  },
+  "requirements": {
+    "add-goost-slop-scan-command": [
+      {
+        "cap": "slash-commands",
+        "title": "Goost Slop Scan Command",
+        "identifiers": [
+          "/goost-slop-scan",
+          "slop-smells.yaml",
+          "/goost-slop-scan",
+          ".gitignore",
+          "/goost-slop-scan src/",
+          "src/",
+          ".gitignore",
+          "/goost-slop-scan",
+          "git ls-files",
+          "/goost-slop-scan"
+        ],
+        "action": "Goost"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Two-Phase Detection Strategy",
+        "identifiers": [
+          "console.log",
+          "debugger",
+          "print(",
+          "as any",
+          "@ts-ignore",
+          "@ts-nocheck",
+          "TODO",
+          "FIXME",
+          "HACK",
+          "XXX",
+          "localhost",
+          "Certainly!",
+          "Sure!",
+          "I'll help",
+          "/goost-slop-scan --phase 1",
+          "/goost-slop-scan --phase 2",
+          "/goost-slop-scan --phase 1 --json"
+        ],
+        "action": "Two-Phase"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Sub-Agent Architecture",
+        "identifiers": [
+          "/goost-slop-scan --timeout 300"
+        ],
+        "action": "Sub-Agent"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Slop Smells Integration",
+        "identifiers": [
+          "slop-smells.yaml",
+          "slop-smells.yaml",
+          "slop-smells.yaml",
+          "/goost-slop-scan",
+          "slop-smells.yaml",
+          "QUAL-007",
+          "error_suppression"
+        ],
+        "action": "Slop"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Report Format",
+        "identifiers": [
+          "\n============================================================\n              SLOP SCAN REPORT\n============================================================\n\nSCAN SCOPE: <file count> files in <path>\nPHASE 1: <N> findings | PHASE 2: <M> findings\n\nSUMMARY BY SEVERITY\n------------------------------------------------------------\nCRITICAL: N | HIGH: M | MEDIUM: K | LOW: J\n\nSUMMARY BY CATEGORY  \n------------------------------------------------------------\nQuality (QUAL): N | Hallucination (HALLU): M | ...\n\nCRITICAL FINDINGS\n------------------------------------------------------------\n[QUAL-003] security_blindness\n  src/api/auth.ts:42\n  SQL query built with string concatenation\n  FIX: Use parameterized queries or an ORM\n\nHIGH FINDINGS\n------------------------------------------------------------\n...\n\nMEDIUM FINDINGS\n------------------------------------------------------------\n...\n\nLOW FINDINGS  \n------------------------------------------------------------\n...\n\n============================================================\nNEXT STEPS:\n1. Fix CRITICAL issues immediately (security risk)\n2. Address HIGH issues before merging\n3. Consider MEDIUM issues for code quality\n4. LOW issues are optional improvements\n============================================================\n",
+          "\n\n#### Scenario: Finding format with fix suggestion\n- **GIVEN** a smell is detected\n- **WHEN** formatting the finding\n- **THEN** each finding SHALL include:\n  - Smell ID and name in brackets\n  - File path and line number\n  - Brief description of what was found\n  - FIX suggestion based on the smell's remediation guidance\n\n#### Scenario: No findings\n- **GIVEN** the scan completes without detecting any smells\n- **WHEN** generating the report\n- **THEN** the command SHALL display: \"No slop detected. Code looks clean!\"\n- **AND** show the scan scope and file count for confirmation\n\n#### Scenario: JSON output format\n- **GIVEN** user needs machine-readable output\n- **WHEN** user invokes ",
+          "\n- **THEN** the command SHALL output findings as JSON:\n",
+          "json\n{\n  \"scope\": { \"files\": 42, \"path\": \".\" },\n  \"summary\": {\n    \"total\": 15,\n    \"bySeverity\": { \"critical\": 1, \"high\": 5, \"medium\": 7, \"low\": 2 },\n    \"byCategory\": { \"QUAL\": 8, \"HALLU\": 3, \"DOC\": 4 }\n  },\n  \"findings\": [\n    {\n      \"id\": \"QUAL-003\",\n      \"name\": \"security_blindness\", \n      \"severity\": \"critical\",\n      \"file\": \"src/api/auth.ts\",\n      \"line\": 42,\n      \"description\": \"SQL query built with string concatenation\",\n      \"fix\": \"Use parameterized queries or an ORM\",\n      \"phase\": 1\n    }\n  ]\n}\n"
+        ],
+        "action": "Report"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Gitignore Respect",
+        "identifiers": [
+          ".gitignore",
+          "git ls-files",
+          ".gitignore",
+          ".git/",
+          ".gitignore",
+          "package-lock.json",
+          "yarn.lock",
+          "Cargo.lock",
+          "*.min.js",
+          "*.min.css",
+          ".ts",
+          ".js",
+          ".py",
+          ".go",
+          ".rs",
+          "/goost-slop-scan --include-untracked",
+          ".gitignore"
+        ],
+        "action": "Gitignore"
+      },
+      {
+        "cap": "slash-commands",
+        "title": "Debug Output",
+        "identifiers": [
+          "/goost-slop-scan --verbose",
+          "GOOST_DEBUG=1"
+        ],
+        "action": "Debug"
+      }
+    ],
+    "add-openspec-coordinate-command": [
+      {
+        "cap": "slash-commands",
+        "title": "OpenSpec Coordinate Command",
+        "identifiers": [
+          "/openspec-coordinate",
+          "A",
+          "B",
+          "src/core/engine.ts",
+          "/openspec-coordinate",
+          "src/core/engine.ts",
+          "A",
+          "getUser",
+          "fetchUser",
+          "B",
+          "email",
+          "getUser",
+          "/openspec-coordinate",
+          "getUser",
+          "A",
+          "B",
+          "/openspec-coordinate",
+          "A",
+          "src/auth.ts",
+          "B",
+          "src/auth.ts",
+          "/openspec-coordinate",
+          "B",
+          "BLOCKED",
+          "A",
+          ".openspec/coordination.json",
+          "/openspec-coordinate",
+          "--rebuild",
+          "/openspec-coordinate",
+          "A",
+          "A",
+          "src/extra.ts",
+          "/openspec-coordinate",
+          "A",
+          "A",
+          "B",
+          "B",
+          "A",
+          "/openspec-coordinate",
+          "change-id",
+          "openspec/changes/",
+          "/openspec-coordinate",
+          "/openspec-proposal",
+          "/openspec-coordinate",
+          "openspec",
+          "/openspec-coordinate",
+          "which openspec",
+          "proposal.md",
+          "/openspec-coordinate",
+          "/openspec-coordinate",
+          ".openspec/coordination.json",
+          "config"
+        ],
+        "action": "OpenSpec"
+      }
+    ],
+    "add-openspec-tab-title": [
+      {
+        "cap": "contract-system",
+        "title": "OpenSpec Tab Title Tracking",
+        "identifiers": [
+          "/openspec-*",
+          "projectName | statusEmoji statusText [progress] | changeName",
+          "<UserRequest>change-id</UserRequest>",
+          "/openspec-xxx change-id",
+          "openspec/changes/<change-id>/",
+          "processContractEnd",
+          "add-feature-x",
+          "fix-auth-bug",
+          "/openspec-apply my-feature",
+          "<UserRequest>my-feature</UserRequest>",
+          "my-feature",
+          "| my-feature",
+          "goost",
+          "work",
+          "2/5",
+          "add-auth",
+          "goost | rocket Working [2/5] | add-auth",
+          "goost",
+          "idle",
+          "goost | earth",
+          "feature-x",
+          "openSpecChange",
+          "/openspec-prep fix-login-bug",
+          "<UserRequest>",
+          "fix-login-bug",
+          "openspec/changes/add-feature/proposal.md",
+          "add-feature",
+          "<UserRequest>",
+          "openspec/changes/",
+          "null",
+          "openSpecChange",
+          "openSpecChange",
+          "existing-feature",
+          "openSpecChange",
+          "existing-feature",
+          "| existing-feature",
+          "null"
+        ],
+        "action": "OpenSpec"
+      }
+    ]
+  },
+  "config": {
+    "lockQuota": 20
+  },
+  "warnings": [
+    {
+      "changeId": "archive",
+      "type": "missing_proposal",
+      "message": "Change archive has no proposal.md"
+    }
+  ],
+  "rebuiltAt": "2026-01-12T03:30:05.562Z"
+}
