@@ -571,11 +571,21 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
         abortQueued: false, // Clear the queue regardless
       }
 
-      // If abort was queued but tool failed/timed out, discard it (per spec)
-      // We detect this by checking if the tool output indicates failure
-      // For simplicity, we just log and discard - the spec says discard on tool failure
+      // If abort was queued, log appropriately based on outcome
+      // Per spec: "Queued abort discarded due to tool failure" if tool failed
       if (wasAbortQueued) {
-        log("Queued abort discarded - tool execution completed")
+        // Check if tool failed by examining output (basic heuristic)
+        const outputStr =
+          typeof output === "object" && output !== null && "output" in output
+            ? String((output as { output?: unknown }).output || "")
+            : ""
+        const hasFailure = /error:|failed|exception:|timeout/i.test(outputStr)
+
+        if (hasFailure) {
+          log("Queued abort discarded due to tool failure")
+        } else {
+          log("Queued abort discarded - tool execution completed")
+        }
       }
 
       // Update state with cleared tool execution

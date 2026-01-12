@@ -329,11 +329,20 @@ export const TEST_RUNNER_PATTERNS =
 /**
  * Parse environment variable as integer with fallback to default.
  * Returns default if value is non-numeric or invalid.
+ * Logs warning in debug mode when value is invalid.
  */
-const parseEnvInt = (value: string | undefined, defaultValue: number): number => {
+const parseEnvInt = (value: string | undefined, defaultValue: number, envName?: string): number => {
   if (!value) return defaultValue
   const parsed = parseInt(value, 10)
-  return Number.isNaN(parsed) ? defaultValue : parsed
+  if (Number.isNaN(parsed)) {
+    if (process.env.GOOST_DEBUG === "1" && envName) {
+      console.error(
+        `[Goost] Warning: Invalid value for ${envName}="${value}", using default ${defaultValue}`
+      )
+    }
+    return defaultValue
+  }
+  return parsed
 }
 
 /**
@@ -351,7 +360,7 @@ const parseEnvBool = (value: string | undefined, defaultValue: boolean): boolean
  */
 export const ANOMALY_CONFIG = {
   /** Size threshold in characters before detection runs (default: 20000) */
-  SIZE_THRESHOLD: parseEnvInt(process.env.GOOST_ANOMALY_SIZE, 20000),
+  SIZE_THRESHOLD: parseEnvInt(process.env.GOOST_ANOMALY_SIZE, 20000, "GOOST_ANOMALY_SIZE"),
 
   /** Minimum substring length to check for repetition (80 chars ~= 10-15 words) */
   REPETITION_MIN_LENGTH: 80,
