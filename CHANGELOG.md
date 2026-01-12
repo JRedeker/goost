@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add vitest test infrastructure with 62 tests covering loop anomaly detection (d546274)
 - Add loop anomaly detection to auto-terminate responses with repetitive content (>20K chars + 80-char substring repeated 3+ times) (7d9b573)
 - Add /openspec-coordinate command for multi-agent synchronization and conflict detection (8af10f9)
 - Add /goost-slop-scan command for AI code quality analysis with two-phase detection (5d71362)

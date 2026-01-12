@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [trunk, main, master]
   pull_request:
-    branches: [main, master]
+    branches: [trunk, main, master]
 
 jobs:
   quality:
@@ -37,3 +37,6 @@ jobs:
 
       - name: Prettier format check
         run: npm run format:check
+
+      - name: Run tests
+        run: npm run test
