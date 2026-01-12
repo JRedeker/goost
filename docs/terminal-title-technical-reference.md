@@ -1,6 +1,6 @@
 # Terminal Title Update Technical Reference
 
-This document explains how Goost updates Windows Terminal tab titles when running inside tmux in WSL.
+This document explains how Goost updates Windows Terminal tab titles when running inside tmux in WSL2.
 
 ## The Problem
 
@@ -8,68 +8,90 @@ OpenCode plugins run in a context where:
 1. **stdout is piped** - OpenCode captures tool output, so `process.stdout.write()` doesn't reach the terminal
 2. **`/dev/tty` is inaccessible** - The plugin process doesn't have a controlling terminal
 3. **tmux manages escape sequences** - Sequences need to be sent to the right place
+4. **Windows Terminal needs direct writes** - tmux's title forwarding is unreliable
 
 ## The Solution
 
-We use a two-part approach to update both tmux's internal state and the outer terminal:
+We use a multi-strategy approach to update the Windows Terminal tab title:
 
-### 1. Get the Pane's Actual TTY
+### Strategy 1: Write to Client TTY (Primary)
+
+The most reliable method for Windows Terminal. Write directly to the tmux client's TTY, which is the outer terminal that Windows Terminal connects to:
 
 ```typescript
-const result = execSync("tmux display-message -p '#{pane_tty}'")
-// Returns: /dev/pts/6 (or similar)
+// Get the client TTY (outer terminal connection)
+const clientTty = execSync("tmux display-message -p '#{client_tty}'").toString().trim()
+// Returns: /dev/pts/12 (or similar)
+
+// Write OSC sequence directly to it
+const sequence = `\x1b]0;${title}\x07`
+fs.writeFileSync(clientTty, sequence)  // MUST use writeFileSync, not openSync/writeSync!
 ```
 
-This gives us the actual pseudo-terminal device that tmux is using for this pane.
+This bypasses tmux's title handling entirely and writes directly to Windows Terminal.
 
-### 2. Send OSC Sequence to Pane TTY
+### Strategy 2: Write to Pane TTY (Backup)
 
-Write a simple OSC 0 sequence directly to the pane's TTY:
+Write to the pane's TTY to set tmux's `pane_title` variable:
 
 ```typescript
+const paneTty = execSync("tmux display-message -p '#{pane_tty}'").toString().trim()
+// Returns: /dev/pts/6 (or similar)
+
 const sequence = `\x1b]0;${title}\x07`
-const fd = fs.openSync("/dev/pts/6", "w")
+fs.writeFileSync(paneTty, sequence)
+```
+
+This sets `pane_title`, which tmux can forward via `set-titles-string`.
+
+### Strategy 3: tmux rename-window (Status Bar)
+
+Update the tmux status bar window name:
+
+```typescript
+execSync(`tmux rename-window "${title}"`)
+```
+
+This only affects the tmux status bar, not Windows Terminal tab.
+
+## Critical: Use writeFileSync, Not openSync/writeSync
+
+**This is essential for Windows Terminal compatibility.**
+
+```typescript
+// WORKS - Windows Terminal tab updates
+fs.writeFileSync(clientTty, sequence)
+
+// DOES NOT WORK - sequence sent but Windows Terminal ignores it
+const fd = fs.openSync(clientTty, "w")
 fs.writeSync(fd, sequence)
 fs.closeSync(fd)
 ```
 
-This sets the `pane_title` variable in tmux.
+The low-level open/write/close pattern appears to work (no errors) but Windows Terminal doesn't receive or process the sequence. The atomic `writeFileSync` does work.
 
-### 3. tmux Forwards to Outer Terminal
+## Client TTY vs Pane TTY
 
-With the proper configuration, tmux automatically forwards the `pane_title` to the outer terminal:
+| TTY Type | tmux Variable | What It Connects To |
+|----------|---------------|---------------------|
+| Client TTY | `#{client_tty}` | Outer terminal (Windows Terminal) |
+| Pane TTY | `#{pane_tty}` | tmux pane (internal) |
 
-```bash
-set -g set-titles on
-set -g set-titles-string '#{pane_title}'
-```
+Writing to **client TTY** sends directly to Windows Terminal, bypassing tmux.
+Writing to **pane TTY** sets tmux's `pane_title` variable, which tmux may forward.
 
-## Why Simple OSC (Not DCS Passthrough)
-
-There are two ways to send escape sequences in tmux:
-
-| Method | Format | What It Does |
-|--------|--------|--------------|
-| Simple OSC | `\x1b]0;TITLE\x07` | Sets tmux's `pane_title` variable |
-| DCS Passthrough | `\x1bPtmux;\x1b\x1b]0;TITLE\x07\x1b\\` | Bypasses tmux, sends directly to outer terminal |
-
-**We use simple OSC** because:
-1. It sets the `pane_title` tmux variable
-2. tmux then forwards this to the outer terminal via `set-titles-string`
-3. The title persists correctly and works with tmux's title management
-
-DCS passthrough is designed for cases where you want to bypass tmux entirely (like querying terminal capabilities). For setting titles that tmux should know about, simple OSC is correct.
+For reliable Windows Terminal tab updates, use **client TTY**.
 
 ## Required tmux Configuration
 
-These settings must be in `~/.tmux.conf`:
+These settings should be in `~/.tmux.conf`:
 
 ```bash
-# Forward pane titles to outer terminal
+# Forward pane titles to outer terminal (backup method)
 set -g set-titles on
 set -g set-titles-string '#{pane_title}'
 
-# Allow passthrough sequences (for other uses)
+# Allow passthrough sequences
 set -g allow-passthrough on
 
 # No ESC key delay (helps with Ctrl+C)
@@ -82,38 +104,86 @@ set -g escape-time 0
 |----------|--------------|
 | `process.stdout.write(osc)` | Stdout piped by OpenCode TUI |
 | `fs.writeSync("/dev/tty", osc)` | No controlling TTY in plugin context |
+| `fs.openSync()`/`writeSync()`/`closeSync()` to TTY | Windows Terminal ignores the sequence |
 | `tmux rename-window` alone | Only updates tmux status bar, not Windows Terminal tab |
-| DCS passthrough to pane TTY | Bypasses tmux, doesn't set `pane_title` variable |
+| DCS passthrough to pane TTY | Bypasses tmux, doesn't reliably reach WT |
+| Relying on tmux's `set-titles` forwarding | Unreliable for Windows Terminal |
 
-## Escape Sequence Reference
+## OpenCode Plugin Configuration
 
-| Sequence | Purpose |
-|----------|---------|
-| `\x1b]0;TITLE\x07` | OSC 0 - Set window/icon title |
-| `\x1b]2;TITLE\x07` | OSC 2 - Set window title only |
-| `\x1bPtmux;...\x1b\\` | DCS passthrough (bypasses tmux) |
+OpenCode requires plugins to be specified as `.ts` files, not directories. Use a symlink:
+
+```bash
+# Create symlink in opencode plugin directory
+ln -sf /path/to/goost/plugin/index.ts ~/.config/opencode/plugin/goost-status.ts
+```
+
+Then in `~/.config/opencode/opencode.json`:
+```json
+{
+  "plugin": [
+    "/home/user/.config/opencode/plugin/goost-status.ts"
+  ]
+}
+```
 
 ## Testing
 
-To manually test title updates:
-
+### Test from Bash (should always work)
 ```bash
-# Get pane TTY
-PANE_TTY=$(tmux display-message -p '#{pane_tty}')
-
-# Send simple OSC title sequence
-printf '\033]0;Test Title\007' > "$PANE_TTY"
-
-# Verify pane_title was set
-tmux display-message -p '#{pane_title}'
-# Should output: Test Title
+CLIENT_TTY=$(tmux display-message -p '#{client_tty}')
+echo -ne '\033]0;Test Title\007' > "$CLIENT_TTY"
+# Windows Terminal tab should update immediately
 ```
 
-The Windows Terminal tab should update immediately if `set-titles` is configured.
+### Test from Node.js
+```javascript
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+const clientTty = execSync("tmux display-message -p '#{client_tty}'", { encoding: 'utf8' }).trim();
+fs.writeFileSync(clientTty, '\x1b]0;Node Test\x07');
+// Windows Terminal tab should update
+```
+
+### Verify Plugin is Loading
+```bash
+rm -f /tmp/goost-debug.log
+opencode run "test"
+cat /tmp/goost-debug.log | head -10
+# Should show "GOOST TERMINAL MODULE LOADED" and title updates
+```
 
 ## Implementation
 
 See `plugin/terminal.ts`:
-- `getTmuxPaneTty()` - Gets the pane TTY path via `tmux display-message`
-- `setTitleViaPaneTty()` - Sends simple OSC sequence to pane TTY (sets `pane_title`)
-- `setTitleViaTmuxRename()` - Updates tmux status bar window name (secondary)
+- `getTmuxClientTty()` - Gets the client TTY path (outer terminal)
+- `getTmuxPaneTty()` - Gets the pane TTY path (for `pane_title`)
+- `setTitleViaClientTty()` - Primary: writes directly to Windows Terminal
+- `setTitleViaPaneTty()` - Backup: sets tmux's `pane_title`
+- `setTitleViaTmuxRename()` - Updates tmux status bar
+
+## Debugging
+
+Enable debug logging:
+```bash
+export GOOST_DEBUG=1
+opencode
+```
+
+Check debug log:
+```bash
+cat /tmp/goost-debug.log
+```
+
+The log shows each title update attempt and whether it succeeded:
+```
+setTitle: "🚀 Working goost"
+isTmux=true
+getTmuxClientTty: /dev/pts/12
+setTitleViaClientTty: SUCCESS - "🚀 Working goost" via /dev/pts/12
+getTmuxPaneTty: /dev/pts/4
+setTitleViaPaneTty: SUCCESS - "🚀 Working goost" via /dev/pts/4
+setTitleViaTmuxRename: SUCCESS - "🚀 Working goost"
+setTitle: clientTty=true, paneTty=true, tmuxRename=true
+```

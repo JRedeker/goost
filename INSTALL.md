@@ -80,7 +80,17 @@ fi
 The critical step is updating `~/.config/opencode/opencode.json` with two entries:
 
 1. **instructions**: Path to `goost_instructions.md`
-2. **plugin** (or plugins): Path to the `plugin` directory
+2. **plugin**: Path to a `.ts` file (NOT a directory)
+
+**Important**: OpenCode requires plugins to be specified as `.ts` files, not directories. Create a symlink:
+
+```bash
+# Create the opencode plugin directory if it doesn't exist
+mkdir -p ~/.config/opencode/plugin
+
+# Create symlink to the plugin's index.ts
+ln -sf $GOOST_PATH/plugin/index.ts ~/.config/opencode/plugin/goost-status.ts
+```
 
 **If no opencode.json exists**, create it:
 
@@ -88,7 +98,7 @@ The critical step is updating `~/.config/opencode/opencode.json` with two entrie
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": ["/absolute/path/to/goost/goost_instructions.md"],
-  "plugin": ["/absolute/path/to/goost/plugin"]
+  "plugin": ["/home/user/.config/opencode/plugin/goost-status.ts"]
 }
 ```
 
@@ -96,11 +106,12 @@ The critical step is updating `~/.config/opencode/opencode.json` with two entrie
 
 1. Read the existing file
 2. Add the goost_instructions.md path to the `instructions` array (create if missing)
-3. Add the plugin path to the `plugin` array (create if missing)
+3. Add the plugin `.ts` symlink path to the `plugin` array (create if missing)
 4. Preserve all other existing configuration
 
 **Important:**
-- Use **absolute paths** (e.g., `/home/user/dev/goost`, not `~/dev/goost`)
+- Use **absolute paths** (e.g., `/home/user/.config/opencode/plugin/goost-status.ts`, not `~/.config/...`)
+- The plugin path must be a `.ts` file, not a directory
 - Check for duplicates before adding (grep for "goost" in the file)
 
 ### Step 4: Install Slash Commands
@@ -303,6 +314,15 @@ Inform the user about their terminal's capabilities:
 - This fixes delays when interrupting commands or using vim keybindings
 
 ### "Plugin not loading"
-- Verify absolute path in opencode.json is correct
-- Check `npm install` completed without errors
+- **Plugin path must be a `.ts` file, not a directory** - OpenCode won't load directory paths
+- Create a symlink: `ln -sf /path/to/goost/plugin/index.ts ~/.config/opencode/plugin/goost-status.ts`
+- Use the symlink path in opencode.json: `/home/user/.config/opencode/plugin/goost-status.ts`
+- Verify absolute path in opencode.json is correct (no `~` - use full path)
+- Check `npm install` completed without errors in the plugin directory
 - Run `cd plugin && npm run check` to verify no TypeScript errors
+- Check debug log: `cat /tmp/goost-debug.log` after running opencode
+
+### "Tab title works in bash but not from plugin"
+- The plugin must use `fs.writeFileSync()` to write to TTY devices
+- Using `fs.openSync()`/`fs.writeSync()`/`fs.closeSync()` does NOT work for Windows Terminal
+- Check `/tmp/goost-debug.log` for "setTitleViaClientTty: SUCCESS" messages

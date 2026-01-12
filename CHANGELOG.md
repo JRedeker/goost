@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Initialize OpenSpec and create sub-agent enhancement proposal (45152c2)
 
 ### Fixed
+- Fix Windows Terminal tab title not updating from Node.js - use `fs.writeFileSync()` instead of `fs.openSync()`/`writeSync()`/`closeSync()` pattern which Windows Terminal ignores
+- Fix tab title updates in tmux - write directly to client TTY (`#{client_tty}`) instead of relying on tmux's unreliable `set-titles` forwarding
+- Restore `!isTerminalState` check for status inference from message content without explicit markers
+- Document plugin must be configured as `.ts` file path, not directory path
 - Fix explicit GOOST status markers not triggering tab title updates - remove isTerminalState check that was blocking marker-based status changes (9673481)
 - Fix tab title showing "OC | ---" instead of emoji and project name - use simple OSC sequence instead of DCS passthrough to correctly set tmux pane_title (c7c2651)
 - Fix Windows Terminal tab title not updating in tmux - use pane TTY with DCS passthrough (d9499ae)
