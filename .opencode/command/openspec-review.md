@@ -406,6 +406,8 @@ Stop execution.
 
 **Goal**: YOU (the orchestrator) analyze the aggregated findings, cross-reference, and identify root causes.
 
+> **Anti-Loop Protocol**: After receiving sub-agent results, immediately begin aggregation. Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you catch yourself writing "The requirement traceability scanner found..." or similar summaries, STOP and proceed directly to grouping issues by severity.
+
 ### Step 1: Aggregate Issues
 
 Combine all issues from successful sub-agents:

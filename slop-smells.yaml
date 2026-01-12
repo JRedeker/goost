@@ -6,8 +6,8 @@
 # that have emerged from widespread LLM coding tool adoption.
 
 meta:
-  version: "1.1"
-  last_updated: "2026-01-03"
+  version: "1.2"
+  last_updated: "2026-01-12"
   description: "Catalog of code smells associated with AI-generated code, vibe coding, and technical debt patterns"
   sources:
     - "Stack Overflow Blog: Generative AI is not going to build your engineering team for you"
@@ -546,6 +546,33 @@ categories:
           - "Buffer overflow claims in memory-safe languages"
         detection: "Expert review, CVE database verification"
         reference: "Daniel Stenberg - The I in LLM stands for intelligence"
+
+      - id: AI-011
+        name: planning_loop
+        severity: critical
+        description: "Model gets stuck repeating planning statements instead of executing tool calls"
+        indicators:
+          - "Repeated phrases like 'Actually, I'll...', 'Let me now...', 'I will proceed to...'"
+          - "Re-stating the same plan multiple times without action"
+          - "Verbose internal monologue that doesn't produce tool calls"
+          - "Self-reinforcing text generation that feeds back on itself"
+        triggers:
+          - "High cognitive load from synthesizing multiple sub-agent results"
+          - "Complex state transitions (e.g., research → implementation mode)"
+          - "Mapping many inputs to many outputs simultaneously"
+        detection: "Token generation without tool calls, repeated phrase patterns"
+        mitigation:
+          - "Add explicit state transition markers (e.g., '>>> EXECUTING <<<')"
+          - "Require immediate tool call after planning phase"
+          - "Process items sequentially, not batched"
+          - "Add anti-loop warnings in prompts"
+        example: |
+          # Bad: Planning loop
+          "I'll now edit the files. Actually, let me start with file A.
+           I will proceed to edit file A. Let me now make the changes.
+           Actually, I'll edit file A first..."
+          # Good: Immediate action
+          ">>> EXECUTING <<<" [tool call]
 
   performance_smells:
     description: "Performance bottlenecks introduced by vibe coding"

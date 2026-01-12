@@ -50,7 +50,9 @@ Read these files to understand current state:
 
 ## Phase 1: Analysis (Build the Gap List)
 
-Analyze the spec across these dimensions, building a list of gaps to fix:
+Analyze the spec across these dimensions, building a list of gaps to fix.
+
+> **Research Coordination Note**: If using sub-agents for parallel research (1.4-1.6), synthesize results into a **simple numbered list** of gaps. Do NOT attempt to hold all research details in working memory—extract only the actionable gaps.
 
 ### 1.1 Acceptance Criteria Completeness
 
@@ -175,9 +177,29 @@ GAPS TO FIX:
 
 ---
 
+## Phase Transition: Synthesis → Execution
+
+> **CRITICAL: Anti-Loop Protocol**
+>
+> After displaying the contract above, you MUST:
+> 1. Output exactly: `>>> SYNTHESIS COMPLETE - EXECUTING GAP FIXES <<<`
+> 2. **Immediately** emit your first tool call (Read or Edit) in the same response
+> 3. Do NOT output additional planning, summarization, or "I will now..." statements
+>
+> **WARNING**: If you find yourself repeating phrases like "Actually, I'll...", "Let me now...", or re-stating the plan, you are in a **planning loop**. Stop immediately and emit a tool call.
+
+---
+
 ## Phase 3: Fix Gaps (Under Contract)
 
-Work through each gap, making actual edits to the spec files:
+Work through gaps **ONE AT A TIME**, making actual edits to the spec files.
+
+> **Sequential Processing Rule**: 
+> - Pick the FIRST unfixed gap
+> - Make the edit (one tool call)
+> - Mark it complete in your tracking
+> - Move to the next gap
+> - Do NOT batch multiple gap fixes in your head before acting
 
 ### For Missing Scenarios
 
@@ -292,6 +314,8 @@ Ready for implementation! Run `/openspec-apply $ARGUMENTS`
 ---
 
 ## Contract Enforcement
+
+> **Anti-Loop Check**: If your response exceeds 500 words without a tool call, STOP and emit a tool call immediately. Planning loops manifest as verbose re-stating of intent without action.
 
 Throughout Phase 3, end every response with a CONTRACT STATUS block:
 

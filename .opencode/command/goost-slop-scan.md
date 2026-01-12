@@ -370,6 +370,8 @@ Total findings: <M>
 
 ## Report Generation
 
+> **Anti-Loop Protocol**: After Phase 2 sub-agents complete, proceed directly to aggregation. Do NOT re-summarize each scanner's findings in prose—go straight to combining and sorting findings below.
+
 ### Aggregate Findings
 
 1. Combine Phase 1 and Phase 2 findings

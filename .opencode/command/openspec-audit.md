@@ -501,6 +501,8 @@ Build orphan list:
 
 **Goal**: Aggregate findings, determine overall health, generate recommendations.
 
+> **Anti-Loop Protocol**: After receiving all sub-agent results, immediately proceed to merging findings. Do NOT re-summarize what each sub-agent returned in prose—go straight to the structured synthesis steps below.
+
 ### Step 1: Merge All Findings
 
 Combine issues from all dimensions:

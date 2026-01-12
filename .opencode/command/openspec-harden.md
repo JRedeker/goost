@@ -433,6 +433,8 @@ Wait for all 5 sub-agents to return. Parse their JSON outputs and aggregate:
 
 **Goal**: YOU (the orchestrator) analyze the aggregated findings, cross-reference with documentation and specs, and identify root causes.
 
+> **Anti-Loop Protocol**: After receiving sub-agent results, immediately begin aggregation. Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you find yourself writing "Sub-agent 1 found..." or "The test coverage scanner reported...", STOP and proceed directly to the aggregation logic.
+
 ### Step 1: Aggregate Issues
 
 Combine all issues from the 5 sub-agents into a unified list:

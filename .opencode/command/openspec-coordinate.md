@@ -152,6 +152,8 @@ Categorize results:
 
 ## Phase 4: Generate Report
 
+> **Anti-Loop Protocol**: After Phase 3 analysis, immediately run the report command below. Do NOT summarize findings in prose first—let the report generator do that.
+
 Run the built-in report generator:
 
 ```bash

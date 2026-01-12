@@ -59,6 +59,8 @@ CHECKPOINTS:
 
 Then immediately proceed to implementation.
 
+> **Anti-Loop Protocol**: After displaying the contract, your next output MUST be a tool call (Read/Edit) to begin implementation. Do NOT re-state the plan or explain what you're about to do.
+
 **Step 3: Implement Under Contract (RSTC Protocol)**
 
 You MUST follow the Requirement-Spec-Test-Code sequence for each criterion:

@@ -130,6 +130,15 @@ Then make N Task tool calls in the same response.
 
 **Step 6: Synthesize Research Results**
 
+> **CRITICAL: Anti-Loop Protocol**
+>
+> After receiving sub-agent results, you MUST:
+> 1. Output exactly: `>>> SYNTHESIS COMPLETE - GENERATING REPORT <<<`
+> 2. **Immediately** write the structured report below
+> 3. Do NOT re-explain what sub-agents found in prose before the report
+>
+> **WARNING**: If you find yourself repeating "I received results from..." or re-stating the synthesis plan, STOP and write the report structure directly.
+
 After all sub-agents complete, synthesize their findings into a comprehensive research report:
 
 ```markdown
