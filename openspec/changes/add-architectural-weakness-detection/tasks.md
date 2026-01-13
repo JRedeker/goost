@@ -1,98 +1,110 @@
-# Tasks: Add Architectural Weakness Detection
+# Tasks: Add Architectural Improvement Suggestions
 
-## 1. Phase 4 Integration
-- [ ] 1.1 Add Phase 4 section to `/openspec-audit` command after synthesis phase
-- [ ] 1.2 Create agent instructions for open-ended architectural analysis
-- [ ] 1.3 Define analysis category prompts (guiding questions, not checklists)
-- [ ] 1.4 Integrate Phase 4 output into final report generation
+> **Research Validated**: 2026-01-12 - Design revised based on architectural research findings.
 
-## 2. Agent Analysis Instructions
-- [ ] 2.1 Write instructions for examining project structure and organization
-- [ ] 2.2 Write instructions for evaluating testing maturity (without hardcoded tool names)
-- [ ] 2.3 Write instructions for assessing security posture (pattern-based, not library-based)
-- [ ] 2.4 Write instructions for identifying performance/scalability patterns
-- [ ] 2.5 Write instructions for evaluating observability and debugging capabilities
-- [ ] 2.6 Write instructions for assessing code quality and maintainability
-- [ ] 2.7 Write instructions for evaluating developer experience gaps
-- [ ] 2.8 Write instructions for analyzing dependency health
-- [ ] 2.9 Write instructions for assessing CI/CD maturity
-- [ ] 2.10 Add guidance for agent to discover additional relevant categories
+## 1. Create Standalone Command (Changed from Phase 4 Integration)
+- [ ] 1.1 Create new `.opencode/command/goost-improve.md` file (~200 lines)
+- [ ] 1.2 Add frontmatter (name, description, agent: general)
+- [ ] 1.3 Write agent instructions with specification grounding (not pure free-form discovery)
+- [ ] 1.4 Define 4 core categories with guiding questions and weights
 
-## 3. Search Query Generation Guidelines
-- [ ] 3.1 Document query formulation principles (problem-focused, not tool-focused)
-- [ ] 3.2 Add examples of good vs bad query formulations
-- [ ] 3.3 Add instructions for including tech stack context dynamically
-- [ ] 3.4 Add guidelines for query specificity (searchable but not prescriptive)
+## 2. Agent Analysis Instructions (Grounded Discovery)
+- [ ] 2.1 Write preamble providing project conventions context
+- [ ] 2.2 Define critical areas agent MUST check (explicit path)
+- [ ] 2.3 Add guidance for discovering additional issues (implicit path)
+- [ ] 2.4 Write instructions for 4 core categories:
+  - Security Posture (weight: 1.0)
+  - Testing Maturity (weight: 0.9)
+  - Observability (weight: 0.7)
+  - Developer Experience (weight: 0.6)
+- [ ] 2.5 Add guidance for agent to discover categories beyond the 4 core
 
-## 4. Finding Format and Prioritization
-- [ ] 4.1 Define finding structure (category, observation, evidence, impact, query)
-- [ ] 4.2 Add instructions for evidence-based observations
-- [ ] 4.3 Add instructions for impact assessment
-- [ ] 4.4 Define prioritization criteria (security > reliability > scalability > velocity)
-- [ ] 4.5 Add limit guidance (7-10 most impactful findings)
+## 3. Evidence Requirements (Research Validated)
+- [ ] 3.1 Define evidence sufficiency table:
+  | Claim Type | Required Evidence |
+  |------------|-------------------|
+  | "X exists" | File path where found |
+  | "X does not exist" | Directories/patterns searched |
+  | "Pattern Y is used" | 1-3 example file paths |
+  | "Configuration Z is present" | Config file path + key |
+- [ ] 3.2 Add instructions requiring evidence for every finding
+- [ ] 3.3 Add rejection criteria for findings without evidence
 
-## 5. Report Integration
-- [ ] 5.1 Create "IMPROVEMENT OPPORTUNITIES" section template
-- [ ] 5.2 Add section header with explanatory text
-- [ ] 5.3 Define finding display format with category labels
-- [ ] 5.4 Add "no significant gaps" message template
-- [ ] 5.5 Add `improvements` array to JSON output schema
+## 4. Hybrid Query Generation (Revised from Problem-Only)
+- [ ] 4.1 Document hybrid query formulation:
+  - Include tool/library names when detected
+  - Add problem/solution context
+  - Include temporal qualifiers (year, "alternatives", "vs")
+  - Include tech stack context
+- [ ] 4.2 Add examples of good hybrid queries:
+  - "jest parallel testing typescript large suite 2024"
+  - "zod vs yup vs joi typescript API validation 2024"
+- [ ] 4.3 Explain why this outperforms pure abstraction (cite research)
 
-## 6. Command Flags
-- [ ] 6.1 Add `--skip-suggestions` flag to omit improvement opportunities section
-- [ ] 6.2 Add `--deep` flag for thorough analysis (more file reading)
-- [ ] 6.3 Add `--quick` flag for lightweight config-only analysis
-- [ ] 6.4 Update argument parsing section for new flags
-- [ ] 6.5 Add flag documentation to command help output
+## 5. Weighted Priority Scoring (Revised from Fixed Hierarchy)
+- [ ] 5.1 Define severity tiers: Critical (4), High (3), Medium (2), Low (1)
+- [ ] 5.2 Define category weights: Security (1.0), Testing (0.9), Observability (0.7), DX (0.6)
+- [ ] 5.3 Document priority formula: Category Weight × Severity Score
+- [ ] 5.4 Add examples showing how Critical DX can outrank Low Security
+- [ ] 5.5 Keep 7-10 finding limit (research validated)
 
-## 7. Analysis Depth Control
-- [ ] 7.1 Define default analysis scope (configs, structure, samples)
-- [ ] 7.2 Define deep analysis scope (additional source files, CI/CD, deps)
-- [ ] 7.3 Define quick analysis scope (manifests and configs only)
-- [ ] 7.4 Add depth indicator to report output
+## 6. Analysis Depth Control (Simplified to 2 Modes)
+- [ ] 6.1 Implement `--metadata-only` flag (configs, manifests, structure only)
+- [ ] 6.2 Make full analysis the default (all source files in scope)
+- [ ] 6.3 Support `--include/--exclude` patterns for targeted analysis
+- [ ] 6.4 Remove sampling middle ground (creates false negatives per OWASP)
+
+## 7. Report Output
+- [ ] 7.1 Create "IMPROVEMENT OPPORTUNITIES" section template
+- [ ] 7.2 Include severity label in category header: `[CATEGORY - Severity]`
+- [ ] 7.3 Require Evidence field in finding format
+- [ ] 7.4 Add "no significant gaps" message template
+- [ ] 7.5 Add JSON output format with `improvements` array
 
 ## 8. Documentation
-- [ ] 8.1 Update command description to mention architectural analysis
-- [ ] 8.2 Document the analysis categories and guiding questions
-- [ ] 8.3 Add examples of expected output in different scenarios
-- [ ] 8.4 Document the query formulation philosophy (problem-focused)
-- [ ] 8.5 Add guidance on interpreting improvement suggestions
+- [ ] 8.1 Document the command and its purpose (separate from /openspec-audit)
+- [ ] 8.2 Document the 4 core categories and how to interpret weights
+- [ ] 8.3 Add examples of expected output
+- [ ] 8.4 Document hybrid query philosophy with examples
+- [ ] 8.5 Add research sources in design.md
 
 ## 9. Testing
 - [ ] 9.1 Manual test: Run on project with obvious testing gaps
 - [ ] 9.2 Manual test: Run on project with security concerns
 - [ ] 9.3 Manual test: Run on well-structured project (expect minimal findings)
-- [ ] 9.4 Manual test: Verify `--skip-suggestions` hides section
-- [ ] 9.5 Manual test: Verify `--deep` performs additional analysis
-- [ ] 9.6 Manual test: Verify `--quick` limits to config files
-- [ ] 9.7 Manual test: Verify JSON output includes improvements array
-- [ ] 9.8 Manual test: Verify queries don't contain hardcoded tool names
+- [ ] 9.4 Manual test: Verify `--metadata-only` limits scope correctly
+- [ ] 9.5 Manual test: Verify findings include evidence
+- [ ] 9.6 Manual test: Verify queries use hybrid format (tool + context + year)
+- [ ] 9.7 Manual test: Verify priority scoring produces sensible ordering
 
 ## Dependencies
 
-- This change modifies the existing `/openspec-audit` command
+- This is a NEW standalone command (does not modify /openspec-audit)
 - Works independently of `/goost-search` (suggestions are useful regardless)
 - Suggestions become actionable once `/goost-search` is implemented
 
-## Design Principles (Reference)
+## Design Principles (Research-Validated)
 
 **DO:**
-- Let the agent discover issues based on what it observes
-- Require evidence for every finding
-- Phrase queries as problems to solve, not tools to install
-- Allow agent to identify categories beyond the predefined list
-- Prioritize by impact on users/security/reliability
+- Ground agent with project conventions and critical check areas
+- Require evidence (file paths, patterns) for every finding
+- Use hybrid queries: tool names + context + temporal qualifiers
+- Use weighted priority scoring, not fixed hierarchy
+- Limit to 7-10 most impactful findings
 
 **DON'T:**
-- Hardcode specific library or tool names
-- Create static checklists to match against
-- Make assumptions without evidence from the codebase
-- Prescribe solutions (let search results provide options)
-- Overwhelm with too many suggestions (limit to 7-10)
+- Pure free-form discovery (consistency issues)
+- Problem-only queries (underperform hybrid)
+- Sampling-based analysis (creates false negatives)
+- Fixed category hierarchy (too rigid per AWS/Google SRE)
+- Integrate into /openspec-audit (keep commands focused)
 
-## Notes
+## Research Sources
 
-- The agent should reason about what it finds, not pattern-match against a list
-- Query quality matters more than quantity - each should be actionable
-- Categories are guidance, not constraints - agent can identify new ones
-- "No significant gaps" is a valid finding for well-maintained projects
+- arXiv:2512.17540 - SGCR Framework (grounded LLM review)
+- arXiv:2305.14627 - Citation requirements for LLM accuracy
+- arXiv:2502.20747v1 - LLM consistency at temperature=0
+- Google SRE Book - Error budgets, reliability trade-offs
+- AWS Well-Architected - Context-dependent trade-offs
+- OWASP Static Analysis - False negatives from sampling
+- Stack Overflow/CROKAGE - Hybrid query effectiveness

@@ -1,4 +1,4 @@
-# Change: Add Architectural Weakness Detection to OpenSpec Audit
+# Change: Add Architectural Improvement Suggestions
 
 ## Why
 
@@ -8,32 +8,59 @@ Rather than hardcoding specific tools or libraries to check for (which become ou
 
 ## What Changes
 
-- Add **Phase 4: Architectural Analysis** to `/openspec-audit`
-- Agent examines codebase and identifies gaps across categories:
-  - Testing maturity and reliability
+- Add **standalone `/goost-improve` command** (not integrated into /openspec-audit)
+  - Research validated: Unix "do one thing well" principle; industry separates "code audit" from "architecture assessment"
+- Agent examines codebase and identifies gaps across 4 core categories (MVP):
   - Security posture and patterns
-  - Performance and scalability
+  - Testing maturity and reliability  
   - Observability and debugging
-  - Code quality and maintainability
   - Developer experience
-  - Dependency health
-  - CI/CD maturity
   - (Plus any other categories the agent identifies)
-- Agent generates **problem-focused** `/goost-search` queries (not tool recommendations)
-- Add `IMPROVEMENT OPPORTUNITIES` section to audit report
-- Add flags: `--skip-suggestions`, `--deep`, `--quick`
+- Agent generates **hybrid** `/goost-search` queries (tool name + context + temporal qualifiers)
+  - Research validated: hybrid queries outperform pure problem-descriptions
+- Add `IMPROVEMENT OPPORTUNITIES` output section
+- Two analysis modes: `--metadata-only` (configs only) and full (default)
+  - Research validated: sampling creates false negatives; 3-tier model is uncommon
 
-## Key Design Principle
+## Research Validation (2026-01-12)
 
-**Agent-driven discovery, not hardcoded checklists.**
+| Decision | Status | Key Finding |
+|----------|--------|-------------|
+| Separate command vs Phase 4 | ✅ Changed | Matches project patterns, Unix philosophy, industry practice |
+| Evidence-based findings | ✅ Validated | Academic research confirms citation requirements reduce hallucinations |
+| Hybrid query generation | ⚠️ Revised | Research shows "zod vs alternatives 2024" outperforms pure abstraction |
+| 2 depth modes (not 3) | ⚠️ Revised | Sampling middle ground creates unreliable results per OWASP |
+| 4 core categories for MVP | ⚠️ Revised | Start smaller, expand based on feedback |
 
-Instead of "check if Jest is configured for parallel testing", we instruct the agent:
-- Examine how tests are organized and configured
-- Identify what testing practices are present vs absent
-- Assess impact of any gaps found
-- Generate a search query describing the problem space
+Sources: arXiv:2512.17540, arXiv:2305.14627, Google SRE Book, AWS Well-Architected, OWASP Static Analysis
 
-This keeps suggestions current and contextual rather than prescriptive and stale.
+## Key Design Principles
+
+**1. Agent-driven discovery with specification grounding.**
+
+Instead of pure free-form discovery (which has consistency issues per research), we:
+- Provide the agent with project conventions and critical areas to check
+- Let it discover additional issues beyond the guidance
+- Require evidence (file paths, patterns) for every finding
+
+Research shows this "dual-pathway" approach achieves 90.9% improvement over pure LLM discovery (arXiv:2512.17540).
+
+**2. Hybrid search queries, not pure abstraction.**
+
+Instead of only "runtime type validation for API inputs", use:
+- "zod vs alternatives 2024" (includes tool name + comparison + year)
+- "parallel test execution jest typescript" (includes context)
+
+Research shows modern search engines do semantic expansion; adding tool names yields better results.
+
+**3. Weighted prioritization, not fixed hierarchy.**
+
+Instead of rigid "Security > Reliability > Scalability", use:
+- Severity tiers within categories (Critical/High/Medium/Low)
+- Priority = Category Weight × Severity Score
+- Escape hatch: Critical items in any category can be elevated
+
+This matches AWS Well-Architected and RICE/WSJF industry practices.
 
 ## Example Output
 
@@ -44,30 +71,33 @@ Based on codebase analysis, the following improvements could
 strengthen this project. Run the suggested searches to find
 current best practices and solutions.
 
-[SECURITY] Input Validation Gap
+[SECURITY - Critical] Input Validation Gap
   Observation: API endpoints in src/routes/ accept request 
                bodies without schema validation. Direct 
                property access on req.body throughout.
+  Evidence: src/routes/users.ts:45, src/routes/orders.ts:23
   Impact: Risk of malformed data causing errors or exploits.
-  → /goost-search runtime schema validation for REST APIs
+  → /goost-search zod vs yup vs joi typescript API validation 2024
 
-[TESTING] Test Isolation Concerns
+[TESTING - High] Test Isolation Concerns
   Observation: Tests share database state. No setup/teardown
                patterns found. Test order dependencies likely.
+  Evidence: Searched test/*.ts - no beforeEach/afterEach patterns
   Impact: Flaky tests, false positives, debugging difficulty.
-  → /goost-search test isolation patterns database fixtures
+  → /goost-search jest test isolation database fixtures typescript
 
-[OBSERVABILITY] Minimal Error Context
+[OBSERVABILITY - Medium] Minimal Error Context
   Observation: Errors logged with console.error only. No 
                structured format. No request correlation IDs.
+  Evidence: grep "console.error" found 47 instances, no pino/winston
   Impact: Difficult production debugging, no audit trail.
-  → /goost-search structured logging error tracking patterns
+  → /goost-search structured logging nodejs pino vs winston 2024
 ------------------------------------------------------------
 ```
 
 ## Impact
 
-- Affected specs: `slash-commands` (OpenSpec Audit Command)
-- Affected code: `.opencode/command/openspec-audit.md`
+- Affected specs: `slash-commands` (new Goost Improve Command)
+- Affected code: New `.opencode/command/goost-improve.md` file (~200 lines)
 - Dependencies: Suggestions work standalone; become actionable with `/goost-search`
-- No breaking changes - adds new optional phase to existing command
+- No breaking changes - completely new command

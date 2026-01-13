@@ -1,68 +1,91 @@
-# Design: Architectural Weakness Detection
+# Design: Architectural Improvement Suggestions
+
+## Research Validation Summary
+
+This design was validated through architectural research on 2026-01-12. Key findings:
+
+| Original Decision | Research Result | Action Taken |
+|-------------------|-----------------|--------------|
+| Integrate as Phase 4 of /openspec-audit | ⚠️ Violates Unix philosophy; industry separates audit from assessment | **Changed**: Create standalone `/goost-improve` command |
+| Pure agent-driven discovery | ⚠️ Consistency issues; SGCR research shows 90.9% improvement with grounding | **Revised**: Add specification grounding |
+| Problem-focused-only queries | ⚠️ Hybrid queries outperform pure abstraction | **Revised**: Use tool + context + temporal qualifiers |
+| 3-tier depth (quick/default/deep) | ⚠️ Sampling creates false negatives per OWASP | **Revised**: 2 modes only |
+| Fixed priority hierarchy | ⚠️ Industry uses weighted scoring (RICE/WSJF) | **Revised**: Category × Severity scoring |
+| Evidence-based findings | ✅ Validated by academic research (EMNLP 2023, NAACL 2024) | **Kept** |
+
+Sources: arXiv:2512.17540, arXiv:2305.14627, Google SRE Book, AWS Well-Architected, OWASP
 
 ## Context
 
-The `/openspec-audit` command currently has 3 phases:
-1. Analysis (sub-agent scanning for drift)
-2. Orphan Detection
-3. Synthesis
+Rather than extending the existing `/openspec-audit` command (which focuses on spec/implementation drift), we're creating a **standalone `/goost-improve` command** that analyzes codebases for architectural improvement opportunities.
 
-We're adding a **Phase 4: Architectural Weakness Detection** that runs after synthesis. Rather than checking for hardcoded patterns, this phase instructs the AI agent to analyze the codebase holistically and generate contextual `/goost-search` suggestions based on what it observes.
+This separation follows the Unix philosophy ("do one thing well") and matches industry practice that distinguishes "code audits" (what IS vs what SHOULD BE) from "architecture assessments" (what COULD BE better).
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Enable AI agent to discover architectural gaps dynamically
-- Generate contextual, up-to-date `/goost-search` suggestions
-- Cover broad categories without hardcoding specific tools/libraries
-- Let the agent adapt suggestions to what it actually finds
+- Enable AI agent to discover architectural gaps with specification grounding
+- Generate contextual, up-to-date `/goost-search` suggestions using hybrid queries
+- Cover 4 core categories for MVP (Security, Testing, Observability, DX)
+- Require evidence for every finding to reduce hallucinations
+- Simple standalone command (~200 lines)
 
 **Non-Goals:**
 - Hardcoded checklists of specific tools (e.g., "use Jest", "install Zod")
-- Static pattern matching against known library names
 - Replacing the agent's judgment with rigid detection rules
-- Exhaustive static analysis
+- Exhaustive static analysis (use dedicated tools like SonarQube for that)
+- Integration with /openspec-audit (keep commands focused)
+- Sampling-based analysis (creates false negatives)
 
-## Key Design Principle: Agent-Driven Discovery
+## Key Design Principle: Grounded Agent Discovery
 
-**What:** Instead of "check if X library exists", we instruct the agent:
-1. Examine the codebase structure and practices
-2. Identify gaps, missing patterns, or weak areas
-3. Formulate search queries that would help address those gaps
-4. Present findings with reasoning
+**What:** Use a "dual-pathway" approach validated by SGCR research (arXiv:2512.17540):
+
+1. **Explicit path**: Provide agent with project conventions and critical areas to check
+2. **Implicit path**: Let agent discover additional issues beyond the guidance
+3. **Evidence requirement**: Every finding must cite specific files/patterns
+4. **Hybrid queries**: Include tool names + context + temporal qualifiers
 
 **Why:**
-- Libraries and best practices evolve constantly
-- Hardcoded lists become stale
-- The agent can notice nuances a checklist would miss
-- Search queries find current solutions, not outdated ones
+- Pure discovery has consistency issues (LLMs vary even at temperature=0)
+- Specification grounding achieved 90.9% improvement in adoption rates
+- Evidence requirements reduce hallucinations (validated by EMNLP 2023)
+- Hybrid queries outperform pure abstraction in search results
 
 ## Decisions
 
-### Decision 1: Open-Ended Analysis Categories
+### Decision 1: Four Core Categories (MVP)
 
-**What:** Provide the agent with analysis categories (not checklists) and let it explore:
+**What:** Start with 4 core categories, expand based on feedback:
 
-| Category | Guiding Questions for Agent |
-|----------|---------------------------|
-| **Testing Maturity** | How comprehensive is the test setup? What testing strategies are missing? Are tests configured for reliability and speed? |
-| **Security Posture** | What security practices are present or absent? Are there patterns that could lead to vulnerabilities? |
-| **Performance Patterns** | Are there architectural decisions that could cause performance issues at scale? What optimizations are missing? |
-| **Code Quality** | What tooling exists for maintaining code quality? What gaps exist? |
-| **Observability** | How would developers debug issues in production? What's missing? |
-| **Developer Experience** | What would slow down a new contributor? What documentation or tooling gaps exist? |
-| **Dependency Health** | Are dependencies maintained? Are there risks in the dependency tree? |
-| **CI/CD Maturity** | How robust is the deployment pipeline? What could fail silently? |
+| Category | Guiding Questions for Agent | Weight |
+|----------|---------------------------|--------|
+| **Security Posture** | What security practices are present or absent? Are there patterns that could lead to vulnerabilities? | 1.0 |
+| **Testing Maturity** | How comprehensive is the test setup? What testing strategies are missing? Are tests configured for reliability and speed? | 0.9 |
+| **Observability** | How would developers debug issues in production? What's missing? | 0.7 |
+| **Developer Experience** | What would slow down a new contributor? What documentation or tooling gaps exist? | 0.6 |
 
-**Why:** Categories guide without constraining. The agent can discover issues we didn't anticipate.
+**Additional categories the agent MAY discover:**
+- Performance & Scalability
+- Code Quality & Maintainability
+- Dependency Health
+- CI/CD Maturity
+- Documentation & Compliance
+- Disaster Recovery
 
-### Decision 2: Contextual Query Generation
+**Why:** 
+- 4 categories keeps MVP focused (~200 line command)
+- Research shows 8 categories covers ~70-80% of audit concerns (ISO 25010 has 9)
+- Dynamic discovery handles the remaining 20-30%
+- Weights enable nuanced prioritization (Critical DX can outrank Low Security)
 
-**What:** The agent formulates search queries based on:
-1. What it observed (or didn't observe) in the codebase
-2. The detected tech stack
-3. The specific gap identified
-4. Modern terminology that would yield good results
+### Decision 2: Hybrid Query Generation
+
+**What:** The agent formulates search queries using a hybrid approach:
+1. Include tool/library names when known or detected
+2. Add problem/solution context
+3. Include temporal qualifiers (year, "latest", "alternatives")
+4. Include tech stack context
 
 **Example Agent Reasoning:**
 ```
@@ -70,35 +93,54 @@ Observation: Found test files but no configuration for running tests in parallel
              Test suite has 200+ test files, likely slow.
 Stack: TypeScript with Jest (detected from jest.config.js)
 Gap: Test execution speed at scale
-Query: "/goost-search parallel test execution strategies"
+Query: "/goost-search jest parallel testing typescript large test suite 2024"
+       (NOT just "parallel test execution strategies")
 ```
 
-**Why:** Queries generated from actual observations are more relevant than generic suggestions.
+**Research Validation:** 
+- Stack Overflow/CROKAGE research shows hybrid queries outperform pure abstraction
+- Search engines already do semantic expansion from tool names
+- "zod vs alternatives 2024" yields comparisons, deprecation notices, newer tools
+- Pure problem-descriptions add cognitive overhead without clear benefit
 
-### Decision 3: Severity and Impact Assessment
+**Why:** Queries with tool names + context + year return authoritative, current documentation.
 
-**What:** Agent assesses each finding by:
-- **Impact**: How much does this affect the project?
-- **Effort**: How hard would it be to address?
-- **Risk**: What's the risk of not addressing it?
+### Decision 3: Weighted Priority Scoring
 
-**Why:** Helps users prioritize. A security gap is more urgent than a DX improvement.
+**What:** Agent assesses each finding using weighted scoring:
+- **Severity**: Critical (4), High (3), Medium (2), Low (1)
+- **Category Weight**: Security (1.0), Testing (0.9), Observability (0.7), DX (0.6)
+- **Priority Score**: Category Weight × Severity
 
-### Decision 4: No Hardcoded Tool Names in Suggestions
-
-**What:** Search queries should describe the problem/solution space, not specific tools:
-
-| Instead of | Use |
-|------------|-----|
-| "jest parallel testing" | "parallel test execution for large test suites" |
-| "install zod validation" | "runtime type validation for API inputs" |
-| "add redis caching" | "caching layer for database query optimization" |
-| "use eslint" | "automated code quality and style enforcement" |
+**Examples:**
+| Finding | Category | Severity | Score | Rank |
+|---------|----------|----------|-------|------|
+| SQL injection risk | Security | Critical (4) | 1.0 × 4 = 4.0 | 1st |
+| No test isolation | Testing | Critical (4) | 0.9 × 4 = 3.6 | 2nd |
+| Missing CONTRIBUTING.md | DX | High (3) | 0.6 × 3 = 1.8 | 4th |
+| No HTTPS in dev | Security | Low (1) | 1.0 × 1 = 1.0 | 5th |
 
 **Why:** 
-- Avoids recommending outdated/deprecated tools
-- Search results will surface current best practices
-- Works across different tech stacks
+- Research shows fixed hierarchies are too rigid (AWS, Google SRE, RICE/WSJF all use context-dependent trade-offs)
+- A critical DX issue can legitimately outrank a low security papercut
+- This matches industry practices for technical debt prioritization
+
+### Decision 4: Hybrid Queries (Tool Names + Context)
+
+**What:** Search queries should include tool names when known, plus context and temporal qualifiers:
+
+| Original Approach | Revised Approach |
+|-------------------|------------------|
+| "parallel test execution for large test suites" | "jest parallel testing typescript large suite 2024" |
+| "runtime type validation for API inputs" | "zod vs yup vs joi typescript API validation 2024" |
+| "caching layer for database query optimization" | "redis vs memcached nodejs caching alternatives 2024" |
+| "automated code quality and style enforcement" | "eslint vs biome typescript linting 2024" |
+
+**Why (Research-Validated):** 
+- Search engines already do semantic expansion from tool names
+- Tool-specific queries return authoritative official documentation
+- Adding "vs alternatives" or year surfaces comparisons and deprecation notices
+- Pure abstraction adds cognitive overhead without yielding better results
 
 ## Agent Instructions Template
 
