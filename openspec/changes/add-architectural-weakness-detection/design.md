@@ -7,90 +7,189 @@ The `/openspec-audit` command currently has 3 phases:
 2. Orphan Detection
 3. Synthesis
 
-We're adding a **Phase 4: Architectural Weakness Detection** that runs after synthesis but before the final report, examining the codebase for common architectural problems and suggesting `/goost-search` queries for solutions.
+We're adding a **Phase 4: Architectural Weakness Detection** that runs after synthesis. Rather than checking for hardcoded patterns, this phase instructs the AI agent to analyze the codebase holistically and generate contextual `/goost-search` suggestions based on what it observes.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Detect common architectural weaknesses in testing, security, and performance
-- Generate actionable `/goost-search` suggestions for each weakness
-- Integrate seamlessly into existing audit flow and report format
-- Keep detection fast (heuristic-based, not exhaustive)
+- Enable AI agent to discover architectural gaps dynamically
+- Generate contextual, up-to-date `/goost-search` suggestions
+- Cover broad categories without hardcoding specific tools/libraries
+- Let the agent adapt suggestions to what it actually finds
 
 **Non-Goals:**
-- Deep static analysis (use dedicated tools like ESLint, SonarQube)
-- Auto-fixing detected issues
-- Comprehensive vulnerability scanning (use security-focused tools)
-- Replacing specialized audit tools
+- Hardcoded checklists of specific tools (e.g., "use Jest", "install Zod")
+- Static pattern matching against known library names
+- Replacing the agent's judgment with rigid detection rules
+- Exhaustive static analysis
+
+## Key Design Principle: Agent-Driven Discovery
+
+**What:** Instead of "check if X library exists", we instruct the agent:
+1. Examine the codebase structure and practices
+2. Identify gaps, missing patterns, or weak areas
+3. Formulate search queries that would help address those gaps
+4. Present findings with reasoning
+
+**Why:**
+- Libraries and best practices evolve constantly
+- Hardcoded lists become stale
+- The agent can notice nuances a checklist would miss
+- Search queries find current solutions, not outdated ones
 
 ## Decisions
 
-### Decision 1: Detection Strategy
+### Decision 1: Open-Ended Analysis Categories
 
-**What:** Use lightweight heuristic detection based on file patterns, configuration presence, and code markers rather than deep AST analysis.
+**What:** Provide the agent with analysis categories (not checklists) and let it explore:
+
+| Category | Guiding Questions for Agent |
+|----------|---------------------------|
+| **Testing Maturity** | How comprehensive is the test setup? What testing strategies are missing? Are tests configured for reliability and speed? |
+| **Security Posture** | What security practices are present or absent? Are there patterns that could lead to vulnerabilities? |
+| **Performance Patterns** | Are there architectural decisions that could cause performance issues at scale? What optimizations are missing? |
+| **Code Quality** | What tooling exists for maintaining code quality? What gaps exist? |
+| **Observability** | How would developers debug issues in production? What's missing? |
+| **Developer Experience** | What would slow down a new contributor? What documentation or tooling gaps exist? |
+| **Dependency Health** | Are dependencies maintained? Are there risks in the dependency tree? |
+| **CI/CD Maturity** | How robust is the deployment pipeline? What could fail silently? |
+
+**Why:** Categories guide without constraining. The agent can discover issues we didn't anticipate.
+
+### Decision 2: Contextual Query Generation
+
+**What:** The agent formulates search queries based on:
+1. What it observed (or didn't observe) in the codebase
+2. The detected tech stack
+3. The specific gap identified
+4. Modern terminology that would yield good results
+
+**Example Agent Reasoning:**
+```
+Observation: Found test files but no configuration for running tests in parallel.
+             Test suite has 200+ test files, likely slow.
+Stack: TypeScript with Jest (detected from jest.config.js)
+Gap: Test execution speed at scale
+Query: "/goost-search parallel test execution strategies"
+```
+
+**Why:** Queries generated from actual observations are more relevant than generic suggestions.
+
+### Decision 3: Severity and Impact Assessment
+
+**What:** Agent assesses each finding by:
+- **Impact**: How much does this affect the project?
+- **Effort**: How hard would it be to address?
+- **Risk**: What's the risk of not addressing it?
+
+**Why:** Helps users prioritize. A security gap is more urgent than a DX improvement.
+
+### Decision 4: No Hardcoded Tool Names in Suggestions
+
+**What:** Search queries should describe the problem/solution space, not specific tools:
+
+| Instead of | Use |
+|------------|-----|
+| "jest parallel testing" | "parallel test execution for large test suites" |
+| "install zod validation" | "runtime type validation for API inputs" |
+| "add redis caching" | "caching layer for database query optimization" |
+| "use eslint" | "automated code quality and style enforcement" |
 
 **Why:** 
-- Fast execution (seconds, not minutes)
-- Works across multiple languages
-- Easy to extend with new patterns
-- Sufficient for "is this pattern present?" questions
+- Avoids recommending outdated/deprecated tools
+- Search results will surface current best practices
+- Works across different tech stacks
 
-**Detection Signals:**
+## Agent Instructions Template
 
-| Category | Signal Type | Example |
-|----------|------------|---------|
-| Testing | Config presence | `jest.config.js` exists but no `--parallel` |
-| Testing | File patterns | No `*.property.test.*` files |
-| Testing | Code markers | No timeout configuration in test setup |
-| Security | Config absence | No `.env.example`, secrets in code |
-| Security | Code patterns | `eval()`, SQL string concat |
-| Performance | Code patterns | Nested loops with DB calls |
-| Performance | Config absence | No caching layer config |
+The agent receives guiding questions, not checklists:
 
-### Decision 2: Search Suggestion Mapping
+```
+## Phase 4: Architectural Analysis
 
-**What:** Maintain a mapping of weakness types to suggested `/goost-search` queries.
+Analyze this codebase for architectural strengths and weaknesses. For each 
+category below, examine what exists and what's missing. Generate /goost-search 
+queries for gaps that would meaningfully improve the project.
 
-**Why:** 
-- Provides immediately actionable next steps
-- Connects audit findings to prompt discovery
-- Users can run suggestions or adapt them
+### Analysis Categories
 
-**Example Mappings:**
+For each category, ask yourself:
+- What practices/patterns are present?
+- What's notably absent that similar projects typically have?
+- What could cause problems as the project scales?
+- What would a senior engineer recommend improving?
 
-| Weakness | Suggested Search |
-|----------|-----------------|
-| No test parallelization | `/goost-search test parallelization {stack}` |
-| Missing test timeouts | `/goost-search test timeout configuration` |
-| No property-based testing | `/goost-search property-based testing {stack}` |
-| Missing rate limiting | `/goost-search api rate limiting` |
-| No input validation | `/goost-search input validation security` |
-| N+1 query patterns | `/goost-search n+1 query optimization` |
-| Missing caching | `/goost-search caching strategy {stack}` |
+**Testing Maturity**
+- Test organization and coverage strategy
+- Test reliability (flakiness, isolation, determinism)  
+- Test performance (speed, parallelization, CI efficiency)
+- Testing depth (unit, integration, E2E, property-based, etc.)
 
-### Decision 3: Stack Detection
+**Security Posture**
+- Input handling and validation patterns
+- Authentication/authorization implementation
+- Secrets management approach
+- Dependency vulnerability exposure
+- Common vulnerability patterns (injection, XSS, etc.)
 
-**What:** Auto-detect the project's tech stack to customize search suggestions.
+**Performance & Scalability**
+- Database query patterns and optimization
+- Caching strategies
+- Async/concurrent operation handling
+- Resource cleanup and memory management
+- API design for scale (pagination, rate limiting, etc.)
 
-**Why:**
-- Generic searches are less useful than stack-specific ones
-- "test parallelization pytest" is more actionable than "test parallelization"
+**Observability & Operations**
+- Logging strategy and structure
+- Error tracking and reporting
+- Metrics and monitoring hooks
+- Debugging capabilities
+- Health checks and readiness probes
 
-**Detection Method:**
-- Check for `package.json` → JavaScript/TypeScript
-- Check for `requirements.txt` / `pyproject.toml` → Python
-- Check for `go.mod` → Go
-- Check for `Cargo.toml` → Rust
-- Fall back to generic if multiple or unclear
+**Code Quality & Maintainability**
+- Static analysis and linting setup
+- Type safety enforcement
+- Code formatting consistency
+- Documentation practices
+- Dead code and technical debt indicators
 
-### Decision 4: Report Integration
+**Developer Experience**
+- Onboarding documentation
+- Local development setup
+- Contribution guidelines
+- Test running convenience
+- Debug tooling
 
-**What:** Add `SUGGESTED IMPROVEMENTS` section to the audit report after recommendations.
+**Dependency Health**
+- Outdated or unmaintained dependencies
+- Duplicate or conflicting dependencies
+- Heavy dependencies that could be lighter
+- Missing dependency auditing
 
-**Why:**
-- Separates actionable spec fixes (recommendations) from architectural suggestions
-- Makes `/goost-search` suggestions discoverable but not overwhelming
-- Users can ignore if they prefer manual research
+**CI/CD Maturity**
+- Build reliability and speed
+- Deployment safety (rollback, canary, etc.)
+- Environment parity
+- Automated checks coverage
+
+### Output Format
+
+For each significant finding:
+
+1. **Category**: Which area this falls under
+2. **Observation**: What you found (or didn't find)
+3. **Impact**: Why this matters (scale, security, velocity, etc.)
+4. **Search Query**: A /goost-search query to find solutions
+   - Describe the problem/solution space, not specific tools
+   - Include relevant context (e.g., "for TypeScript APIs")
+   - Keep queries searchable and specific
+
+Limit to the 7-10 most impactful findings. Prioritize:
+1. Security gaps (highest risk)
+2. Reliability issues (affect users)
+3. Scalability concerns (future problems)
+4. Developer velocity (team productivity)
+```
 
 ## Data Flow
 
@@ -98,108 +197,83 @@ We're adding a **Phase 4: Architectural Weakness Detection** that runs after syn
 Phase 3: Synthesis (existing)
     |
     v
-+----------------------------+
-| Phase 4: Weakness Detection|
-+----------------------------+
++--------------------------------+
+| Phase 4: Architectural Analysis|
++--------------------------------+
     |
-    +-- Detect tech stack
+    +-- Agent examines codebase structure
+    |   (package files, configs, src layout, tests)
     |
-    +-- Run weakness detectors:
-    |     - Testing infrastructure
-    |     - Security patterns  
-    |     - Performance anti-patterns
+    +-- Agent identifies patterns & anti-patterns
+    |   (what exists vs what's missing)
     |
-    +-- Map weaknesses to search suggestions
+    +-- Agent assesses impact of each gap
+    |
+    +-- Agent formulates contextual search queries
     |
     v
-+----------------------------+
-| Final Report               |
-| (existing sections)        |
-| + SUGGESTED IMPROVEMENTS   |
-+----------------------------+
++--------------------------------+
+| Final Report                   |
+| + IMPROVEMENT OPPORTUNITIES    |
+|   (agent-generated suggestions)|
++--------------------------------+
 ```
 
-## Weakness Detection Heuristics
-
-### Testing Infrastructure
-
-| Weakness | Detection Method | Search Query Template |
-|----------|-----------------|----------------------|
-| No parallelization | Jest: `maxWorkers` not in config. Pytest: `pytest-xdist` not in deps | `test parallelization {stack}` |
-| No test timeouts | No `testTimeout` in Jest, no `timeout` in pytest.ini | `test timeout safety {stack}` |
-| No property testing | No `fast-check`, `hypothesis`, `quickcheck` in deps | `property-based testing {stack}` |
-| Low coverage tooling | No `coverage`, `nyc`, `c8` in deps | `test coverage setup {stack}` |
-| No snapshot tests | No `*.snap` files, no snapshot deps | `snapshot testing {stack}` |
-| No E2E tests | No playwright, cypress, selenium deps | `end-to-end testing {stack}` |
-
-### Security Patterns
-
-| Weakness | Detection Method | Search Query Template |
-|----------|-----------------|----------------------|
-| Hardcoded secrets | Grep for `password=`, `api_key=`, `secret=` with literal values | `secrets management security` |
-| No input validation | No `zod`, `joi`, `yup`, `pydantic` in deps | `input validation {stack}` |
-| SQL injection risk | String concat in SQL queries | `sql injection prevention` |
-| No rate limiting | No rate limit middleware in API routes | `api rate limiting {stack}` |
-| Unsafe eval | `eval()`, `exec()` in code | `eval alternatives security` |
-| Missing HTTPS | `http://` URLs in production configs | `https configuration` |
-
-### Performance Anti-patterns
-
-| Weakness | Detection Method | Search Query Template |
-|----------|-----------------|----------------------|
-| N+1 queries | Loop with DB call inside | `n+1 query optimization {stack}` |
-| No caching layer | No redis, memcached, cache config | `caching strategy {stack}` |
-| Sync blocking calls | `readFileSync`, blocking I/O in async context | `async patterns {stack}` |
-| No pagination | API endpoints returning unbounded lists | `api pagination best practices` |
-| Large bundle | No code splitting, >1MB bundle | `code splitting optimization` |
-| Memory leaks | Event listeners without cleanup | `memory leak prevention {stack}` |
-
-## Report Format Addition
+## Example Agent Output
 
 ```
-============================================================
-               PROJECT AUDIT REPORT  
-============================================================
-
-[... existing sections ...]
-
-SUGGESTED IMPROVEMENTS
+IMPROVEMENT OPPORTUNITIES
 ------------------------------------------------------------
-The following architectural improvements were detected. Run
-the suggested /goost-search queries to find expert prompts.
+Based on codebase analysis, the following improvements could
+strengthen this project. Run the suggested searches to find
+current best practices and solutions.
 
-TESTING INFRASTRUCTURE
-  ! No test parallelization detected
-    → /goost-search test parallelization typescript jest
+[SECURITY] Input Validation Gap
+  Observation: API endpoints accept request bodies without 
+               schema validation. Found direct property access
+               on req.body throughout src/routes/.
+  Impact: High risk of malformed data causing errors or 
+          security vulnerabilities.
+  → /goost-search runtime schema validation for REST APIs
 
-  ! No property-based testing found
-    → /goost-search property-based testing typescript
+[TESTING] Test Isolation Concerns  
+  Observation: Tests share database state. Found no setup/
+               teardown patterns. Some tests depend on order.
+  Impact: Flaky tests, false positives, debugging difficulty.
+  → /goost-search test isolation patterns database fixtures
 
-SECURITY PATTERNS
-  ! Missing input validation library
-    → /goost-search input validation zod typescript
+[PERFORMANCE] Unbounded Queries
+  Observation: List endpoints return all records. No pagination
+               in src/routes/users.ts, src/routes/orders.ts.
+  Impact: Performance degradation as data grows, potential OOM.
+  → /goost-search API pagination strategies cursor offset
 
-PERFORMANCE
-  ! No caching layer configured
-    → /goost-search caching strategy nodejs redis
+[OBSERVABILITY] Minimal Error Context
+  Observation: Errors logged with console.error, no structured
+               format. No request correlation IDs.
+  Impact: Difficult to debug production issues, no audit trail.
+  → /goost-search structured logging error tracking Node.js
 
+[DX] Missing Development Documentation
+  Observation: No CONTRIBUTING.md or development setup guide.
+               README focuses on usage, not contribution.
+  Impact: Slower onboarding for new contributors.
+  → /goost-search developer onboarding documentation templates
 ------------------------------------------------------------
-Run `/goost-search <query>` to find prompts addressing these
-concerns, or use --skip-suggestions to hide this section.
-============================================================
 ```
 
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
 |------|------------|
-| False positives | Use conservative detection; label as "suggestions" not "problems" |
-| Overwhelming output | Limit to top 5 suggestions; add `--skip-suggestions` flag |
-| Outdated patterns | Document detection heuristics; easy to update |
-| Goost-search not installed | Show suggestions anyway; they're educational even if command unavailable |
+| Agent misses important gaps | Categories provide comprehensive coverage prompts |
+| Agent suggests irrelevant queries | Require observation + impact reasoning |
+| Inconsistent output quality | Structured output format with required fields |
+| Too many suggestions | Limit to 7-10 most impactful |
+| Suggestions too vague | Require specific observations as evidence |
 
 ## Open Questions
 
-- Should weakness detection run as a sub-agent or inline in the main flow?
-- Should there be a `--only-suggestions` mode that skips spec audit and just finds weaknesses?
-- Should confidence scores be shown for each detection?
+- Should the agent be able to request additional file reads if initial scan is insufficient?
+- Should findings link back to specific files/lines as evidence?
+- Should there be a "quick scan" mode that only looks at config files?
