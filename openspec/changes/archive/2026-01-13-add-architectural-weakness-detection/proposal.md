@@ -10,29 +10,33 @@ Rather than hardcoding specific tools or libraries to check for (which become ou
 
 - Add **standalone `/goost-improve` command** (not integrated into /openspec-audit)
   - Research validated: Unix "do one thing well" principle; industry separates "code audit" from "architecture assessment"
-- Agent examines codebase and identifies gaps across 4 core categories (MVP):
+- Agent examines codebase and identifies gaps across 5 core categories (MVP):
   - Security posture and patterns
-  - Testing maturity and reliability  
+  - Reliability and fault tolerance (added per ISO 25010/AWS research)
+  - Testing maturity and coverage
   - Observability and debugging
   - Developer experience
   - (Plus any other categories the agent identifies)
 - Agent generates **hybrid** `/goost-search` queries (tool name + context + temporal qualifiers)
-  - Research validated: hybrid queries outperform pure problem-descriptions
-- Add `IMPROVEMENT OPPORTUNITIES` output section
-- Two analysis modes: `--metadata-only` (configs only) and full (default)
-  - Research validated: sampling creates false negatives; 3-tier model is uncommon
+  - Research validated: hybrid queries outperform pure problem-descriptions (CROKAGE 2020)
+- Add `IMPROVEMENT OPPORTUNITIES` output section with simple severity ranking (Critical/High/Medium/Low)
+  - Research validated: matches SonarQube, ESLint, and existing Goost commands
+- Single analysis mode for MVP (full codebase analysis)
+  - `--metadata-only` deferred to post-MVP per simplification analysis
 
-## Research Validation (2026-01-12)
+## Research Validation (2026-01-13)
 
 | Decision | Status | Key Finding |
 |----------|--------|-------------|
-| Separate command vs Phase 4 | ✅ Changed | Matches project patterns, Unix philosophy, industry practice |
-| Evidence-based findings | ✅ Validated | Academic research confirms citation requirements reduce hallucinations |
-| Hybrid query generation | ⚠️ Revised | Research shows "zod vs alternatives 2024" outperforms pure abstraction |
-| 2 depth modes (not 3) | ⚠️ Revised | Sampling middle ground creates unreliable results per OWASP |
-| 4 core categories for MVP | ⚠️ Revised | Start smaller, expand based on feedback |
+| Separate command vs Phase 4 | ✅ Validated | Matches project patterns, Unix philosophy, industry practice |
+| Evidence-based findings | ✅ Validated | Retrieval grounding reduces hallucinations (Shuster et al. 2021; CoVe 2023) |
+| Hybrid query generation | ✅ Validated | CROKAGE/NLP2API research confirms tool names bridge vocabulary mismatch |
+| 2 depth modes (not 3) | ✅ Validated | Sampling creates false negatives per OWASP |
+| 5 core categories for MVP | ⚠️ Revised | Added Reliability - top-level in ISO 25010 and AWS Well-Architected |
+| Weighted priority scoring | ❌ Removed | Over-engineered; no precedent in SonarQube, ESLint, or existing Goost commands |
+| Simple severity ranking | ✅ Added | Matches project patterns (`/goost-slop-scan`, `/openspec-audit`) |
 
-Sources: arXiv:2512.17540, arXiv:2305.14627, Google SRE Book, AWS Well-Architected, OWASP Static Analysis
+Sources: arXiv:2512.17540, Shuster et al. EMNLP 2021, CoVe 2023, CROKAGE 2020, ISO 25010:2023, AWS Well-Architected, OWASP
 
 ## Key Design Principles
 
@@ -43,7 +47,7 @@ Instead of pure free-form discovery (which has consistency issues per research),
 - Let it discover additional issues beyond the guidance
 - Require evidence (file paths, patterns) for every finding
 
-Research shows this "dual-pathway" approach achieves 90.9% improvement over pure LLM discovery (arXiv:2512.17540).
+Research shows this "dual-pathway" approach achieves 90.9% relative improvement over pure LLM discovery (arXiv:2512.17540). Note: SGCR validated for code review; adapted for architectural analysis.
 
 **2. Hybrid search queries, not pure abstraction.**
 
@@ -51,16 +55,16 @@ Instead of only "runtime type validation for API inputs", use:
 - "zod vs alternatives 2024" (includes tool name + comparison + year)
 - "parallel test execution jest typescript" (includes context)
 
-Research shows modern search engines do semantic expansion; adding tool names yields better results.
+Research shows the "vocabulary mismatch" problem - abstract queries don't match solution terminology. Tool names bridge this gap (CROKAGE 2020, NLP2API 2018).
 
-**3. Weighted prioritization, not fixed hierarchy.**
+**3. Simple severity ranking, not weighted scoring.**
 
-Instead of rigid "Security > Reliability > Scalability", use:
-- Severity tiers within categories (Critical/High/Medium/Low)
-- Priority = Category Weight × Severity Score
-- Escape hatch: Critical items in any category can be elevated
+Use standard severity tiers (Critical/High/Medium/Low) sorted highest-first:
+- Matches existing Goost commands (`/goost-slop-scan`, `/openspec-audit`)
+- Matches industry tools (SonarQube, ESLint)
+- Avoids over-engineering with category weights
 
-This matches AWS Well-Architected and RICE/WSJF industry practices.
+Research note: RICE/WSJF frameworks use 3-4 factors including Effort and Confidence. A 2-factor weighted formula is neither simple nor industry-standard - removed.
 
 ## Example Output
 
@@ -71,7 +75,8 @@ Based on codebase analysis, the following improvements could
 strengthen this project. Run the suggested searches to find
 current best practices and solutions.
 
-[SECURITY - Critical] Input Validation Gap
+[CRITICAL] Input Validation Gap
+  Category: Security
   Observation: API endpoints in src/routes/ accept request 
                bodies without schema validation. Direct 
                property access on req.body throughout.
@@ -79,14 +84,24 @@ current best practices and solutions.
   Impact: Risk of malformed data causing errors or exploits.
   → /goost-search zod vs yup vs joi typescript API validation 2024
 
-[TESTING - High] Test Isolation Concerns
+[HIGH] No Error Recovery Patterns
+  Category: Reliability
+  Observation: No retry logic, circuit breakers, or graceful
+               degradation patterns found in external service calls.
+  Evidence: Searched src/services/*.ts - direct await without try/catch
+  Impact: Single failures cascade; no resilience to transient errors.
+  → /goost-search nodejs retry circuit breaker resilience patterns
+
+[HIGH] Test Isolation Concerns
+  Category: Testing
   Observation: Tests share database state. No setup/teardown
                patterns found. Test order dependencies likely.
   Evidence: Searched test/*.ts - no beforeEach/afterEach patterns
   Impact: Flaky tests, false positives, debugging difficulty.
   → /goost-search jest test isolation database fixtures typescript
 
-[OBSERVABILITY - Medium] Minimal Error Context
+[MEDIUM] Minimal Error Context
+  Category: Observability
   Observation: Errors logged with console.error only. No 
                structured format. No request correlation IDs.
   Evidence: grep "console.error" found 47 instances, no pino/winston
@@ -98,6 +113,8 @@ current best practices and solutions.
 ## Impact
 
 - Affected specs: `slash-commands` (new Goost Improve Command)
-- Affected code: New `.opencode/command/goost-improve.md` file (~200 lines)
+- Affected code: 
+  - New `.opencode/command/goost-improve.md` file (~150 lines)
+  - Update `README.md` with new command documentation
 - Dependencies: Suggestions work standalone; become actionable with `/goost-search`
 - No breaking changes - completely new command

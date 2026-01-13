@@ -2,18 +2,19 @@
 
 ## Research Validation Summary
 
-This design was validated through architectural research on 2026-01-12. Key findings:
+This design was validated through architectural research on 2026-01-13. Key findings:
 
 | Original Decision | Research Result | Action Taken |
 |-------------------|-----------------|--------------|
 | Integrate as Phase 4 of /openspec-audit | ⚠️ Violates Unix philosophy; industry separates audit from assessment | **Changed**: Create standalone `/goost-improve` command |
 | Pure agent-driven discovery | ⚠️ Consistency issues; SGCR research shows 90.9% improvement with grounding | **Revised**: Add specification grounding |
-| Problem-focused-only queries | ⚠️ Hybrid queries outperform pure abstraction | **Revised**: Use tool + context + temporal qualifiers |
-| 3-tier depth (quick/default/deep) | ⚠️ Sampling creates false negatives per OWASP | **Revised**: 2 modes only |
-| Fixed priority hierarchy | ⚠️ Industry uses weighted scoring (RICE/WSJF) | **Revised**: Category × Severity scoring |
-| Evidence-based findings | ✅ Validated by academic research (EMNLP 2023, NAACL 2024) | **Kept** |
+| Problem-focused-only queries | ⚠️ Hybrid queries outperform pure abstraction (CROKAGE, NLP2API) | **Revised**: Use tool + context + temporal qualifiers |
+| 3-tier depth (quick/default/deep) | ⚠️ Sampling creates false negatives per OWASP | **Simplified**: Single mode for MVP |
+| Weighted priority scoring | ❌ Over-engineered; no precedent in SonarQube, ESLint, or Goost commands | **Removed**: Use simple severity ranking |
+| 4 core categories | ⚠️ Missing Reliability - top-level in ISO 25010 and AWS | **Revised**: 5 core categories |
+| Evidence-based findings | ✅ Validated (Shuster et al. 2021; CoVe 2023) | **Kept** |
 
-Sources: arXiv:2512.17540, arXiv:2305.14627, Google SRE Book, AWS Well-Architected, OWASP
+Sources: arXiv:2512.17540, Shuster et al. EMNLP 2021, CoVe 2023, CROKAGE 2020, NLP2API 2018, ISO 25010:2023, AWS Well-Architected, OWASP
 
 ## Context
 
@@ -26,16 +27,18 @@ This separation follows the Unix philosophy ("do one thing well") and matches in
 **Goals:**
 - Enable AI agent to discover architectural gaps with specification grounding
 - Generate contextual, up-to-date `/goost-search` suggestions using hybrid queries
-- Cover 4 core categories for MVP (Security, Testing, Observability, DX)
+- Cover 5 core categories for MVP (Security, Reliability, Testing, Observability, DX)
 - Require evidence for every finding to reduce hallucinations
-- Simple standalone command (~200 lines)
+- Use simple severity ranking (Critical/High/Medium/Low) matching existing commands
+- Simple standalone command (~150 lines)
 
 **Non-Goals:**
 - Hardcoded checklists of specific tools (e.g., "use Jest", "install Zod")
 - Replacing the agent's judgment with rigid detection rules
 - Exhaustive static analysis (use dedicated tools like SonarQube for that)
 - Integration with /openspec-audit (keep commands focused)
-- Sampling-based analysis (creates false negatives)
+- Weighted priority scoring (over-engineered per research)
+- `--metadata-only` mode for MVP (defer to post-MVP)
 
 ## Key Design Principle: Grounded Agent Discovery
 
@@ -54,16 +57,17 @@ This separation follows the Unix philosophy ("do one thing well") and matches in
 
 ## Decisions
 
-### Decision 1: Four Core Categories (MVP)
+### Decision 1: Five Core Categories (MVP)
 
-**What:** Start with 4 core categories, expand based on feedback:
+**What:** Start with 5 core categories aligned with ISO 25010 and AWS Well-Architected:
 
-| Category | Guiding Questions for Agent | Weight |
-|----------|---------------------------|--------|
-| **Security Posture** | What security practices are present or absent? Are there patterns that could lead to vulnerabilities? | 1.0 |
-| **Testing Maturity** | How comprehensive is the test setup? What testing strategies are missing? Are tests configured for reliability and speed? | 0.9 |
-| **Observability** | How would developers debug issues in production? What's missing? | 0.7 |
-| **Developer Experience** | What would slow down a new contributor? What documentation or tooling gaps exist? | 0.6 |
+| Category | Guiding Questions for Agent |
+|----------|---------------------------|
+| **Security Posture** | What security practices are present or absent? Are there patterns that could lead to vulnerabilities? |
+| **Reliability** | How does the system handle failures? Are there retry patterns, circuit breakers, graceful degradation? |
+| **Testing Maturity** | How comprehensive is the test setup? What testing strategies are missing? Are tests configured for reliability and speed? |
+| **Observability** | How would developers debug issues in production? What's missing? |
+| **Developer Experience** | What would slow down a new contributor? What documentation or tooling gaps exist? |
 
 **Additional categories the agent MAY discover:**
 - Performance & Scalability
@@ -74,10 +78,10 @@ This separation follows the Unix philosophy ("do one thing well") and matches in
 - Disaster Recovery
 
 **Why:** 
-- 4 categories keeps MVP focused (~200 line command)
-- Research shows 8 categories covers ~70-80% of audit concerns (ISO 25010 has 9)
-- Dynamic discovery handles the remaining 20-30%
-- Weights enable nuanced prioritization (Critical DX can outrank Low Security)
+- 5 categories covers ~50-60% of ISO 25010 characteristics (9 total)
+- Reliability is top-level in both ISO 25010 and AWS Well-Architected - cannot omit
+- Dynamic discovery handles remaining concerns
+- Simple severity ranking (not weighted) allows any critical finding to surface
 
 ### Decision 2: Hybrid Query Generation
 
@@ -105,25 +109,30 @@ Query: "/goost-search jest parallel testing typescript large test suite 2024"
 
 **Why:** Queries with tool names + context + year return authoritative, current documentation.
 
-### Decision 3: Weighted Priority Scoring
+### Decision 3: Simple Severity Ranking (Simplified from Weighted Scoring)
 
-**What:** Agent assesses each finding using weighted scoring:
-- **Severity**: Critical (4), High (3), Medium (2), Low (1)
-- **Category Weight**: Security (1.0), Testing (0.9), Observability (0.7), DX (0.6)
-- **Priority Score**: Category Weight × Severity
+**What:** Agent assesses each finding using standard severity levels:
+- **Critical**: Security vulnerabilities, data loss risks, system instability
+- **High**: Significant gaps affecting reliability, maintainability, or developer velocity
+- **Medium**: Notable improvements that would strengthen the codebase
+- **Low**: Minor enhancements or best practice suggestions
+
+Findings are sorted by severity (Critical first), then by category (Security, Reliability, Testing, Observability, DX).
 
 **Examples:**
-| Finding | Category | Severity | Score | Rank |
-|---------|----------|----------|-------|------|
-| SQL injection risk | Security | Critical (4) | 1.0 × 4 = 4.0 | 1st |
-| No test isolation | Testing | Critical (4) | 0.9 × 4 = 3.6 | 2nd |
-| Missing CONTRIBUTING.md | DX | High (3) | 0.6 × 3 = 1.8 | 4th |
-| No HTTPS in dev | Security | Low (1) | 1.0 × 1 = 1.0 | 5th |
+| Finding | Severity | Category | Rank |
+|---------|----------|----------|------|
+| SQL injection risk | Critical | Security | 1st |
+| No test isolation | Critical | Testing | 2nd |
+| No retry patterns | High | Reliability | 3rd |
+| Missing structured logging | Medium | Observability | 4th |
 
-**Why:** 
-- Research shows fixed hierarchies are too rigid (AWS, Google SRE, RICE/WSJF all use context-dependent trade-offs)
-- A critical DX issue can legitimately outrank a low security papercut
-- This matches industry practices for technical debt prioritization
+**Why (Research-Validated):** 
+- **Removed weighted scoring**: Research showed the proposed 2-factor formula (Category × Severity) is neither simple nor industry-standard
+- **Matches existing patterns**: `/goost-slop-scan` and `/openspec-audit` use simple severity ranking
+- **Matches industry tools**: SonarQube, ESLint use severity without category weights
+- **Reduces complexity**: ~30% fewer lines, easier to understand and maintain
+- RICE/WSJF frameworks use 3-4 factors including Effort and Confidence - not applicable to this use case
 
 ### Decision 4: Hybrid Queries (Tool Names + Context)
 
@@ -137,35 +146,33 @@ Query: "/goost-search jest parallel testing typescript large test suite 2024"
 | "automated code quality and style enforcement" | "eslint vs biome typescript linting 2024" |
 
 **Why (Research-Validated):** 
-- Search engines already do semantic expansion from tool names
+- CROKAGE (2020) and NLP2API (2018) confirm the "vocabulary mismatch" problem - abstract queries don't match solution terminology
 - Tool-specific queries return authoritative official documentation
 - Adding "vs alternatives" or year surfaces comparisons and deprecation notices
-- Pure abstraction adds cognitive overhead without yielding better results
+
+**Note on temporal qualifiers:** Adding years (e.g., "2024") is a heuristic, not universally beneficial:
+- Useful for rapidly-evolving ecosystems (React, TypeScript tooling)
+- Less useful for stable APIs (Node.js core, SQL)
+- Serves as intent signal to search engines
 
 ## Agent Instructions Template
 
 The agent receives guiding questions, not checklists:
 
 ```
-## Phase 4: Architectural Analysis
+## Architectural Analysis
 
 Analyze this codebase for architectural strengths and weaknesses. For each 
 category below, examine what exists and what's missing. Generate /goost-search 
 queries for gaps that would meaningfully improve the project.
 
-### Analysis Categories
+### Core Analysis Categories (Required)
 
 For each category, ask yourself:
 - What practices/patterns are present?
 - What's notably absent that similar projects typically have?
 - What could cause problems as the project scales?
 - What would a senior engineer recommend improving?
-
-**Testing Maturity**
-- Test organization and coverage strategy
-- Test reliability (flakiness, isolation, determinism)  
-- Test performance (speed, parallelization, CI efficiency)
-- Testing depth (unit, integration, E2E, property-based, etc.)
 
 **Security Posture**
 - Input handling and validation patterns
@@ -174,12 +181,18 @@ For each category, ask yourself:
 - Dependency vulnerability exposure
 - Common vulnerability patterns (injection, XSS, etc.)
 
-**Performance & Scalability**
-- Database query patterns and optimization
-- Caching strategies
-- Async/concurrent operation handling
-- Resource cleanup and memory management
-- API design for scale (pagination, rate limiting, etc.)
+**Reliability**
+- Error handling and recovery patterns
+- Retry logic and circuit breakers
+- Graceful degradation strategies
+- Fault isolation and blast radius
+- Timeout handling for external calls
+
+**Testing Maturity**
+- Test organization and coverage strategy
+- Test reliability (flakiness, isolation, determinism)  
+- Test performance (speed, parallelization, CI efficiency)
+- Testing depth (unit, integration, E2E, property-based, etc.)
 
 **Observability & Operations**
 - Logging strategy and structure
@@ -188,13 +201,6 @@ For each category, ask yourself:
 - Debugging capabilities
 - Health checks and readiness probes
 
-**Code Quality & Maintainability**
-- Static analysis and linting setup
-- Type safety enforcement
-- Code formatting consistency
-- Documentation practices
-- Dead code and technical debt indicators
-
 **Developer Experience**
 - Onboarding documentation
 - Local development setup
@@ -202,62 +208,59 @@ For each category, ask yourself:
 - Test running convenience
 - Debug tooling
 
-**Dependency Health**
-- Outdated or unmaintained dependencies
-- Duplicate or conflicting dependencies
-- Heavy dependencies that could be lighter
-- Missing dependency auditing
+### Additional Categories (Agent Discovery)
 
-**CI/CD Maturity**
-- Build reliability and speed
-- Deployment safety (rollback, canary, etc.)
-- Environment parity
-- Automated checks coverage
+The agent MAY also discover gaps in:
+- Performance & Scalability
+- Code Quality & Maintainability
+- Dependency Health
+- CI/CD Maturity
 
 ### Output Format
 
 For each significant finding:
 
-1. **Category**: Which area this falls under
-2. **Observation**: What you found (or didn't find)
-3. **Impact**: Why this matters (scale, security, velocity, etc.)
-4. **Search Query**: A /goost-search query to find solutions
-   - Describe the problem/solution space, not specific tools
-   - Include relevant context (e.g., "for TypeScript APIs")
-   - Keep queries searchable and specific
+1. **Severity**: CRITICAL | HIGH | MEDIUM | LOW
+2. **Category**: Which area this falls under
+3. **Observation**: What you found (or didn't find)
+4. **Evidence**: Specific file paths or search scope
+5. **Impact**: Why this matters (scale, security, velocity, etc.)
+6. **Search Query**: A /goost-search query using hybrid format:
+   - Include tool/library names when detected
+   - Add problem context and tech stack
+   - Include temporal qualifiers for fast-moving ecosystems
 
-Limit to the 7-10 most impactful findings. Prioritize:
-1. Security gaps (highest risk)
-2. Reliability issues (affect users)
-3. Scalability concerns (future problems)
-4. Developer velocity (team productivity)
+Limit to the 7-10 highest-severity findings. Sort by:
+1. Severity (Critical first)
+2. Category (Security, Reliability, Testing, Observability, DX)
 ```
 
 ## Data Flow
 
 ```
-Phase 3: Synthesis (existing)
+/goost-improve invocation
     |
     v
 +--------------------------------+
-| Phase 4: Architectural Analysis|
+| Codebase Analysis              |
 +--------------------------------+
     |
     +-- Agent examines codebase structure
     |   (package files, configs, src layout, tests)
     |
-    +-- Agent identifies patterns & anti-patterns
-    |   (what exists vs what's missing)
+    +-- Agent checks 5 core categories (grounded discovery)
+    |   (Security, Reliability, Testing, Observability, DX)
     |
-    +-- Agent assesses impact of each gap
+    +-- Agent discovers additional gaps (implicit path)
     |
-    +-- Agent formulates contextual search queries
+    +-- Agent assigns severity and requires evidence
+    |
+    +-- Agent formulates hybrid search queries
     |
     v
 +--------------------------------+
-| Final Report                   |
-| + IMPROVEMENT OPPORTUNITIES    |
-|   (agent-generated suggestions)|
+| IMPROVEMENT OPPORTUNITIES      |
+| (sorted by severity, 7-10 max) |
 +--------------------------------+
 ```
 
@@ -270,35 +273,45 @@ Based on codebase analysis, the following improvements could
 strengthen this project. Run the suggested searches to find
 current best practices and solutions.
 
-[SECURITY] Input Validation Gap
+[CRITICAL] Input Validation Gap
+  Category: Security
   Observation: API endpoints accept request bodies without 
                schema validation. Found direct property access
                on req.body throughout src/routes/.
+  Evidence: src/routes/users.ts:45, src/routes/orders.ts:23
   Impact: High risk of malformed data causing errors or 
           security vulnerabilities.
-  → /goost-search runtime schema validation for REST APIs
+  → /goost-search zod vs yup typescript API validation 2024
 
-[TESTING] Test Isolation Concerns  
+[HIGH] No Error Recovery Patterns
+  Category: Reliability
+  Observation: External service calls have no retry logic or
+               circuit breakers. Single failures will cascade.
+  Evidence: Searched src/services/*.ts - direct await without try/catch
+  Impact: System instability under partial failures.
+  → /goost-search nodejs retry circuit breaker resilience patterns
+
+[HIGH] Test Isolation Concerns  
+  Category: Testing
   Observation: Tests share database state. Found no setup/
                teardown patterns. Some tests depend on order.
+  Evidence: Searched test/*.ts - no beforeEach/afterEach patterns
   Impact: Flaky tests, false positives, debugging difficulty.
-  → /goost-search test isolation patterns database fixtures
+  → /goost-search jest test isolation database fixtures typescript
 
-[PERFORMANCE] Unbounded Queries
-  Observation: List endpoints return all records. No pagination
-               in src/routes/users.ts, src/routes/orders.ts.
-  Impact: Performance degradation as data grows, potential OOM.
-  → /goost-search API pagination strategies cursor offset
-
-[OBSERVABILITY] Minimal Error Context
+[MEDIUM] Minimal Error Context
+  Category: Observability
   Observation: Errors logged with console.error, no structured
                format. No request correlation IDs.
+  Evidence: grep "console.error" found 47 instances, no pino/winston
   Impact: Difficult to debug production issues, no audit trail.
-  → /goost-search structured logging error tracking Node.js
+  → /goost-search structured logging nodejs pino vs winston 2024
 
-[DX] Missing Development Documentation
+[LOW] Missing Development Documentation
+  Category: DX
   Observation: No CONTRIBUTING.md or development setup guide.
                README focuses on usage, not contribution.
+  Evidence: Searched root - no CONTRIBUTING.md, DEVELOPMENT.md
   Impact: Slower onboarding for new contributors.
   → /goost-search developer onboarding documentation templates
 ------------------------------------------------------------
@@ -317,5 +330,10 @@ current best practices and solutions.
 ## Open Questions
 
 - Should the agent be able to request additional file reads if initial scan is insufficient?
-- Should findings link back to specific files/lines as evidence?
-- Should there be a "quick scan" mode that only looks at config files?
+- Should line numbers be required in addition to file paths for specific claims?
+
+## Resolved Questions
+
+- ~~Should findings link back to specific files/lines as evidence?~~ **Yes** - evidence requirements are mandatory (research-validated)
+- ~~Should there be a "quick scan" mode that only looks at config files?~~ **Deferred** - `--metadata-only` moved to post-MVP
+- ~~Should we use weighted priority scoring?~~ **No** - removed per simplification analysis; use simple severity ranking

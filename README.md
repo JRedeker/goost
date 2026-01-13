@@ -197,6 +197,7 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | | `/openspec-harden` | Production-readiness analysis |
 | | `/openspec-audit` | Project-wide drift detection |
 | | `/goost-slop-scan` | Scan for AI-generated code quality issues |
+| | `/goost-improve` | Analyze codebase for architectural improvement opportunities |
 | **Completion** | `/openspec-archive` | Archive completed change |
 
 ### OpenSpec CLI Commands
@@ -642,6 +643,58 @@ HIGH FINDINGS
 1. Run `--phase 1` to catch obvious issues quickly
 2. Fix Phase 1 findings
 3. Run `--phase 2` for deeper heuristic analysis (less noise after Phase 1 fixes)
+
+### Architectural Improvement (`/goost-improve`)
+
+The `/goost-improve` command analyzes your codebase for architectural improvement opportunities and generates actionable `/goost-search` suggestions.
+
+```text
+User: /goost-improve
+
+IMPROVEMENT OPPORTUNITIES
+------------------------------------------------------------
+Based on codebase analysis, the following improvements could
+strengthen this project. Run the suggested searches to find
+current best practices and solutions.
+
+[CRITICAL] Input Validation Gap
+  Category: Security
+  Observation: API endpoints accept request bodies without
+               schema validation. Direct property access on req.body.
+  Evidence: src/routes/users.ts:45, src/routes/orders.ts:23
+  Impact: Risk of malformed data causing errors or exploits.
+  -> /goost-search zod vs yup vs joi typescript API validation 2024
+
+[HIGH] No Error Recovery Patterns
+  Category: Reliability
+  Observation: External service calls have no retry logic or
+               circuit breakers. Single failures will cascade.
+  Evidence: Searched src/services/*.ts - direct await without try/catch
+  Impact: System instability under partial failures.
+  -> /goost-search nodejs retry circuit breaker resilience patterns
+------------------------------------------------------------
+```
+
+**Core Analysis Categories:**
+
+| Category | What It Checks |
+|----------|----------------|
+| **Security** | Input validation, auth, secrets, vulnerability patterns |
+| **Reliability** | Error handling, retries, circuit breakers, graceful degradation |
+| **Testing** | Coverage, isolation, speed, test depth |
+| **Observability** | Logging, error tracking, metrics, debugging |
+| **Developer Experience** | Docs, setup, contribution guidelines |
+
+**Key Features:**
+- **Evidence-based findings**: Every finding must cite specific files or search patterns
+- **Hybrid queries**: Search suggestions include tool names + context for better results
+- **Simple severity**: Critical/High/Medium/Low (matches `/goost-slop-scan`)
+- **7-10 finding limit**: Focus on highest-impact improvements
+
+**Workflow Recommendation:**
+1. Run `/goost-improve` to identify architectural gaps
+2. Use the generated `/goost-search` queries to research solutions
+3. Create an `/openspec-proposal` for significant improvements
 
 ---
 
