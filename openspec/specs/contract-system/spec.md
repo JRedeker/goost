@@ -5,7 +5,6 @@
 The contract-system capability defines the behavior of Goost's immutable contract enforcement mechanism. This includes automatic commit creation on contract fulfillment, conventional commit message derivation from objectives, changelog entry generation, sub-agent contract context propagation, and failure escalation protocols.
 ## Requirements
 ### Requirement: Contract Completion Commit
-
 When a contract is fulfilled (all criteria verified with evidence), the agent SHALL automatically create an atomic git commit containing all contract-related changes.
 
 The commit MUST:
@@ -13,76 +12,21 @@ The commit MUST:
 - Use a conventional commit message derived from the contract objective
 - Be skipped if there are no changes to commit (clean working tree)
 - Exclude CHANGELOG.md (updated separately after commit to include correct hash)
+- **PROHIBITED**: SHALL NOT be created unless **Red Phase (failure)** and **Green Phase (success)** raw provenance is provided for all criteria.
 
-The commit MUST NOT:
-- Be created for voided or partially completed contracts
-- Include unrelated changes that were not part of the contract work
-- Include CHANGELOG.md (to avoid circular hash dependency)
-- Proceed if git state is invalid (e.g., merge conflict, detached HEAD)
-
-#### Scenario: Successful contract completion with changes
-
-- **GIVEN** a contract with objective "Implement user authentication"
-- **AND** all criteria are marked `[x]` with evidence
-- **AND** there are uncommitted changes in the working tree
+#### Scenario: Contract completion with valid TDD evidence
+- **GIVEN** all criteria are marked `[x]`
+- **AND** valid Red Phase and Green Phase evidence is provided for each criterion
 - **WHEN** the agent declares CONTRACT FULFILLED
-- **THEN** the agent stages all relevant changes
-- **AND** creates a commit with message `feat: implement user authentication`
-- **AND** outputs the commit hash in the fulfillment block
-
-#### Scenario: Contract completion with no changes
-
-- **GIVEN** a contract is fulfilled
-- **AND** the working tree is clean (no uncommitted changes)
-- **WHEN** the agent declares CONTRACT FULFILLED
-- **THEN** no commit is created
-- **AND** the agent notes "No changes to commit" in the fulfillment block
-
-#### Scenario: Voided contract
-
-- **GIVEN** a contract is voided by the user
-- **WHEN** the agent outputs CONTRACT VOIDED
-- **THEN** no automatic commit is created
-- **AND** no CHANGELOG entry is added
-
-#### Scenario: Git commit rejected by pre-commit hook
-
-- **GIVEN** a contract is fulfilled with uncommitted changes
-- **AND** a pre-commit hook is configured
-- **WHEN** the agent attempts to create the commit
-- **AND** the pre-commit hook rejects the commit
-- **THEN** the agent reports the hook failure with the error message
-- **AND** does NOT output CONTRACT FULFILLED
-- **AND** prompts the user with options: fix issues and retry, bypass hook (if appropriate), or void contract
-
-#### Scenario: Invalid git state - merge conflict
-
-- **GIVEN** a contract is fulfilled
-- **AND** the repository has unresolved merge conflicts
-- **WHEN** the agent attempts to create the commit
-- **THEN** the agent detects the invalid git state
-- **AND** reports "Cannot commit: unresolved merge conflicts"
-- **AND** does NOT output CONTRACT FULFILLED
-- **AND** lists conflicted files for user review
-
-#### Scenario: Invalid git state - detached HEAD
-
-- **GIVEN** a contract is fulfilled
-- **AND** the repository is in detached HEAD state
-- **WHEN** the agent attempts to create the commit
-- **THEN** the agent warns "Repository is in detached HEAD state"
-- **AND** prompts user to confirm commit or create a branch first
-
-#### Scenario: Git permission error
-
-- **GIVEN** a contract is fulfilled with uncommitted changes
-- **WHEN** the agent attempts to stage or commit
-- **AND** a permission error occurs
-- **THEN** the agent reports the specific error
-- **AND** does NOT output CONTRACT FULFILLED
-- **AND** suggests remediation (e.g., check file permissions, git config)
-
----
+- **THEN** the agent SHALL automatically create an atomic git commit
+- **AND** the commit message SHALL follow conventional commit standards
+- 
+#### Scenario: Contract completion without test evidence
+- **GIVEN** all criteria are marked `[x]`
+- **AND** no evidence of test execution is provided in the session
+- **WHEN** the agent attempts to declare CONTRACT FULFILLED
+- **THEN** the protocol SHALL block the fulfillment
+- **AND** the agent SHOULD prompt the user to run tests and provide evidence
 
 ### Requirement: Conventional Commit Derivation
 
