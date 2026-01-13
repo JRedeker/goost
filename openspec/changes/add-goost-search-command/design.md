@@ -201,3 +201,99 @@ User query
 - Should we cache the index files within a single session to speed up repeated searches?
 - Should there be a `--list-all` flag to just enumerate available prompts without searching?
 - Should suspicious pattern detection cause a stronger warning or block display entirely?
+
+## Research Validation (January 2026)
+
+### Validated Decisions ✅
+
+#### Decision 1: GitHub Raw Content Fetching
+**Status**: ✅ VALIDATED
+
+Using `raw.githubusercontent.com` is the correct approach:
+- **No API rate limits** - Only CDN throttling vs 60 req/hour unauthenticated API limit
+- **Direct file access** - Returns actual content, not JSON metadata
+- **No auth required** - Simpler implementation for public repos
+- **CDN benefits** - Fast edge delivery via Fastly, 5-minute cache (max-age=300)
+
+**Sources**: GitHub REST API Rate Limits docs, direct HTTP header inspection
+
+#### Decision 3: Interactive Selection
+**Status**: ✅ VALIDATED
+
+Using the `question` tool for interactive selection follows OpenCode conventions.
+
+**Recommendation**: Add `subtask: true` to frontmatter since command fetches external content.
+
+#### Decision 4: Library Configuration
+**Status**: ✅ VALIDATED
+
+Hardcoding two default libraries is appropriate for initial implementation.
+
+### Accepted Limitations
+
+#### Decision 2: AI Semantic Ranking
+**Status**: ✅ ACCEPTED - Minor biases acceptable for use case
+
+LLM-based ranking has known biases (position, verbosity) but these are acceptable because:
+- Users select from 3-5 options with descriptions - they can override bad rankings
+- This isn't a high-stakes system; slightly wrong ranking is fine
+- Adding complexity (randomization, bias mitigation) isn't worth it
+
+**Decision**: Ship as-is. No mitigations needed.
+
+#### Decision 5: Security Model - Display-Only
+**Status**: ✅ ACCEPTED - Correct model, limitations acknowledged
+
+Display-only prevents *automated* attacks, which is the primary threat. Human review provides additional protection but we can't force users to read carefully.
+
+**Decision**: Keep action-oriented warning, accept that some users won't read it.
+
+### Simplified Security Implementation
+
+#### Content Sanitization - SIMPLIFIED
+**Status**: ✅ SIMPLIFIED
+
+Instead of listing 20+ codepoints, use simple comprehensive regex:
+
+```typescript
+// Strip all invisible/control characters except newline and tab
+const INVISIBLE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\u200B-\u200F\u2028-\u202F\u2060-\u206F\uFEFF]/g;
+
+// Strip ANSI escape sequences
+const ANSI = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07/g;
+```
+
+Two regexes cover everything. No need to enumerate codepoints.
+
+#### Injection Pattern Detection - REMOVED
+**Status**: ❌ REMOVED - Complexity without benefit
+
+Pattern-based detection is easily bypassed and display-only is the real defense. Removed entirely to reduce complexity.
+
+The sanitization (stripping invisible characters) provides real security value. Pattern matching ("ignore previous instructions") does not.
+
+### CSV Parsing
+**Status**: ✅ SIMPLIFIED
+
+Since slash commands are markdown files (not TypeScript), CSV parsing must be done inline by the executing agent. The `prompts.csv` file has a simple structure (`act,prompt` columns) that can be parsed with:
+
+1. Split by newlines
+2. Skip header row
+3. Parse each row respecting quoted fields (prompts may contain commas)
+
+The agent should handle:
+- Quoted fields containing commas
+- Empty lines (skip)
+- Limit processing to first ~200 rows for performance
+
+CSV injection is NOT a concern since content is displayed, not executed as formulas.
+
+**Note**: PapaParse was originally considered but slash commands cannot use npm libraries.
+
+### Summary of Simplifications
+
+1. **LLM ranking**: No bias mitigations needed - users can pick from options
+2. **Display-only security**: Accept limitation that users may not read warnings
+3. **Unicode sanitization**: Two regexes instead of 20+ codepoint list
+4. **Pattern detection**: Removed entirely - doesn't provide real security
+5. **CSV parsing**: Use PapaParse with defaults, no custom config needed

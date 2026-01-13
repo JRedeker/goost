@@ -198,6 +198,7 @@ Goost integrates with [OpenSpec](https://github.com/fission-ai/openspec) to prov
 | | `/openspec-audit` | Project-wide drift detection |
 | | `/goost-slop-scan` | Scan for AI-generated code quality issues |
 | | `/goost-improve` | Analyze codebase for architectural improvement opportunities |
+| **Discovery** | `/goost-search` | Search curated prompt libraries for AI prompts |
 | **Completion** | `/openspec-archive` | Archive completed change |
 
 ### OpenSpec CLI Commands
@@ -319,6 +320,7 @@ For simpler changes:
 | Find spec/code drift | `/openspec-audit` |
 | See progress dashboard | `/openspec-roadmap` |
 | Finish and archive | `/openspec-archive <id>` |
+| Find prompts for a task | `/goost-search <query>` |
 
 ### When to Use Which Contract Command
 
@@ -695,6 +697,61 @@ current best practices and solutions.
 1. Run `/goost-improve` to identify architectural gaps
 2. Use the generated `/goost-search` queries to research solutions
 3. Create an `/openspec-proposal` for significant improvements
+
+### Prompt Discovery (`/goost-search`)
+
+The `/goost-search` command searches curated prompt libraries to help you find high-quality prompts for any task.
+
+```text
+User: /goost-search code review
+
+============================================================
+    EXTERNAL CONTENT - REVIEW BEFORE USING
+============================================================
+Source: f/awesome-chatgpt-prompts/prompts.csv
+Title: Code Review Helper
+
+--- BEGIN PROMPT CONTENT ---
+
+I want you to act as a code reviewer. I will provide you with...
+
+--- END PROMPT CONTENT ---
+
+============================================================
+To use this prompt:
+1. Review the content above carefully
+2. Copy the relevant portions manually
+3. Adapt to your specific needs
+============================================================
+```
+
+**Libraries Searched:**
+
+| Library | Content |
+|---------|---------|
+| `f/awesome-chatgpt-prompts` | 140+ general-purpose prompts (coding, writing, analysis) |
+| `x1xhlol/system-prompts-and-models-of-ai-tools` | System prompts from AI coding tools (Cursor, Windsurf, Claude Code) |
+
+**Features:**
+- **Semantic search**: "fix bugs" finds "Debugging Assistant"
+- **Interactive selection**: Multiple matches present a choice UI
+- **Security-first**: All content displayed with warnings, never auto-executed
+
+**Security Model:**
+
+External prompts are an injection attack vector. The command implements strict security:
+- **Display-only**: Prompts are shown but never auto-executed or injected
+- **Warning banners**: Clear "EXTERNAL CONTENT" warnings on all results
+- **Content sanitization**: Invisible characters and ANSI escapes stripped
+- **Manual copy required**: Friction is intentional security
+
+**Examples:**
+```bash
+/goost-search code review          # Find code review prompts
+/goost-search typescript debugging # Find TypeScript debugging prompts
+/goost-search system prompt cursor # Find Cursor's system prompt
+/goost-search sql expert           # Find SQL-related prompts
+```
 
 ---
 

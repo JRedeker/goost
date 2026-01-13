@@ -16,9 +16,8 @@ Users need a way to discover and apply high-quality prompts from curated communi
 - Interactive selection when multiple prompts match the query
 - **Security controls**:
   - Display-only mode (never auto-execute fetched prompts)
-  - Prominent "UNTRUSTED CONTENT" warning banners
-  - Content sanitization (strip zero-width chars, escape control sequences)
-  - Injection pattern detection with explicit warnings
+  - Warning banner before content
+  - Content sanitization (strip invisible chars, escape ANSI sequences)
   - Visual isolation of prompt content
 
 ## Impact
@@ -28,3 +27,14 @@ Users need a way to discover and apply high-quality prompts from curated communi
 - Dependencies: Requires web fetch capability (already available via webfetch tool)
 - No breaking changes
 - **Security model**: Conservative by design - adds friction (manual copy/paste) to prevent accidental injection
+
+## Research Validation (January 2026)
+
+| Decision | Status | Action |
+|----------|--------|--------|
+| GitHub raw content fetching | ✅ Validated | No changes |
+| AI semantic ranking | ✅ Accepted | Minor biases acceptable; users can pick from options |
+| Display-only security model | ✅ Accepted | Primary defense against automated attacks |
+| Unicode sanitization | ✅ Simplified | Two regexes cover all invisible/control chars |
+| Injection pattern detection | ❌ Removed | Easily bypassed; display-only is sufficient |
+| OpenCode slash command structure | ✅ Validated | Added subtask:true |

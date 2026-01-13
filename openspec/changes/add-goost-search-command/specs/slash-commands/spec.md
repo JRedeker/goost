@@ -124,16 +124,12 @@ The goost-search command SHALL treat ALL fetched prompt content as untrusted and
 #### Scenario: Security warning banner
 - **GIVEN** a fetched prompt is being displayed
 - **WHEN** rendering the output
-- **THEN** the command SHALL display a prominent warning banner:
+- **THEN** the command SHALL display a warning banner:
 ```
 ============================================================
-    UNTRUSTED EXTERNAL CONTENT - REVIEW BEFORE USE
+    EXTERNAL CONTENT - REVIEW BEFORE USING
 ============================================================
 Source: <library>/<path>
-Retrieved: <timestamp>
-
-The following prompt was fetched from an external source.
-Review carefully before using. Do not blindly copy-paste.
 ============================================================
 ```
 - **AND** the warning SHALL appear before the prompt content
@@ -142,43 +138,13 @@ Review carefully before using. Do not blindly copy-paste.
 - **GIVEN** raw prompt content has been fetched
 - **WHEN** preparing for display
 - **THEN** the command SHALL sanitize the content by:
-  - Stripping zero-width Unicode characters (U+200B, U+FEFF, etc.)
-  - Escaping terminal control sequences
-  - Normalizing line endings
+  - Stripping all invisible/control characters except newline and tab
+  - Stripping ANSI escape sequences (colors, cursor movement, terminal commands)
+  - Normalizing line endings (convert \r\n and \r to \n)
   - Truncating extremely long lines (>1000 chars) with "[TRUNCATED]" marker
-- **AND** note if any sanitization was applied
+- **AND** note if any characters were stripped
 
-#### Scenario: Injection pattern detection
-- **GIVEN** fetched prompt content is being analyzed
-- **WHEN** scanning for suspicious patterns
-- **THEN** the command SHALL flag prompts containing:
-  - "ignore previous instructions" or similar override phrases
-  - "disregard", "forget", "override" combined with "instructions" or "system"
-  - Requests to output system prompts or reveal configurations
-  - Large Base64-encoded blocks in unusual contexts
-  - Excessive repetition of characters (potential buffer overflow)
-- **AND** display a "SUSPICIOUS PATTERN DETECTED" warning with specifics
-- **AND** still display the content (user may proceed with caution)
 
-#### Scenario: Suspicious pattern warning format
-- **GIVEN** injection patterns are detected in a prompt
-- **WHEN** displaying the prompt
-- **THEN** the command SHALL add an additional warning:
-```
-!!! SUSPICIOUS PATTERN DETECTED !!!
-The following patterns were flagged:
-- Line 42: Contains "ignore previous instructions"
-- Line 89: Large Base64 block detected
-
-This prompt may be attempting injection. Review with extra caution.
-```
-- **AND** highlight the suspicious lines in the displayed content
-
-#### Scenario: Clean prompt confirmation
-- **GIVEN** a prompt passes all security checks
-- **WHEN** displaying the prompt
-- **THEN** the command SHALL note: "No suspicious patterns detected"
-- **AND** still display the untrusted content warning (source is external)
 
 ### Requirement: Secure Prompt Display Format
 
