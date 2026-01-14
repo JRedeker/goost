@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Soften /openspec-apply enforcement: add confirmation step, allow intent statements, add context-aware TDD (c33a53e)
 - Fix documentation contradiction in openspec-apply.md - removed legacy "do NOT wait for confirmation" note (840f0fb)
+- Fix minor issues: align MAY/SHALL language and define modification flow (f99e1bc)
 - Further mandate TDD across rules, commands, and plugin using the RSTC (Requirement-Spec-Test-Code) protocol
 - Update /contract, /contract-quick, and /openspec-apply to link TEST PLAN to SUCCESS CRITERIA
 - Enhance plugin to detect test runner execution and provide visual feedback (red/green phases)
