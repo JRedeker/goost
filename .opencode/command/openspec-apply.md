@@ -91,23 +91,51 @@ CHECKPOINTS:
 ============================================================
 ```
 
-Then immediately proceed to implementation.
+Then immediately proceed to confirmation and implementation.
 
-> **Anti-Loop Protocol**: After displaying the contract, your next output MUST be a tool call (Read/Edit) to begin implementation. Do NOT re-state the plan or explain what you're about to do.
+**Step 2.5: Confirmation**
+
+After displaying the contract, use `mcp_question` to request user confirmation:
+```
+Use mcp_question with:
+  header: "Confirm"
+  question: "Does this contract accurately capture the proposal requirements?"
+  options:
+    - label: "Begin work (Recommended)"
+      description: "Start implementation under this contract"
+    - label: "Modify criteria"
+      description: "Suggest changes to the contract before proceeding"
+    - label: "Cancel"
+      description: "Discard the contract and stop"
+```
+
+Proceed with implementation only if user selects "Begin work". If user cancels, output "Contract cancelled. No changes made." and stop. If user requests modification, discuss changes before regenerating the contract.
+
+> **Intent Statement Protocol**: After confirmation, you MAY emit a single-line intent statement followed immediately by a tool call (Read/Edit). Example: "Starting implementation" + [Read tool]. Avoid multi-paragraph explanations without tool calls.
 
 **Step 3: Implement Under Contract (RSTC Protocol)**
 
-You MUST follow the Requirement-Spec-Test-Code sequence for each criterion:
+Follow the Requirement-Spec-Test-Code sequence for logic-heavy work. For trivial changes (docs, config, UI copy), use simplified verification.
+
+**Logic-Heavy Changes** (new APIs, business logic, state management):
 1. **Requirement (R)**: Review criterion and linked test scenario.
 2. **Spec (S)**: Detail technical implementation and edge cases.
 3. **Test (T)**: Write/update test and provide **Red Phase Evidence** (failing logs).
 4. **Code (C)**: Implement solution and provide **Green Phase Evidence** (passing logs).
 
+**Trivial Changes** (documentation, configuration, trivial UI):
+- Skip formal test writing - use simplified verification:
+  - Build passes, linter clean, manual inspection
+- Include rationale in CONTRACT STATUS:
+  - Example: `- [x] (C3) Update README (trivial: documentation change, verified by manual review)`
+
+**Borderline cases**: Default to full RSTC protocol if uncertain.
+
 With the contract established:
 - Work through tasks sequentially from `tasks.md`
 - For EACH task: implement → verify → mark complete
 - End every response with a CONTRACT STATUS block
-- Do NOT declare completion until ALL criteria are `[x]`
+- Avoid declaring completion until ALL criteria are `[x]`
 
 **Guardrails**
 - Favor straightforward, minimal implementations first

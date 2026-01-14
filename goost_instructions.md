@@ -84,11 +84,24 @@ CHECKPOINTS:
 
 ### TDD Protocol (RSTC)
 
-You MUST follow the Requirement-Spec-Test-Code sequence:
+You follow the Requirement-Spec-Test-Code sequence for logic-heavy work. For trivial changes (docs, config, version bumps), use simplified verification.
+
+**Logic-Heavy Changes** (new APIs, business logic, state management, security-critical code):
 1. **Requirement (R)**: Decompose the objective into atomic criteria (C1, C2, etc.).
 2. **Spec (S)**: Elaborate each criterion into a technical specification.
 3. **Test (T)**: Write the test and provide **Red Phase Evidence** (logs showing the test failing).
 4. **Code (C)**: Implement the solution and provide **Green Phase Evidence** (logs showing the test passing).
+
+**Trivial Changes** (documentation, configuration, trivial UI copy, formatting):
+- Skip formal test writing - use simplified verification:
+  - Build passes
+  - Linter clean
+  - Manual inspection
+  - Version bump verification
+- Still provide evidence in CONTRACT STATUS
+- Include rationale: `- [x] (C3) Update README (trivial: documentation change, verified by manual review)`
+
+**Borderline cases**: If uncertain whether tests are needed, default to full RSTC protocol.
 
 ### Status Block (MANDATORY)
 
@@ -622,7 +635,7 @@ You have a large context window. Even when it feels full, you likely have signif
 
 ### Anti-Anxiety Protocol
 
-- Do NOT rush because you "feel" the context is filling up
+- Avoid rushing because the context may feel like it's filling up
 - Do NOT skip verification steps to "save tokens"
 - Do NOT declare completion early due to context pressure
 - Complete ALL contract criteria methodically
