@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Enhance openspec-roadmap spec with edge cases, verification steps, and schema (d414eb4)
 
 ### Changed
+- Soften /openspec-apply enforcement: add confirmation step, allow intent statements, add context-aware TDD (c33a53e)
 - Further mandate TDD across rules, commands, and plugin using the RSTC (Requirement-Spec-Test-Code) protocol
 - Update /contract, /contract-quick, and /openspec-apply to link TEST PLAN to SUCCESS CRITERIA
 - Enhance plugin to detect test runner execution and provide visual feedback (red/green phases)
