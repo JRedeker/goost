@@ -109,9 +109,9 @@ Use mcp_question with:
       description: "Discard the contract and stop"
 ```
 
-Proceed with implementation only if user selects "Begin work". If user cancels, output "Contract cancelled. No changes made." and stop. If user requests modification, discuss changes before regenerating the contract.
+Proceed with implementation only if user selects "Begin work". If user cancels, output "Contract cancelled. No changes made." and stop. If user selects "Modify criteria", ask the user what specific criteria need adjustment, then regenerate the contract with the requested changes, and re-present the updated contract for confirmation.
 
-> **Intent Statement Protocol**: After confirmation, you MAY emit a single-line intent statement followed immediately by a tool call (Read/Edit). Example: "Starting implementation" + [Read tool]. Avoid multi-paragraph explanations without tool calls.
+> **Intent Statement Protocol**: After confirmation, emit a single-line intent statement describing the next action, followed immediately by a tool call (Read, Edit, Write, Bash, etc.). Example: "Starting implementation" + [Read tool]. Avoid multi-paragraph explanations without tool calls.
 
 **Step 3: Implement Under Contract (RSTC Protocol)**
 
