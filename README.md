@@ -735,15 +735,30 @@ To use this prompt:
 **Features:**
 - **Semantic search**: "fix bugs" finds "Debugging Assistant"
 - **Interactive selection**: Multiple matches present a choice UI
-- **Security-first**: All content displayed with warnings, never auto-executed
+- **Security-first**: All prompts go through mandatory contract conversion
+- **Mandatory contracts**: No raw prompt usage - everything becomes a reviewable contract
+
+**Contract Conversion (Mandatory):**
+
+Every fetched prompt is automatically converted into a structured contract:
+
+1. **Security scan**: Checks for injection patterns (blocked if detected)
+2. **Extracts behavioral goals** from the prompt (OBJECTIVE, SUCCESS CRITERIA, CONSTRAINTS)
+3. **Filters dangerous content** (shell commands, code execution, file paths are excluded)
+4. **Presents a draft contract** for your review
+5. Waits for you to **confirm**, **modify**, or **cancel**
+
+There is no "manual copy" option - this ensures every external prompt goes through the safety gate.
 
 **Security Model:**
 
 External prompts are an injection attack vector. The command implements strict security:
-- **Display-only**: Prompts are shown but never auto-executed or injected
+- **Mandatory contract flow**: No raw prompt usage allowed
 - **Warning banners**: Clear "EXTERNAL CONTENT" warnings on all results
 - **Content sanitization**: Invisible characters and ANSI escapes stripped
-- **Manual copy required**: Friction is intentional security
+- **Injection pattern detection**: Prompts with suspicious patterns (e.g., "ignore previous instructions", base64 payloads) are blocked entirely
+- **Behavioral extraction only**: Generated contracts exclude shell commands and code execution
+- **HITL confirmation**: Contract must be explicitly confirmed before activation
 
 **Examples:**
 ```bash

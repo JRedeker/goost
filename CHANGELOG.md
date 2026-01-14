@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add contract conversion mode to `/goost-search` - optionally convert fetched prompts into structured contracts with security scanning, behavioral extraction, and HITL confirmation
+- Add `/goost-search` command for curated prompt library discovery with security-first design (display-only mode, sanitization, warning banners)
 - Add `/goost-improve` command for architectural improvement analysis with evidence-based findings and hybrid `/goost-search` suggestions
 - Add vitest test infrastructure with 62 tests covering loop anomaly detection (d546274)
 - Add AI-011 `planning_loop` smell to slop-smells.yaml v1.2 - documents planning loop failure mode with indicators, triggers, and mitigations (e04b042)
