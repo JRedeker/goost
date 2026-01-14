@@ -2025,6 +2025,7 @@ All OpenSpec slash commands that operate on a specific change or spec target SHA
   - question: "Proceed with '<change-id>'?"
   - options: "Yes (Recommended)", "Cancel"
 - **AND** proceed only if user confirms
+- **AND** on confirmation, proceed to contract derivation and display (contract has its own confirmation step)
 
 #### Scenario: No target provided, multiple active changes exist
 
@@ -2069,4 +2070,210 @@ All OpenSpec slash commands that operate on a specific change or spec target SHA
 - **AND** log a warning noting that structured question tool was unavailable
 
 > **Observability Note**: When the fallback protocol is triggered, agents SHOULD log a warning to aid debugging. No metrics or tracing requirements apply to this change as it is purely a UX interaction pattern.
+
+### Requirement: OpenSpec Apply Contract Confirmation
+
+The `/openspec-apply` command SHALL establish a Goost contract from the approved proposal and require user confirmation before implementation begins, ensuring the derived Success Criteria accurately reflect the proposal's intent.
+
+#### Scenario: Contract derived and confirmed
+
+- **GIVEN** a user invokes `/openspec-apply` with a valid change ID
+- **WHEN** the command reads the proposal, tasks, and design files
+- **THEN** the command SHALL derive a contract with:
+  - OBJECTIVE from proposal title/summary
+  - SUCCESS CRITERIA from acceptance criteria in proposal.md with Test Plan links (C1, C2, etc.)
+  - TEST PLAN derived from tasks.md and spec scenarios
+  - CONSTRAINTS from MUST/MUST NOT requirements
+  - CHECKPOINTS grouping tasks into logical phases
+- **AND** display the contract using the standard Goost contract format
+- **AND** emit `[GOOST:MIC]` status marker
+- **AND** use `mcp_question` to request confirmation:
+  - header: "Confirm"
+  - question: "Does this contract accurately capture the proposal requirements?"
+  - options: "Begin work (Recommended)", "Modify criteria", "Cancel"
+- **AND** proceed with implementation only if user selects "Begin work"
+
+#### Scenario: User requests criteria modification
+
+- **GIVEN** contract has been displayed for confirmation
+- **WHEN** user selects "Modify criteria"
+- **THEN** the command SHALL ask what needs adjustment
+- **AND** regenerate the contract with user's changes
+- **AND** re-present for confirmation
+
+#### Scenario: User cancels contract
+
+- **GIVEN** contract has been displayed for confirmation
+- **WHEN** user selects "Cancel"
+- **THEN** the command SHALL abort without starting work
+- **AND** display: "Contract cancelled. No changes made."
+
+#### Scenario: mcp_question fails during contract confirmation
+
+- **GIVEN** contract has been derived and displayed
+- **WHEN** the `mcp_question` tool invocation fails (error, timeout, or unavailable)
+- **THEN** the command SHALL fall back to text-based confirmation:
+  ```
+  Confirm contract (type option number):
+  1. Begin work (Recommended)
+  2. Modify criteria
+  3. Cancel
+  ```
+- **AND** accept number or free text as response
+- **AND** log a warning noting that structured question tool was unavailable
+
+#### Scenario: Invalid response during text-based fallback
+
+- **GIVEN** contract has been derived and displayed
+- **AND** `mcp_question` tool is unavailable
+- **WHEN** user provides an invalid response (non-numeric, unknown option, or empty input)
+- **THEN** the command SHALL re-display the confirmation prompt
+- **AND** display: "Invalid response. Please enter 1, 2, or 3."
+- **AND** allow up to 3 retry attempts
+- **AND** after 3 failed attempts, treat as cancellation
+- **AND** display: "Too many invalid responses. Contract cancelled."
+
+### Requirement: Intent Statement Protocol
+
+During contract implementation, agents SHALL provide brief human-readable context before each major phase transition while maintaining strict progress toward tool execution to prevent planning loops.
+
+The protocol relies on two mechanisms:
+
+1. **Natural Language Convention** (human context):
+   - Single-line intent statement describing the next action
+   - Immediately followed by a tool call (Read, Edit, Write, Bash, etc.)
+   - NOT multi-paragraph explanations, plans, or summaries
+
+Intent statements serve as state markers (similar to `>>> SYNTHESIS COMPLETE <<<`), providing clear phase transitions for human readers.
+
+#### Scenario: Phase transition with intent statement
+
+- **GIVEN** agent is ready to begin a new implementation phase
+- **WHEN** transitioning from contract display to work, or between checkpoints
+- **THEN** agent SHALL output a single-line intent statement describing the next action
+- **AND** immediately follow with a tool call (Read, Edit, Write, Bash, etc.)
+- **AND** NOT include multi-paragraph explanations, plans, or summaries
+
+#### Scenario: Valid intent statement examples
+
+- **GIVEN** agent is starting implementation
+- **THEN** acceptable formats include:
+  - "Starting Phase 1: Database schema implementation" + [Read tool]
+  - "Proceeding to Task 1.2: API endpoint creation" + [Edit tool]
+  - "Implementing criterion C1: User authentication" + [Write tool]
+
+#### Scenario: Invalid transition (planning loop)
+
+- **GIVEN** agent is ready to start work
+- **WHEN** agent outputs multiple paragraphs explaining the plan
+- **OR** restates the contract contents
+- **OR** describes what they will do without actually doing it (no tool call)
+- **THEN** this violates the Intent Statement Protocol
+- **AND** may trigger Goost doom loop detection if repeated
+
+#### Scenario: Doom loop detection and recovery
+
+- **GIVEN** agent violates the Intent Statement Protocol multiple times
+- **WHEN** Goost plugin detects repeated planning without action
+- **THEN** plugin SHALL emit `[GOOST:DOOM_LOOP]` marker
+- **AND** agent SHALL present recovery options:
+  - "Continue with current approach"
+  - "Get more context"
+  - "Simplify the task"
+
+### Requirement: Context-Aware TDD
+
+The RSTC (Requirement-Spec-Test-Code) protocol SHALL be applied with context sensitivity, requiring full Red/Green Phase Evidence for logic-heavy changes while allowing simplified verification for trivial changes.
+
+"Simplified verification" means skipping formal test writing entirely for non-code changes, using build passes, linter clean, or manual inspection as verification. It does NOT mean skipping the Red phase when unit tests ARE appropriate for logic changes.
+
+> **Cross-Spec Alignment Notes**:
+> - **`tdd-enforcement` spec**: This requirement extends, not replaces, the base TDD protocol. Logic-heavy work still requires full Red/Green evidence per `tdd-enforcement`. This adds a narrowly-scoped exception for trivial changes with explicit rationale requirements.
+> - **`contract-system` spec**: The contract-system requirement that evidence "SHALL be provided for all criteria" is satisfied because simplified verification still requires evidence (build passes, linter output, manual inspection notes). The difference is the form of evidence, not its absence.
+
+#### Scenario: Logic-heavy change requires full RSTC
+
+- **GIVEN** a success criterion involves:
+  - New API endpoints or business logic
+  - State management or data transformations
+  - Breaking changes or security-critical code
+  - Multi-system integration
+- **WHEN** implementing the criterion
+- **THEN** agent MUST follow full RSTC sequence:
+  1. Requirement (R): Review criterion and linked test scenario
+  2. Spec (S): Detail technical implementation and edge cases
+  3. Test (T): Write/update test and provide Red Phase Evidence (failing logs)
+  4. Code (C): Implement solution and provide Green Phase Evidence (passing logs)
+- **AND** NOT mark criterion `[x]` until both Red and Green evidence are provided
+
+#### Scenario: Trivial change allows simplified verification
+
+- **GIVEN** a success criterion involves:
+  - Documentation updates (README, comments, CHANGELOG)
+  - Configuration changes (package.json version, .env.example)
+  - Trivial UI changes (button labels, copy text)
+  - Code formatting or style fixes
+- **WHEN** implementing the criterion
+- **THEN** agent MAY skip formal test writing entirely
+- **AND** proceed with direct implementation followed by verification
+- **AND** provide evidence of successful verification (build passes, linter clean, manual inspection)
+- **AND** NOT require Red/Green phase cycles for changes that don't benefit from unit tests
+- **OR** if uncertain whether tests are needed, default to full RSTC protocol
+
+#### Scenario: TDD escape hatch rationale
+
+- **GIVEN** agent determines a criterion qualifies for simplified verification
+- **WHEN** marking the criterion complete
+- **THEN** agent SHALL include brief rationale in CONTRACT STATUS:
+  - Example: "- [x] (C3) Update README (trivial: documentation change, verified by manual review)"
+- **AND** still provide verification evidence (not zero evidence, just simplified)
+
+### Requirement: Positive Instruction Framing
+
+Slash command instructions SHALL prefer positive framing over negative framing to improve LLM instruction-following reliability.
+
+**Positive framing** tells the agent what to do. **Negative framing** tells the agent what not to do.
+
+| Negative (avoid) | Positive (prefer) |
+|------------------|-------------------|
+| "Do NOT emit status markers" | "Return findings directly" |
+| "Never skip the status block" | "Always include a status block" |
+| "Avoid multi-paragraph explanations" | "Pair intent with immediate tool call" |
+| "CANNOT declare complete until X" | "Declare complete when X" |
+
+**Exceptions** (keep as negative):
+- Safety-critical constraints in contract CONSTRAINTS sections (e.g., "MUST NOT: Break existing functionality")
+- User authority statements may use negative framing for emphasis
+
+#### Scenario: Sub-agent context block uses positive framing
+- **GIVEN** a slash command that spawns sub-agents
+- **WHEN** the command includes a sub-agent context block
+- **THEN** the block SHALL use positive framing (e.g., "Return findings directly" instead of "Do NOT emit markers")
+
+#### Scenario: Anti-loop protocol uses positive framing
+- **GIVEN** a slash command with an anti-loop protocol
+- **WHEN** the protocol instructs the agent on post-synthesis behavior
+- **THEN** the instruction SHALL use positive framing (e.g., "Proceed directly to aggregation" instead of "Do NOT re-explain findings")
+
+#### Scenario: Completion criteria use positive framing
+- **GIVEN** a slash command with completion criteria
+- **WHEN** the criteria define when completion is allowed
+- **THEN** the criteria SHALL use positive framing (e.g., "Declare complete when all criteria are [x]" instead of "CANNOT declare complete until...")
+
+#### Scenario: Safety constraints preserved as negative
+- **GIVEN** a contract CONSTRAINTS section
+- **WHEN** the constraint defines a safety-critical boundary
+- **THEN** the constraint MAY use negative framing (e.g., "MUST NOT: Delete production data")
+
+#### Scenario: Semantic equivalence maintained after conversion
+- **GIVEN** a negative instruction "Do NOT skip verification steps"
+- **WHEN** converted to positive framing "Complete all verification steps"
+- **THEN** the converted instruction SHALL preserve the original behavioral intent
+- **AND** no edge cases of the original instruction SHALL be lost in conversion
+
+#### Scenario: Mixed content with unconvertible negatives
+- **GIVEN** a slash command contains both convertible negatives (procedural) and safety negatives
+- **WHEN** the command is reviewed for positive framing
+- **THEN** procedural negatives SHALL be converted to positive equivalents
+- **AND** safety negatives SHALL be preserved with explanatory comment if not in CONSTRAINTS section
 

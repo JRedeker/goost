@@ -375,11 +375,27 @@ notifications/spec.md
 
 ## Best Practices
 
+### Positive Framing
+
+When writing instructions, **prefer positive framing over negative framing**. Research shows LLMs follow positive instructions more reliably because negation tokens have limited effect on statistical representations.
+
+**Transformation patterns:**
+| Negative (less effective) | Positive (more effective) |
+|---------------------------|---------------------------|
+| "Do NOT emit markers" | "Return findings directly" |
+| "CANNOT declare complete until X" | "Declare complete when X" |
+| "Never skip the status block" | "Always include a status block" |
+| "Avoid multi-paragraph explanations" | "Pair intent with immediate tool call" |
+
+**Exceptions** (keep as negative):
+- Safety constraints in CONSTRAINTS sections (e.g., "MUST NOT: delete production data")
+- Hard boundaries that define failure modes
+
 ### Simplicity First
 - Default to <100 lines of new code
 - Single-file implementations until proven insufficient
-- Avoid frameworks without clear justification
-- Choose boring, proven patterns
+- Prefer proven patterns over novel approaches
+- Choose boring, battle-tested solutions
 
 ### Complexity Triggers
 Only add complexity with:
