@@ -1329,47 +1329,15 @@ The slop scan SHALL support verbose output for troubleshooting.
 
 ### Requirement: Goost Improve Command
 
-The `/goost-improve` command SHALL analyze codebases for architectural improvement opportunities and generate contextual `/goost-search` suggestions using AI-driven discovery with specification grounding.
+The `/goost-improve` command SHALL understand project context before analyzing for architectural gaps to provide relevant, actionable suggestions.
 
-<!-- Research Validated: 2026-01-13. Standalone command preferred over /openspec-audit integration per Unix philosophy and industry practice separating "code audit" from "architecture assessment". Simplified from original design: removed weighted scoring, added Reliability category, deferred --metadata-only mode. Sources: arXiv:2512.17540, Shuster et al. EMNLP 2021, CoVe 2023, CROKAGE 2020, ISO 25010:2023, AWS Well-Architected, OWASP -->
-
-#### Scenario: Basic invocation
+#### Scenario: Basic invocation (MODIFIED)
 - **GIVEN** a project with source code
 - **WHEN** user invokes `/goost-improve`
-- **THEN** the command SHALL analyze the codebase for architectural gaps
+- **THEN** the command SHALL first complete the Project Understanding Phase
+- **AND** THEN analyze the codebase for architectural gaps (with context-aware relevance)
 - **AND** output improvement opportunities with `/goost-search` suggestions
 - **AND** require no prior OpenSpec setup (works on any codebase)
-
-<!-- Deferred to post-MVP per simplification analysis -->
-<!-- #### Scenario: Targeted analysis with patterns
-- **GIVEN** user wants to focus on specific areas
-- **WHEN** user invokes `/goost-improve --include "src/**/*.ts" --exclude "**/*.test.ts"`
-- **THEN** the command SHALL limit analysis to matching files
-- **AND** NOT use sampling (analyze all matching files) -->
-
-<!-- Note: --metadata-only mode also deferred to post-MVP per simplification analysis -->
-
-#### Scenario: No significant gaps found
-- **GIVEN** the codebase demonstrates strong architectural practices
-- **WHEN** analysis completes without significant findings
-- **THEN** the command SHALL note: "No significant architectural gaps identified"
-- **AND** briefly summarize categories examined
-- **AND** acknowledge analysis is not exhaustive
-
-#### Scenario: Empty or invalid project
-- **GIVEN** the project directory contains no source code files
-- **OR** no recognizable project structure exists
-- **WHEN** user invokes `/goost-improve`
-- **THEN** the command SHALL display: "No source files found to analyze"
-- **AND** suggest checking the working directory
-- **AND** exit gracefully without analysis
-
-#### Scenario: Analysis timeout
-- **GIVEN** the codebase is very large or complex
-- **WHEN** analysis exceeds a reasonable time limit (implementation-defined)
-- **THEN** the command SHALL output partial findings gathered so far
-- **AND** note: "Analysis truncated due to time constraints"
-- **AND** suggest using `--include` patterns to narrow scope (when available)
 
 ### Requirement: Grounded Agent Discovery
 
@@ -1817,4 +1785,87 @@ Contract conversion SHALL implement basic security filtering.
   - Network requests
   - Code execution instructions
 - **AND** extract only behavioral goals
+
+### Requirement: Project Understanding Phase
+
+The `/goost-improve` command SHALL understand project context before analyzing for architectural gaps to provide relevant, actionable suggestions.
+
+<!-- Research Validated: 2026-01-13. Documentation-first approach validated against GitHub Copilot, Aider, Cody. Simplified from original 5-decision design to 2-step "prepend context to prompt" approach per industry best practices. Sources: GitHub Copilot docs, Aider docs, simonwillison.net, harper.blog -->
+
+#### Scenario: Read project documentation
+- **GIVEN** user invokes `/goost-improve`
+- **WHEN** the command begins execution
+- **THEN** the command SHALL first read available documentation:
+  - `README.md` (primary)
+  - `AGENTS.md` (if present)
+- **AND** extract project purpose and any stated constraints
+- **AND** complete this phase before gap analysis begins
+
+#### Scenario: Inject context into analysis
+- **GIVEN** documentation has been read
+- **WHEN** beginning gap analysis
+- **THEN** the command SHALL prepend documentation content to the analysis prompt
+- **AND** instruct the LLM to skip categories irrelevant to the project
+- **AND** instruct the LLM to respect documented constraints and deferrals
+- **AND** let the LLM naturally infer project type from context (no explicit classification)
+
+<!-- Research Note: Explicit project type classification removed. LLMs naturally recognize "this is a CLI tool" from README content without classification logic. Sources: GitHub Copilot, Cody, simonwillison.net -->
+
+#### Scenario: Respect documented constraints
+- **GIVEN** documentation has been prepended to the analysis prompt
+- **WHEN** generating findings
+- **THEN** the LLM SHALL identify and respect explicit constraints from documentation
+- **AND** SHALL NOT suggest improvements for items documented as out-of-scope or deferred
+- **Example**: If README states "auth is handled by the host", skip auth-related findings
+
+<!-- Research Note: Pattern matching for constraints ("does not handle X") removed. LLM semantic understanding is more reliable and simpler. Sources: Requirements engineering research -->
+
+#### Scenario: Output context summary
+- **GIVEN** project understanding phase has completed
+- **WHEN** generating the report
+- **THEN** the command SHALL output a context summary before findings:
+  ```
+  PROJECT CONTEXT
+  ------------------------------------------------------------
+  Purpose: <extracted purpose statement>
+  Key constraints identified:
+    - <constraint 1>
+    - <constraint 2>
+  Categories analyzed: <list>
+  Categories skipped: <list with reasons>
+  ------------------------------------------------------------
+  ```
+- **AND** this summary SHALL appear before IMPROVEMENT OPPORTUNITIES
+
+#### Scenario: No documentation found
+- **GIVEN** no README.md exists
+- **AND** no AGENTS.md exists
+- **WHEN** beginning analysis
+- **THEN** the command SHALL note: "No project documentation found"
+- **AND** proceed with all categories enabled
+- **AND** suggest: "Consider adding README.md to help tools understand your project"
+
+<!-- Research Note: Hard-coded category filtering by project type removed. It's an anti-pattern - auth libraries need auth analysis, CLI tools handle credentials, etc. The LLM decides relevance dynamically based on context. Sources: ESLint docs, SonarQube docs, OWASP ASVS -->
+
+#### Scenario: AGENTS.md only (no README)
+- **GIVEN** no README.md exists
+- **AND** AGENTS.md exists with project context
+- **WHEN** beginning analysis
+- **THEN** the command SHALL use AGENTS.md content for context
+- **AND** note in context summary: "Source: AGENTS.md (no README.md found)"
+- **AND** proceed with context-aware analysis based on AGENTS.md content
+
+#### Scenario: Large documentation truncation
+- **GIVEN** README.md or AGENTS.md exceeds 2000 characters
+- **WHEN** prepending documentation to the analysis prompt
+- **THEN** the command SHALL truncate content to approximately 2000 characters
+- **AND** prefer truncating at paragraph or section boundaries
+- **AND** note in context summary if truncation occurred: "(truncated)"
+
+#### Scenario: Empty or unreadable documentation
+- **GIVEN** README.md exists but is empty or contains only whitespace
+- **WHEN** beginning analysis
+- **THEN** the command SHALL treat this as "no documentation found"
+- **AND** check for AGENTS.md as fallback
+- **AND** note: "README.md found but empty"
 
