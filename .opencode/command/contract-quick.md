@@ -80,10 +80,21 @@ CHECKPOINTS:
 - [ ] Phase 4: Existing routes verified
 
 ============================================================
+```
 
-[GOOST:MIC]
+Then emit `[GOOST:MIC]` and use `mcp_question` for confirmation:
 
-Does this capture your requirements? Say "confirm" to lock, or suggest changes.
+```
+Use mcp_question with:
+  header: "Confirm"
+  question: "Does this capture your requirements?"
+  options:
+    - label: "Accept contract (Recommended)"
+      description: "Lock the contract and begin work"
+    - label: "Suggest changes"
+      description: "Modify criteria before locking"
+    - label: "Cancel"
+      description: "Discard and optionally use full /contract flow"
 ```
 
 ### Inference Guidelines

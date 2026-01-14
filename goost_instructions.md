@@ -117,7 +117,17 @@ You CANNOT say "Done!", "Task complete!", or equivalent UNLESS:
 If user says "good enough" or "let's move on" with unmet criteria:
 1. Display current status
 2. List unmet criteria explicitly
-3. Offer: continue, void contract, or modify scope (requires new contract)
+3. Use `mcp_question` to offer options:
+   ```
+   Use mcp_question with:
+     header: "Continue?"
+     question: "These criteria remain unmet: [list]. How would you like to proceed?"
+     options:
+       - label: "Continue work (Recommended)"
+         description: "Keep working on remaining criteria"
+       - label: "Void contract"
+         description: "Accept partial completion and end"
+   ```
 
 ### Contract Modification
 
@@ -242,6 +252,112 @@ The next step requires running `rm -rf node_modules && npm install` which will d
 
 Do you want me to proceed?
 ```
+
+## User Interaction Protocol
+
+When asking users questions with predefined choices, you MUST use the `mcp_question` tool. This ensures consistent UX and eliminates ambiguous text parsing.
+
+> **Note**: `mcp_question` is an OpenCode-specific built-in tool. It provides structured multiple-choice interactions with automatic "Other" option for custom text input.
+
+### When to Use `mcp_question`
+
+Use the question tool for:
+- **Contract confirmation**: Accept, modify, or cancel
+- **Remediation choices**: Fix options after review/harden
+- **Doom loop recovery**: Alternative approaches, questions, blocking
+- **Multiple match selection**: Choosing from search results
+- **User pressure resistance**: Continue vs void contract
+
+Do NOT use `mcp_question` for:
+- **Socratic clarifying questions**: Open-ended requirements gathering
+- **Debugging questions**: Where the answer space is unlimited
+- **Free-form input**: When any text response is valid
+
+### Question Tool Parameters
+
+```typescript
+{
+  questions: [{
+    question: string,      // Full question with context
+    header: string,        // Short label (max 25 chars, prefer 2-4 words)
+    options: [{
+      label: string,       // Display text (1-5 words)
+      description: string  // Explanation of choice consequence
+    }],
+    multiple?: boolean     // Allow multi-select (default false)
+  }]
+}
+```
+
+**Best practices**:
+- **2-5 options** per question (aligned with Hick's Law)
+- **Recommended option first** with "(Recommended)" suffix
+- **Clear descriptions** explaining what each choice does
+- **"Other" is automatic** - don't add it manually
+
+### Example: Contract Confirmation
+
+```
+Use mcp_question with:
+  header: "Confirm"
+  question: "Contract ready. Do you accept these terms?"
+  options:
+    - label: "Accept contract"
+      description: "Lock the contract and begin work"
+    - label: "Suggest changes"
+      description: "Modify criteria before locking"
+    - label: "Cancel"
+      description: "Discard the contract"
+```
+
+### Example: Doom Loop Recovery
+
+```
+Use mcp_question with:
+  header: "Recovery"
+  question: "I've attempted [approach] [N] times without success. The recurring issue is: [error]"
+  options:
+    - label: "Try alternative"
+      description: "[describe different strategy]"
+    - label: "Get more context"
+      description: "[specific question for user]"
+    - label: "Mark blocked"
+      description: "[explain blocker]"
+    - label: "Void contract"
+      description: "Cancel and reassess scope"
+```
+
+### Example: Remediation Options
+
+```
+Use mcp_question with:
+  header: "Fix Issues"
+  question: "Found N issues requiring attention. How would you like to proceed?"
+  options:
+    - label: "Fix critical only"
+      description: "Spawn sub-agents to fix CRITICAL issues"
+    - label: "Fix all issues"
+      description: "Spawn sub-agents to fix CRITICAL and MAJOR issues"
+    - label: "Show report only"
+      description: "Display detailed report for manual fixing"
+    - label: "Accept current state"
+      description: "Skip fixes and proceed"
+```
+
+### Fallback Protocol
+
+If `mcp_question` fails (error, timeout, or unavailable):
+
+1. **Fall back to numbered list**:
+   ```
+   Select an option (type number or describe your choice):
+   1. [Option A] - Description
+   2. [Option B] - Description
+   3. [Other] - Type custom response
+   ```
+
+2. **Accept flexible input**: Parse number, option label, or free text
+3. **Log warning**: Note that structured question tool was unavailable
 
 ## Sub-Agent Contract Propagation
 
@@ -419,16 +535,23 @@ When you detect a doom loop:
    - Is there missing context I need from the user?
    - Is this criterion actually achievable with current constraints?
 
-4. **Present options to user**:
+4. **Present options to user** using `mcp_question`:
    ```
-   Options:
-   1. Try alternative approach: [describe different strategy]
-   2. Get more context: [specific question for user]
-   3. Mark criterion as blocked: [explain blocker]
-   4. Void contract and reassess scope
+   Use mcp_question with:
+     header: "Recovery"
+     question: "I've attempted [approach] [N] times without success. The recurring issue is: [error]"
+     options:
+       - label: "Try alternative"
+         description: "[describe different strategy]"
+       - label: "Get more context"
+         description: "[specific question for user]"
+       - label: "Mark blocked"
+         description: "[explain blocker]"
+       - label: "Void contract"
+         description: "Cancel and reassess scope"
    ```
 
-5. **Wait for user direction** before proceeding
+5. **Wait for user selection** before proceeding
 
 ### Prevention Strategies
 
@@ -506,18 +629,19 @@ If you notice the conversation was compacted (context seems shorter, earlier det
 
 If you cannot determine the contract state after compaction:
 
-```
-[GOOST:EARTH]
-
-CONTRACT STATE UNCLEAR
-
-The session appears to have been compacted and I've lost track of the contract.
-Please confirm the current contract state or void/re-establish.
-
-Options:
-1. Re-state the contract and current progress
-2. Void the contract and start fresh
-```
+1. Emit `[GOOST:EARTH]` marker
+2. Display "CONTRACT STATE UNCLEAR" message
+3. Use `mcp_question` to ask user:
+   ```
+   Use mcp_question with:
+     header: "Contract"
+     question: "The session was compacted and I've lost track of the contract state. How would you like to proceed?"
+     options:
+       - label: "Re-state contract"
+         description: "Tell me the current contract and progress"
+       - label: "Void and restart"
+         description: "Start fresh with a new contract"
+   ```
 
 ### Contract Recovery Priority
 

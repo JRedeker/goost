@@ -481,18 +481,21 @@ OVERALL VERDICT: [APPROVED | CHANGES_REQUESTED | BLOCKED]
 
 **If APPROVED**: Skip to Final Report. No fixes needed.
 
-**If CHANGES_REQUESTED or BLOCKED**: Prompt user:
+**If CHANGES_REQUESTED or BLOCKED**: Use `mcp_question` to prompt user:
 
 ```
-Found <N> issues requiring attention.
-
-Options:
-A) Spawn sub-agents to fix CRITICAL issues only (<count>)
-B) Spawn sub-agents to fix CRITICAL and MAJOR issues (<count>)
-C) Show detailed report only (fix manually)
-D) Accept current state (skip fixes)
-
-Which would you like? [A/B/C/D]
+Use mcp_question with:
+  header: "Fix Issues"
+  question: "Found <N> issues requiring attention. How would you like to proceed?"
+  options:
+    - label: "Fix critical only"
+      description: "Spawn sub-agents to fix CRITICAL issues (<count>)"
+    - label: "Fix critical and major"
+      description: "Spawn sub-agents to fix CRITICAL and MAJOR issues (<count>)"
+    - label: "Show report only"
+      description: "Display detailed report for manual fixing"
+    - label: "Accept current state"
+      description: "Skip fixes and proceed"
 ```
 
 Wait for user selection before proceeding.

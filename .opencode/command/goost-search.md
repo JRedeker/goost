@@ -130,18 +130,22 @@ If exactly one prompt is clearly the best match, proceed directly to Step 4 to d
 
 ### 3c: Multiple Matches
 
-If multiple prompts match, use the question tool to let the user choose:
+If multiple prompts match, use `mcp_question` to let the user choose:
 
 ```
-I found several prompts matching "<query>":
+Use mcp_question with:
+  header: "Select"
+  question: "Found several prompts matching '<query>':"
+  options:
+    - label: "<prompt title 1>"
+      description: "<source library> - <first ~50 chars>"
+    - label: "<prompt title 2>"
+      description: "<source library> - <first ~50 chars>"
+    ... (top 5 matches)
+    - label: "Show more results"
+      description: "Display additional matches"
+      (only if more than 5 matches exist)
 ```
-
-Present top 5 options with:
-- Prompt title
-- Source library
-- Brief description (first ~50 chars of prompt or tool name)
-
-Include "Show more results" as final option if more than 5 matches exist.
 
 After user selects, proceed to Step 4.
 

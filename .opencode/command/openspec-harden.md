@@ -1,6 +1,6 @@
 ---
 name: openspec-harden
-description: Post-implementation hardening analysis for OpenSpec changes - orchestrated multi-phase analysis with sub-agents for scanning and remediation.
+description: Post-implementation hardening analysis for OpenSpec changes - orchestrated multi-phase analysis with sub-agents for scanning, remediation, and cleanup.
 agent: general
 ---
 
@@ -10,15 +10,41 @@ agent: general
 
 You are orchestrating a **post-implementation hardening analysis** on the OpenSpec change: `$ARGUMENTS`
 
-This is a **multi-phase orchestration** - you spawn sub-agents for analysis, synthesize findings, then spawn targeted sub-agents for fixes.
+This is a **multi-phase orchestration** - you spawn sub-agents for analysis, synthesize findings, spawn targeted sub-agents for fixes, and execute cleanup.
+
+## Supported Flags
+
+Parse these flags from `$ARGUMENTS`:
+
+| Flag | Purpose |
+|------|---------|
+| `--no-cleanup` | Skip cleanup phase entirely (audit-only mode) |
+| `--execute` | Actually delete cleanup files (default is preview-only) |
+| `--interactive` | Select individual files to delete |
+| `--force` | No prompts, for scripting (requires --execute) |
+
+Example: `/openspec-harden my-change --execute` or `/openspec-harden my-change --no-cleanup`
 
 ## Pre-flight Checks
 
-### Step 1: Validate Arguments
+### Step 1: Validate Arguments and Parse Flags
 
-If `$ARGUMENTS` is empty or whitespace:
+Parse `$ARGUMENTS` to extract:
+- `change_id`: The change identifier (required)
+- `--no-cleanup`: Boolean flag to skip cleanup phase
+- `--execute`: Boolean flag to enable file deletion
+- `--interactive`: Boolean flag for individual file selection
+- `--force`: Boolean flag to skip all prompts
+
+If no change-id is provided (only flags or empty):
 ```
-Usage: /openspec-harden <change-id>
+Usage: /openspec-harden <change-id> [flags]
+
+Flags:
+  --no-cleanup    Skip cleanup phase (audit-only)
+  --execute       Delete identified cleanup files (default: preview only)
+  --interactive   Select individual files to delete
+  --force         No prompts, for scripting (requires --execute)
 
 Run `openspec list` to see available changes.
 ```
@@ -533,22 +559,21 @@ OVERALL STATUS: [READY|NEEDS_WORK|BLOCKED]
 
 **If NEEDS_WORK or BLOCKED**: Prompt user before spawning fix sub-agents:
 
+Display the issues found, then use `mcp_question` to prompt user:
+
 ```
-Found <N> issues requiring attention.
-
-Recommended fixes:
-1. [BLOCKER] <description> - estimated: <simple|moderate|complex>
-2. [HIGH] <description> - estimated: <simple|moderate|complex>
-3. [MEDIUM] <description> - estimated: <simple|moderate|complex>
-...
-
-Options:
-A) Spawn sub-agents to fix all issues automatically
-B) Spawn sub-agents for BLOCKER and HIGH issues only
-C) Show detailed report and let me fix manually
-D) Accept current state (skip fixes)
-
-Which would you like?
+Use mcp_question with:
+  header: "Fix Issues"
+  question: "Found <N> hardening issues. How would you like to proceed?"
+  options:
+    - label: "Fix all issues"
+      description: "Spawn sub-agents to fix all issues automatically"
+    - label: "Fix blockers and high only"
+      description: "Spawn sub-agents for BLOCKER and HIGH issues only"
+    - label: "Show report only"
+      description: "Display detailed report for manual fixing"
+    - label: "Accept current state"
+      description: "Skip fixes and proceed"
 ```
 
 ### Spawn Fix Sub-Agents

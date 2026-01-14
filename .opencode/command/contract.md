@@ -58,13 +58,22 @@ CHECKPOINTS:
 
 ### Step 3: Confirm and Lock
 
-Present the contract and ask for confirmation:
+Present the contract and use `mcp_question` to ask for confirmation:
 
 ```
-Contract ready. Do you accept these terms? (yes/no or suggest changes)
+Use mcp_question with:
+  header: "Confirm"
+  question: "Contract ready. Do you accept these terms?"
+  options:
+    - label: "Accept contract"
+      description: "Lock the contract and begin work"
+    - label: "Suggest changes"
+      description: "Modify criteria before locking"
+    - label: "Cancel"
+      description: "Discard the contract"
 ```
 
-Only proceed with work after explicit confirmation (yes, confirmed, let's go, accept, etc.).
+Only proceed with work after "Accept contract" is selected. If "Suggest changes" is selected, apply modifications and re-present.
 
 Once confirmed, the contract is **IMMUTABLE**. Neither you nor the user can modify success criteria without explicitly voiding the contract and creating a new one.
 
@@ -120,22 +129,25 @@ A **doom loop** is when you repeatedly attempt the same failing approach. Detect
 - Undoing and redoing the same changes
 
 **When detected:**
-```
-[GOOST:DOOM_LOOP]
 
-⚠️ DOOM LOOP DETECTED
+1. Emit `[GOOST:DOOM_LOOP]` marker with description
+2. Use `mcp_question` to present recovery options:
+   ```
+   Use mcp_question with:
+     header: "Recovery"
+     question: "I've attempted [approach] [N] times without success. Recurring issue: [error/problem]"
+     options:
+       - label: "Try alternative"
+         description: "[different strategy]"
+       - label: "Get more context"
+         description: "[question for user]"
+       - label: "Mark blocked"
+         description: "[explain blocker]"
+       - label: "Void contract"
+         description: "Cancel and reassess scope"
+   ```
 
-I've attempted [approach] [N] times without success.
-Recurring issue: [error/problem]
-
-Options:
-1. Try alternative: [different strategy]
-2. Need context: [question for user]
-3. Mark blocked: [explain blocker]
-4. Void contract
-```
-
-**STOP and wait for user direction.** Do not retry the same approach.
+**STOP and wait for user selection.** Do not retry the same approach.
 
 ### Contract Voiding
 
