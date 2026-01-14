@@ -205,6 +205,70 @@ rg -n "secret\s*=\s*['\"]" --type-add 'code:*.{ts,js,py,go}'
 ```
 Map to: `QUAL-003` (security_blindness)
 
+#### Dead Code Detection (MAINT-003)
+
+Dead code detection uses **language-specific static analysis tools** rather than regex patterns. Detect the tech stack from file extensions and run the appropriate tool.
+
+**Tool Selection by Language:**
+
+| Language | Tool | Install Check | Command |
+|----------|------|---------------|---------|
+| Python | `vulture` | `vulture --version` | `vulture <path> --min-confidence 80` |
+| TypeScript/JavaScript | `ts-prune` | `npx ts-prune --version` | `npx ts-prune` (for TS exports) |
+| TypeScript/JavaScript | `knip` | `npx knip --version` | `npx knip --no-exit-code` (comprehensive) |
+| Go | `deadcode` | `deadcode -help` | `deadcode ./...` |
+| Rust | `cargo-udeps` | `cargo udeps --version` | `cargo +nightly udeps` (unused deps) |
+| Java | `unused-code` | via build tool | Integrated with IDE/build |
+
+**Execution Flow:**
+
+1. **Detect tech stack** from scanned files:
+   ```bash
+   # Check for language markers
+   ls package.json tsconfig.json 2>/dev/null  # Node/TS project
+   ls pyproject.toml setup.py requirements.txt 2>/dev/null  # Python project
+   ls go.mod 2>/dev/null  # Go project
+   ls Cargo.toml 2>/dev/null  # Rust project
+   ```
+
+2. **Check tool availability** and suggest installation if missing:
+   ```
+   [DEAD CODE] Python detected, checking for vulture...
+   [DEAD CODE] vulture not found. Install with: pip install vulture
+   ```
+
+3. **Run appropriate tool** and parse output:
+   ```bash
+   # Python example
+   vulture <SCAN_PATH> --min-confidence 80 2>&1
+   
+   # TypeScript/JavaScript example (prefer knip for comprehensive analysis)
+   npx knip --no-exit-code 2>&1 || npx ts-prune 2>&1
+   
+   # Go example
+   deadcode ./... 2>&1
+   ```
+
+4. **Parse tool output** into standard finding format. Each tool has different output formats:
+   - **vulture**: `path/file.py:42: unused function 'foo' (90% confidence)`
+   - **knip**: Lists unused files, exports, dependencies, etc.
+   - **ts-prune**: `path/file.ts:42 - unusedExport`
+   - **deadcode**: `package.Function is unused`
+
+**If no tool available:**
+```
+[DEAD CODE] No dead code analysis tool found for detected languages.
+
+Suggested installations:
+  Python:     pip install vulture
+  TypeScript: npm install -D knip
+  Go:         go install golang.org/x/tools/cmd/deadcode@latest
+
+Skipping dead code detection for Phase 1. Phase 2 will attempt heuristic analysis.
+```
+
+Map findings to: `MAINT-003` (dead_code_accumulation)
+
 ### Phase 1 Finding Format
 
 For each match, create a finding:
@@ -229,6 +293,7 @@ After all patterns scanned:
 PHASE 1 COMPLETE
 ------------------------------------------------------------
 Patterns scanned: 15
+Dead code tool: <tool name or "skipped">
 Files checked: <N>
 Findings: <M>
 
@@ -240,6 +305,7 @@ Findings: <M>
   Hardcoded env: N
   AI signatures: N
   Security issues: N
+  Dead code: N
 ```
 
 **If `--phase 1` only:** Skip to Report Generation.
@@ -261,7 +327,7 @@ Spawn up to 9 parallel sub-agents, one per smell category:
 | Quality Scanner | QUAL-* | Happy path only, confident incorrectness, missing corners |
 | Documentation Scanner | DOC-* | Obvious comments, stale docs, copy-paste attribution |
 | Dependency Scanner | DEP-* | Bloat, version roulette, phantom deps, training leakage |
-| Maintainability Scanner | MAINT-* | Context collapse, style whiplash, language confusion |
+| Maintainability Scanner | MAINT-* | **Dead code detection**, context collapse, style whiplash, language confusion |
 | AI-Specific Scanner | AI-* | Sycophantic code, context blindness, hallucinated reports |
 | Performance Scanner | PERF-* | N+1 queries, excessive renders, algorithmic inefficiency |
 | Test Scanner | TEST-* | Magic numbers, assertion roulette, testing the mock |
