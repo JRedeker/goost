@@ -27,28 +27,38 @@ Example: `/openspec-harden my-change --execute` or `/openspec-harden my-change -
 
 ## Pre-flight Checks
 
-### Step 1: Validate Arguments and Parse Flags
+### Target Resolution Protocol (State-Changing Operation)
 
-Parse `$ARGUMENTS` to extract:
-- `change_id`: The change identifier (required)
-- `--no-cleanup`: Boolean flag to skip cleanup phase
-- `--execute`: Boolean flag to enable file deletion
-- `--interactive`: Boolean flag for individual file selection
-- `--force`: Boolean flag to skip all prompts
+Determine the target change ID:
 
-If no change-id is provided (only flags or empty):
-```
-Usage: /openspec-harden <change-id> [flags]
-
-Flags:
-  --no-cleanup    Skip cleanup phase (audit-only)
-  --execute       Delete identified cleanup files (default: preview only)
-  --interactive   Select individual files to delete
-  --force         No prompts, for scripting (requires --execute)
-
-Run `openspec list` to see available changes.
-```
-Then list active changes and stop.
+1. **If $ARGUMENTS contains only flags (--no-cleanup, --execute, etc.) or is empty**:
+   a. Run `openspec list` to get active changes
+   b. If exactly one active change exists:
+      - Use `mcp_question` to confirm:
+        ```
+        header: "Confirm"
+        question: "Proceed with '<change-id>'?"
+        options: "Yes (Recommended)", "Cancel"
+        ```
+      - Extract flags from original $ARGUMENTS
+      - If user cancels, stop execution
+   c. If multiple active changes exist:
+      - Use `mcp_question` to present selection:
+        ```
+        header: "Select"
+        question: "Which change would you like to harden?"
+        options: list of changes with task progress (e.g., "feature-x (3/8 tasks)")
+        ```
+      - Proceed with user's selection and extract flags
+   d. If no active changes exist:
+      - Display: "No active changes found"
+      - Suggest: "Run `/openspec-proposal` to create a new change"
+      - Stop execution
+2. **If $ARGUMENTS contains a change-id (with or without flags)**:
+   - Extract change-id from $ARGUMENTS
+   - Validate it exists (check archive if not in active)
+   - Extract any flags (--no-cleanup, --execute, --interactive, --force)
+   - Proceed with existing validation
 
 ### Step 2: Fetch Change Context
 

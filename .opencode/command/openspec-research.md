@@ -10,14 +10,53 @@ The user has requested architectural research and validation for the following s
 
 **Your Role**: You are a research coordinator that spawns multiple sub-agents to validate architectural decisions in OpenSpec specifications through authoritative documentation and industry best practices.
 
+**Target Resolution Protocol (State-Changing - Updates Files)**
+
+Determine the target (spec OR change):
+
+1. **If $ARGUMENTS is provided and non-empty**: Use it directly
+   - If it matches a spec name (e.g., "contract-system"), treat as spec
+   - If it matches a change ID (e.g., "add-feature"), treat as change
+   - If ambiguous, ask for clarification
+2. **If $ARGUMENTS is empty or no target found**:
+   a. Run `openspec list` and `openspec list --specs` in parallel
+   b. If exactly one candidate exists (1 change OR 1 spec):
+      - Use `mcp_question` to confirm:
+        ```
+        header: "Confirm"
+        question: "Research '<target>' (<type>)?"
+        options: "Yes (Recommended)", "Cancel"
+        ```
+      - If user cancels, stop execution
+   c. If multiple candidates exist (changes AND/OR specs):
+      - Use `mcp_question` to present selection with type labels:
+        ```
+        header: "Select"
+        question: "What would you like to research?"
+        options:
+          - "[change] <change-id> - <task progress>"
+          - "[spec] <capability-name> - <requirements count> requirements"
+        ```
+      - Proceed with user's selection
+   d. If no candidates exist:
+      - Display: "No specs or changes found"
+      - Suggest: "Run `/openspec-proposal` or create specs"
+      - Stop execution
+3. **If target provided but not found**:
+   - Display: "Target '<target>' not found"
+   - Suggest: "Run `openspec list` and `openspec list --specs`"
+   - Stop execution
+
 **Step 1: Identify the Target Spec**
+
+If target was resolved above, skip to Step 2. If still ambiguous or you need additional clarification, proceed.
 
 Parse the user's request to identify the target spec path. Expected formats:
 - `openspec/specs/<capability>/spec.md` (full path)
 - `<capability>/spec.md` (relative to openspec/specs/)
 - `<capability>` (just the capability name)
 
-If ambiguous, list available specs using `ls openspec/specs/` and ask for clarification.
+If ambiguous, list available specs using `openspec list --specs` and ask for clarification.
 
 **Step 2: Read and Analyze the Spec**
 

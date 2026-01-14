@@ -14,15 +14,32 @@ This is a **multi-phase orchestration** - you spawn sub-agents for analysis, syn
 
 ## Pre-flight Checks
 
-### Step 1: Validate Arguments
+### Target Resolution Protocol (Read-Only Operation)
 
-If `$ARGUMENTS` is empty or whitespace:
-```
-Usage: /openspec-review <change-id>
+Determine the target change ID:
 
-Run `openspec list` to see available changes.
-```
-Then list active changes and stop.
+1. **If $ARGUMENTS is provided and non-empty**: Use it directly as the target (existing behavior)
+2. **If $ARGUMENTS is empty or no target found**:
+   a. Run `openspec list` to get active changes
+   b. If exactly one active change exists:
+      - Display: "Using '<change-id>' (only active change)"
+      - Proceed with that change (no confirmation needed for read-only)
+   c. If multiple active changes exist:
+      - Use `mcp_question` to present selection:
+        ```
+        header: "Select"
+        question: "Which change would you like to review?"
+        options: list of changes with task progress (e.g., "feature-x (3/8 tasks)")
+        ```
+      - Proceed with user's selection
+   d. If no active changes exist:
+      - Display: "No active changes found"
+      - Suggest: "Run `/openspec-proposal` to create a new change"
+      - Stop execution
+3. **If target provided but invalid**:
+   - Display: "Change '<target>' not found in active changes"
+   - Check archive and proceed if found there
+   - Otherwise suggest `openspec list` and stop
 
 ### Step 2: Fetch Change Context
 

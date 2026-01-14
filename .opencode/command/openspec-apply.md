@@ -7,7 +7,41 @@ The user has requested to implement the following change proposal. Find the chan
 <UserRequest>
   $ARGUMENTS
 </UserRequest>
+
 <!-- OPENSPEC:START -->
+
+**Target Resolution Protocol (State-Changing Operation)**
+
+Before proceeding, determine the target change ID:
+
+1. **If $ARGUMENTS is provided and non-empty**: Use it directly as the target (existing behavior)
+2. **If $ARGUMENTS is empty or no target found**:
+   a. Run `openspec list` to get active changes
+   b. If exactly one active change exists:
+      - Use `mcp_question` to confirm:
+        ```
+        header: "Confirm"
+        question: "Proceed with '<change-id>'?"
+        options: "Yes (Recommended)", "Cancel"
+        ```
+      - If user cancels, stop execution
+   c. If multiple active changes exist:
+      - Use `mcp_question` to present selection:
+        ```
+        header: "Select"
+        question: "Which change would you like to work with?"
+        options: list of changes with task progress (e.g., "feature-x (3/8 tasks)")
+        ```
+      - Proceed with user's selection
+   d. If no active changes exist:
+      - Display: "No active changes found"
+      - Suggest: "Run `/openspec-proposal` to create a new change"
+      - Stop execution
+3. **If target provided but invalid**:
+   - Display: "Change '<target>' not found"
+   - Suggest: "Run `openspec list` to see available changes"
+   - Stop execution
+
 **Step 1: Read the Change Proposal**
 
 First, read the change proposal files:

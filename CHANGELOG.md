@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add Smart Target Resolution for OpenSpec commands - two-priority algorithm (explicit > structured selection) with risk-based confirmation via mcp_question
 - Standardize question tool usage across all Goost commands using `mcp_question` for consistent UX (b09bbc2)
 - Add User Interaction Protocol section to goost_instructions.md with examples and fallback protocol
 - Add contract conversion mode to `/goost-search` - optionally convert fetched prompts into structured contracts with security scanning, behavioral extraction, and HITL confirmation

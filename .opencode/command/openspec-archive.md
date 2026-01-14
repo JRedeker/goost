@@ -3,22 +3,48 @@ name: openspec-archive
 description: Archive a deployed OpenSpec change and update specs.
 agent: build
 ---
-<ChangeId>
-  $ARGUMENTS
-</ChangeId>
 <!-- OPENSPEC:START -->
+
+**Target Resolution Protocol (State-Changing Operation)**
+
+Determine the target change ID:
+
+1. **If $ARGUMENTS is provided and non-empty**: Use it directly as the target
+2. **If $ARGUMENTS is empty or no target found**:
+   a. Run `openspec list` to get active changes
+   b. If exactly one active change exists:
+      - Use `mcp_question` to confirm:
+        ```
+        header: "Confirm"
+        question: "Proceed with '<change-id>'?"
+        options: "Yes (Recommended)", "Cancel"
+        ```
+      - If user cancels, stop execution
+   c. If multiple active changes exist:
+      - Use `mcp_question` to present selection:
+        ```
+        header: "Select"
+        question: "Which change would you like to archive?"
+        options: list of changes with task progress (e.g., "feature-x (3/8 tasks)")
+        ```
+      - Proceed with user's selection
+   d. If no active changes exist:
+      - Display: "No active changes found"
+      - Suggest: "Run `/openspec-proposal` to create a new change"
+      - Stop execution
+3. **If target provided but invalid or already archived**:
+   - If not found: Display: "Change '<target>' not found in active changes"
+   - If already archived: Display: "Change '<target>' has already been archived"
+   - Suggest: "Run `openspec list` to see available changes"
+   - Stop execution
+
 **Guardrails**: See `openspec/AGENTS.md` for conventions and guidelines.
 
 **Steps**
-1. Determine the change ID to archive:
-   - If this prompt already includes a specific change ID (for example inside a `<ChangeId>` block populated by slash-command arguments), use that value after trimming whitespace.
-   - If the conversation references a change loosely (for example by title or summary), run `openspec list` to surface likely IDs, share the relevant candidates, and confirm which one the user intends.
-   - Otherwise, review the conversation, run `openspec list`, and ask the user which change to archive; wait for a confirmed change ID before proceeding.
-   - If you still cannot identify a single change ID, stop and tell the user you cannot archive anything yet.
-2. Validate the change ID by running `openspec list` (or `openspec show <id>`) and stop if the change is missing, already archived, or otherwise not ready to archive.
-3. Run `openspec archive <id> --yes` so the CLI moves the change and applies spec updates without prompts (use `--skip-specs` only for tooling-only work).
-4. Review the command output to confirm the target specs were updated and the change landed in `changes/archive/`.
-5. Validate with `openspec validate --strict` and inspect with `openspec show <id>` if anything looks off.
+1. Validate the resolved change ID by running `openspec list` (or `openspec show <id>`) and stop if the change is missing, already archived, or otherwise not ready to archive.
+2. Run `openspec archive <id> --yes` so the CLI moves the change and applies spec updates without prompts (use `--skip-specs` only for tooling-only work).
+3. Review the command output to confirm the target specs were updated and the change landed in `changes/archive/`.
+4. Validate with `openspec validate --strict` and inspect with `openspec show <id>` if anything looks off.
 
 **Reference**
 - Use `openspec list` to confirm change IDs before archiving.

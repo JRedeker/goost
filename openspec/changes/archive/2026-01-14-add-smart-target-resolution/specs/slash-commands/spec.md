@@ -51,9 +51,34 @@ All OpenSpec slash commands that operate on a specific change or spec target SHA
 - **THEN** the command SHALL display: "No active changes found"
 - **AND** suggest running `/openspec-proposal` to create a new change
 
+#### Scenario: Explicit target provided, target does not exist
+
+- **GIVEN** a user invokes an OpenSpec command with a non-existent target (e.g., `/openspec-apply nonexistent`)
+- **WHEN** the command processes the arguments
+- **THEN** the command SHALL display: "Change 'nonexistent' not found"
+- **AND** suggest running `openspec list` to see available changes
+- **AND** stop execution
+
+#### Scenario: mcp_question tool unavailable or fails
+
+- **GIVEN** a user invokes an OpenSpec command without a target
+- **AND** multiple active changes exist or confirmation is required
+- **WHEN** the `mcp_question` tool invocation fails (error, timeout, or unavailable)
+- **THEN** the command SHALL fall back to numbered list format:
+  ```
+  Select a change (type number or enter change-id):
+  1. <change-1> - <task progress>
+  2. <change-2> - <task progress>
+  3. Cancel
+  ```
+- **AND** accept number, change ID, or free text as response
+- **AND** log a warning noting that structured question tool was unavailable
+
+> **Observability Note**: When the fallback protocol is triggered, agents SHOULD log a warning to aid debugging. No metrics or tracing requirements apply to this change as it is purely a UX interaction pattern.
+
 ## MODIFIED Requirements
 
-### Requirement: The `/openspec-apply` command SHALL implement an approved OpenSpec change under contract enforcement, with smart target resolution when no target is explicitly provided.
+### OpenSpec Apply Command
 
 The `/openspec-apply` command SHALL implement an approved OpenSpec change under contract enforcement. When no target is provided, it SHALL use the Smart Target Resolution Protocol (state-changing variant) to determine which change to apply.
 
@@ -81,7 +106,7 @@ The `/openspec-apply` command SHALL implement an approved OpenSpec change under 
 - **THEN** the command SHALL use `feature-x` directly without resolution prompts
 - **AND** proceed with existing validation and implementation flow
 
-### Requirement: The `/openspec-review` command SHALL perform a comprehensive post-implementation code review of an OpenSpec change, with smart target resolution when no target is explicitly provided.
+### OpenSpec Review Command
 
 The `/openspec-review` command SHALL perform a comprehensive post-implementation code review of an OpenSpec change. When no target is provided, it SHALL use the Smart Target Resolution Protocol (read-only variant) to determine which change to review.
 
@@ -108,7 +133,14 @@ The `/openspec-review` command SHALL perform a comprehensive post-implementation
 - **THEN** the command SHALL use `feature-x` directly without resolution prompts
 - **AND** proceed with existing validation and review flow
 
-### Requirement: The `/openspec-harden` command SHALL perform post-implementation hardening analysis on an OpenSpec change, with smart target resolution when no target is explicitly provided.
+#### Scenario: Review invoked with archived change target
+
+- **GIVEN** user invokes `/openspec-review archived-change` where the change exists only in archive
+- **WHEN** the command executes
+- **THEN** the command SHALL proceed with the archived change
+- **AND** note: "This change has been archived. Performing post-archive review."
+
+### OpenSpec Harden Command
 
 The `/openspec-harden` command SHALL perform post-implementation hardening analysis on an OpenSpec change. When no target is provided, it SHALL use the Smart Target Resolution Protocol (state-changing variant because it offers to apply fixes) to determine which change to harden.
 
@@ -136,7 +168,14 @@ The `/openspec-harden` command SHALL perform post-implementation hardening analy
 - **THEN** the command SHALL use `feature-x` directly without resolution prompts
 - **AND** proceed with existing validation and hardening flow
 
-### Requirement: The `/openspec-archive` command SHALL archive a deployed OpenSpec change and update specs, with smart target resolution when no target is explicitly provided.
+#### Scenario: Harden invoked with archived change target
+
+- **GIVEN** user invokes `/openspec-harden archived-change` where the change exists only in archive
+- **WHEN** the command executes
+- **THEN** the command SHALL proceed with the archived change
+- **AND** note: "This change has been archived. Performing post-archive verification."
+
+### OpenSpec Archive Command
 
 The `/openspec-archive` command SHALL archive a deployed OpenSpec change and update specs. When no target is provided, it SHALL use the Smart Target Resolution Protocol (state-changing variant) to determine which change to archive.
 
@@ -164,7 +203,7 @@ The `/openspec-archive` command SHALL archive a deployed OpenSpec change and upd
 - **THEN** the command SHALL use `feature-x` directly without resolution prompts
 - **AND** proceed with existing archive flow
 
-### Requirement: The `/openspec-research` command SHALL research and validate architectural decisions with smart target resolution.
+### OpenSpec Research Command
 
 The `/openspec-research` command SHALL research and validate architectural decisions in an OpenSpec spec using sub-agents. When no target is provided, it SHALL use the Smart Target Resolution Protocol (state-changing variant because it updates files) to determine which spec or change to research.
 
