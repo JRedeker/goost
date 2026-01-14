@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Refactor negative instructions to positive framing across all commands and documentation (494ba50)
+  - Convert "Do NOT emit markers" → "Return findings directly" pattern across 12 sub-agent contexts
+  - Update anti-loop protocols to use action directives instead of prohibitions
+  - Preserve safety constraints (MUST NOT) per research validation
+  - Add Positive Framing guidance section to AGENTS.md
+
 ### Added
 - Add Smart Target Resolution for OpenSpec commands - two-priority algorithm (explicit > structured selection) with risk-based confirmation via mcp_question
 - Standardize question tool usage across all Goost commands using `mcp_question` for consistent UX (b09bbc2)
