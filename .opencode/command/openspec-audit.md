@@ -85,6 +85,10 @@ List all capability directories to audit:
 find openspec/specs -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null
 ```
 
+**TERMINATION CRITERIA (Discovery):**
+- If no capability directories are found, STOP and inform the user: "No capabilities found for audit in openspec/specs/."
+- Record the count of capabilities to be audited.
+
 Store the list - you'll pass it to sub-agents.
 
 ---
@@ -95,6 +99,7 @@ Store the list - you'll pass it to sub-agents.
 
 **Execution Order**: Due to data dependencies, sub-agents run in stages:
 1. **Stage 1**: Spec Parser (runs first, no dependencies)
+   - **TERMINATION CRITERIA**: If Spec Parser returns 0 requirements, STOP and inform user: "Audit aborted: No requirements found in the selected specs. Please ensure specs contain `### Requirement:` blocks."
 2. **Stage 2**: Code Mapper + Conflict Detector (run in parallel after Spec Parser completes)
 3. **Stage 3**: Drift Scanner (runs after Code Mapper completes)
 
@@ -219,21 +224,25 @@ SCOPE: <SCOPE value>
 REQUIREMENTS: <If <50 requirements, paste the requirements array here. Otherwise: "Read requirements from openspec/specs/<scope>/spec.md files">
 
 TASK:
-1. For each requirement with explicit file references:
+1. DEDUPLICATION PROTOCOL:
+   - Check if any files have already been mapped by other sub-agents in this session.
+   - If a file is already fully mapped, skip detailed analysis and use existing mapping.
+
+2. For each requirement with explicit file references:
    - Verify the referenced files exist
    - Note any missing files
 
-2. For requirements without explicit references:
+3. For requirements without explicit references:
    - Infer code locations from capability name
    - Search patterns: `**/<capability>/**`, `**/*<capability>*`
    - Include test files: `**/*.test.ts`, `**/*.spec.ts`, `test_*.py`, `*_test.py`, `*_test.go`
    - Assign confidence: HIGH (explicit ref), MEDIUM (name match), LOW (inferred)
 
-3. Build a bidirectional map:
+4. Build a bidirectional map:
    - Spec requirement → Code files
    - Code file → Spec requirements (for orphan detection)
 
-4. Flag unmapped specs (no code found)
+5. Flag unmapped specs (no code found)
 
 RETURN FORMAT:
 ```json
@@ -438,6 +447,12 @@ Sub-agents may fail or return partial results. Handle each case with specific fa
 
 **Retry Policy**: Retry at most once per sub-agent to avoid doom loops. If retry fails, proceed without that dimension's data.
 
+**HARD FALLBACK POLICY (No-Evidence Loop Prevention):**
+- If a sub-agent fails and fallback provides no evidence (e.g., Code Mapper finds 0 files, Spec Parser finds 0 requirements):
+  - **DO NOT CONTINUE** the audit for that scope.
+  - Abort the phase and report: "Insufficient evidence to proceed with audit for <scope>."
+  - This prevents the orchestrator from hallucinating an "ALIGNED" status based on zero data.
+
 **Concrete retry strategies by failure type:**
 
 | Failure | Retry Modification |
@@ -501,7 +516,12 @@ Build orphan list:
 
 **Goal**: Aggregate findings, determine overall health, generate recommendations.
 
-> **Anti-Loop Protocol**: After receiving all sub-agent results, immediately proceed to merging findings. Do NOT re-summarize what each sub-agent returned in prose—go straight to the structured synthesis steps below.
+> **Anti-Loop Protocol**: After receiving all sub-agent results, immediately proceed to merging findings. 
+> 
+> **>>> SYNTHESIS CHECKPOINT <<<**
+> Verify that all findings from all active sub-agents have been collected. If any dimension is missing or incomplete, ensure it is clearly marked in the internal state before proceeding.
+> 
+> Do NOT re-summarize what each sub-agent returned in prose—go straight to the structured synthesis steps below.
 
 ### Step 1: Merge All Findings
 

@@ -31,10 +31,34 @@ interface PluginState {
 }
 ```
 
+**Deduplication with Fuzzy Line Matching**:
+```typescript
+interface Finding {
+  file: string;
+  line: number;
+  type: string;
+  severity: string;
+}
+
+const seenFindings = new Set<string>(); // "file:line:type"
+
+// Fuzzy match within tolerance to handle AI precision variation (+/- 2 lines)
+function isDuplicate(finding: Finding): boolean {
+  for (let offset = -2; offset <= 2; offset++) {
+    const key = `${finding.file}:${finding.line + offset}:${finding.type}`;
+    if (seenFindings.has(key)) {
+      return true;
+    }
+  }
+  return false;
+}
+```
+
 **Trade-offs**:
 - Pro: Simple to implement, no coordination complexity
 - Con: Each command run starts fresh - no persistent state across sessions
 - Con: Memory grows over time - need to clear on session end (already happens)
+- Con: Deduplication at command synthesis layer is primary; plugin is secondary guardrail
 
 **Alternative Considered**: Shared memory via MCP - Rejected because it adds coordination complexity and failure modes.
 
@@ -77,6 +101,7 @@ Each transition requires:
 - All required sub-agents responded (or timed out)
 - Findings count matches expected from scope
 - Explicit checkpoint marker in output
+- Timeout fallback protection
 
 **Implementation**: Commands emit markers that plugin validates:
 ```typescript
@@ -87,12 +112,31 @@ Each transition requires:
 if (validateCheckpoint(marker, state)) {
   state.convergenceState.phase = 'MAPPING';
 }
+
+// Timeout fallback (5 minutes default)
+const PHASE_TIMEOUT_MS = 5 * 60 * 1000;
+if (Date.now() - phaseState.startTime > PHASE_TIMEOUT_MS) {
+  emitWarning(`Phase ${phase} timed out, proceeding with available findings`);
+  advancePhase();
+}
+```
+
+**Sub-Agent Response Tracking**:
+```typescript
+interface PhaseState {
+  phase: 'DISCOVERY' | 'MAPPING' | 'SYNTHESIS' | 'COMPLETE';
+  pendingSubAgents: Set<string>;
+  expectedFindings: number;
+  receivedFindings: number;
+  startTime: number;
+}
 ```
 
 **Trade-offs**:
 - Pro: Explicit, verifiable termination
 - Con: Changes command flow - requires checkpoint markers
 - Con: More complex to implement
+- Con: Single-point-of-failure if markers are malformed
 
 **Alternative Considered**: Automated counting - Rejected because content varies too much for reliable counting.
 
@@ -117,7 +161,7 @@ If validation fails: Output "INCOMPLETE - missing X" and continue working.
 
 **Problem**: Multiple scanners finding the same issue wastes tokens and creates noise.
 
-**Solution**: Track findings by file:line and skip duplicates:
+**Solution**: Track findings by file:line and skip duplicates with fuzzy line matching:
 
 ```typescript
 interface Finding {
@@ -129,29 +173,56 @@ interface Finding {
 
 const seenFindings = new Set<string>(); // "file:line:type"
 
+// Fuzzy match within tolerance (+/- 2 lines) to handle AI precision variation
 function addFinding(finding: Finding): boolean {
-  const key = `${finding.file}:${finding.line}:${finding.type}`;
-  if (seenFindings.has(key)) {
-    return false; // Duplicate
+  // Check for near-duplicates within tolerance
+  for (let offset = -2; offset <= 2; offset++) {
+    const key = `${finding.file}:${finding.line + offset}:${finding.type}`;
+    if (seenFindings.has(key)) {
+      return false; // Duplicate within tolerance
+    }
   }
-  seenFindings.add(key);
+  seenFindings.add(`${finding.file}:${finding.line}:${finding.type}`);
   return true; // Added
 }
 ```
 
 **Trade-offs**:
-- Pro: Simple, effective deduplication
-- Con: Same issue reported at different severity counts as duplicate
+- Pro: Simple, effective deduplication with AI precision tolerance
+- Con: Same issue reported at different severity counts as duplicate (within tolerance)
 - Con: Requires coordination across sub-agents
+- Con: Deduplication at command synthesis layer is primary; plugin is secondary guardrail
 
-**Alternative Considered**: Semantic deduplication - Rejected as too complex for current scope.
+**Alternative Considered**: Semantic deduplication using embeddings - Rejected as too complex for current scope; consider future enhancement for conceptual loop detection.
+
+### 6. Loop Anomaly Detection (Plugin)
+
+**Problem**: Large agent responses (>20k chars) often indicate infinite loops where the agent is repeating the same content or planning indefinitely.
+
+**Solution**: Implement real-time anomaly detection in the plugin. If a response exceeds a size threshold, scan for repetitive substrings (80+ characters appearing 3+ times).
+
+**Feedback Mechanism**:
+- Trigger terminal bell (OSC 7) if enabled
+- Update tab title with anomaly indicator
+- Append a suggestion to the agent response (hidden or system-visible) to consider doom loop state
+
+**Implementation**:
+```typescript
+function detectLoopAnomaly(text: string): boolean {
+  if (text.length < SIZE_THRESHOLD) return false;
+  // Sliding window substring check for large repetitions
+  // ... implementation details in plugin/index.ts
+}
+```
 
 ## File Changes Summary
 
 | File | Change Type | Rationale |
 |------|------------|-----------|
-| `plugin/types.ts` | Modify | Add SubAgentWork, ConvergenceState interfaces |
-| `plugin/contract.ts` | Modify | Add clearSubAgentFailures function |
+| `plugin/types.ts` | Modify | Add SubAgentWork, ConvergenceState, AnomalyState interfaces |
+| `plugin/contract.ts` | Modify | Add clearSubAgentFailures function, convergence handlers |
+| `plugin/index.ts` | Modify | Implement anomaly detection and feedback triggers |
+| `plugin/terminal.ts` | Modify | Add terminal feedback and anomaly indicators |
 | `.opencode/command/openspec-audit.md` | Modify | Add termination criteria, deduplication, fallback strategy |
 | `.opencode/command/openspec-review.md` | Modify | Add synthesis termination, deduplication |
 | `.opencode/command/goost-slop-scan.md` | Modify | Add coverage tracking, novelty detection |

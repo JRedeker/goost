@@ -423,7 +423,14 @@ Stop execution.
 
 **Goal**: YOU (the orchestrator) analyze the aggregated findings, cross-reference, and identify root causes.
 
-> **Anti-Loop Protocol**: After receiving sub-agent results, immediately begin aggregation. Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you catch yourself writing "The requirement traceability scanner found..." or similar summaries, STOP and proceed directly to grouping issues by severity.
+> **Anti-Loop Protocol**: After receiving sub-agent results, immediately begin aggregation. 
+> 
+> **>>> SYNTHESIS CHECKPOINT <<<**
+> Verify that all findings from all 4 sub-agents have been collected (or marked INCOMPLETE/TIMEOUT). 
+> - If < 4 scanners reported, ensure the missing dimensions are explicitly noted in the final report.
+> - Heuristic Check: If the change affects > 100 lines but total findings across all scanners is 0, perform a secondary spot check of the most modified file before declaring "APPROVED".
+> 
+> Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you catch yourself writing "The requirement traceability scanner found..." or similar summaries, STOP and proceed directly to grouping issues by severity.
 
 ### Step 1: Aggregate Issues
 
@@ -432,12 +439,13 @@ Combine all issues from successful sub-agents:
 - Group by file (issues in same file may be related)
 - Identify patterns (same issue type across multiple files)
 
-### Step 2: Deduplicate Findings
+### Step 2: Deduplication and Cross-Scanner Validation
 
 Check for overlapping findings:
-- Same file:line flagged by multiple scanners
-- Keep the most severe classification
-- Note which scanners agreed
+- Same file:line flagged by multiple scanners (e.g., Security AND Logic both flagging a null dereference).
+- **Deduplication Rule**: Keep the most severe classification. Merge descriptions if they provide complementary insights.
+- **Novelty Detection**: If multiple scanners report the same finding, treat it as high-confidence evidence of a core issue.
+- Note which scanners agreed in the detailed finding.
 
 ### Step 3: Cross-Reference with Spec
 

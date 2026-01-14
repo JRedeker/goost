@@ -10,6 +10,7 @@ import {
   type PluginState,
   type GoostStatus,
   type TaskOutput,
+  type SubAgentWork,
   CONTRACT_DELIMITER_MIN_LENGTH,
   CONTRACT_PATTERNS,
   CONTRACT_STATUS_HEADER,
@@ -78,6 +79,8 @@ export const createInitialState = (): PluginState => ({
   activeSubAgents: 0,
   contract: createEmptyContract(),
   subAgentFailures: new Map<string, number>(),
+  subAgentWork: new Map<string, SubAgentWork>(),
+  convergenceState: null,
   openSpecChange: null,
   sessionID: null,
   anomalyState: createInitialAnomalyState(),
@@ -305,7 +308,7 @@ export const getStatusText = (
 ): string => {
   switch (status) {
     case "doom_loop":
-      return "STUCK"
+      return "\u{1F6A8} LOOP DETECTED"
     case "mic":
       return ">>> APPROVAL NEEDED <<<"
     case "moon":
@@ -448,10 +451,27 @@ const processStatusBlock = (state: PluginState, content: string): PluginState =>
   if (statusBlockMatch) {
     const newCriteria = extractCriteria(statusBlockMatch[0])
     if (newCriteria.length > 0) {
-      return {
+      // Find criteria that were just completed (transition from [ ] to [x])
+      const newlyCompleted = newCriteria.filter((c) => {
+        if (!c.startsWith("[x]")) return false
+        const criterionText = c.substring(4)
+        return state.contract.criteriaStatus.some(
+          (old) => old.startsWith("[ ]") && old.substring(4) === criterionText
+        )
+      })
+
+      let newState = {
         ...state,
         contract: { ...state.contract, criteriaStatus: newCriteria },
       }
+
+      // Clear failures for newly completed criteria
+      for (const criterion of newlyCompleted) {
+        const criterionId = criterion.substring(4)
+        newState = clearSubAgentFailures(newState, criterionId)
+      }
+
+      return newState
     }
   }
   return state
@@ -574,6 +594,28 @@ export const recordSubAgentFailure = (state: PluginState, criterion: string): Pl
   const newFailures = new Map(state.subAgentFailures)
   const currentCount = newFailures.get(criterion) || 0
   newFailures.set(criterion, currentCount + 1)
+  return {
+    ...state,
+    subAgentFailures: newFailures,
+  }
+}
+
+/**
+ * Clear sub-agent failures for a specific criterion.
+ * Call when a criterion is successfully completed.
+ *
+ * @param state - Current plugin state
+ * @param criterionId - Criterion identifier to clear
+ * @returns Updated state with failure count reset
+ */
+export const clearSubAgentFailures = (state: PluginState, criterionId: string): PluginState => {
+  const newFailures = new Map(state.subAgentFailures)
+  newFailures.delete(criterionId)
+
+  if (process.env.GOOST_DEBUG === "1") {
+    console.error(`[Goost] Cleared failure count for completed criterion: ${criterionId}`)
+  }
+
   return {
     ...state,
     subAgentFailures: newFailures,

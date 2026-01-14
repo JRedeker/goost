@@ -316,21 +316,27 @@ Findings: <M>
 
 **Goal**: AI-assisted detection of complex patterns via parallel sub-agents.
 
-### Sub-Agent Architecture
+### Sub-Agent Architecture and Work Distribution
 
-Spawn up to 9 parallel sub-agents, one per smell category:
+Spawn up to 9 parallel sub-agents, one per smell category. 
 
-| Scanner | Category | Focus |
-|---------|----------|-------|
-| Hallucination Scanner | HALLU-* | Phantom imports, invented methods, version confusion |
-| Structure Scanner | STRUCT-* | Cargo cult patterns, context amnesia, frankencode |
-| Quality Scanner | QUAL-* | Happy path only, confident incorrectness, missing corners |
-| Documentation Scanner | DOC-* | Obvious comments, stale docs, copy-paste attribution |
-| Dependency Scanner | DEP-* | Bloat, version roulette, phantom deps, training leakage |
-| Maintainability Scanner | MAINT-* | **Dead code detection**, context collapse, style whiplash, language confusion |
-| AI-Specific Scanner | AI-* | Sycophantic code, context blindness, hallucinated reports |
-| Performance Scanner | PERF-* | N+1 queries, excessive renders, algorithmic inefficiency |
-| Test Scanner | TEST-* | Magic numbers, assertion roulette, testing the mock |
+**FILE COVERAGE PROTOCOL**:
+- Divide the `SCAN_PATH` file list among scanners based on relevance (e.g., Performance Scanner gets files > 100 lines, Security Scanner gets `api/`, `auth/`, `db/` files).
+- For general categories (Quality, Hallucination, Structure), divide the remaining files into non-overlapping batches.
+- **Deduplication**: Each file SHALL be processed by at most 3 scanners to ensure coverage without excessive redundancy.
+- Track which files were assigned to which scanners in the orchestrator state.
+
+| Scanner | Category | Focus | Batch Logic |
+|---------|----------|-------|-------------|
+| Hallucination Scanner | HALLU-* | Phantom imports, invented methods, version confusion | All files (Batched) |
+| Structure Scanner | STRUCT-* | Cargo cult patterns, context amnesia, frankencode | All files (Batched) |
+| Quality Scanner | QUAL-* | Happy path only, confident incorrectness, missing corners | All files (Batched) |
+| Documentation Scanner | DOC-* | Obvious comments, stale docs, copy-paste attribution | Export-heavy files |
+| Dependency Scanner | DEP-* | Bloat, version roulette, phantom deps, training leakage | Config files + imports |
+| Maintainability Scanner | MAINT-* | **Dead code detection**, context collapse, style whiplash, language confusion | All files (Batched) |
+| AI-Specific Scanner | AI-* | Sycophantic code, context blindness, hallucinated reports | Newest files (git) |
+| Performance Scanner | PERF-* | N+1 queries, excessive renders, algorithmic inefficiency | Large files (>100 lines) |
+| Test Scanner | TEST-* | Magic numbers, assertion roulette, testing the mock | `tests/`, `__tests__/` |
 
 ### Sub-Agent Prompt Template
 
@@ -343,17 +349,19 @@ SMELL DEFINITIONS:
 <paste relevant smells from slop-smells.yaml for this category>
 
 FILES TO SCAN:
-<list of files relevant to this category>
+<list of files relevant to this category - strictly non-overlapping with other sub-agents for same category>
 
 TASK:
 1. Read each file and analyze for the smell patterns in your category
-2. For each finding, provide:
+2. NOVELTY CHECK:
+   - If you detect an issue already found in Phase 1 (syntax pattern), ONLY report it if you provide significant semantic value beyond the regex match.
+3. For each finding, provide:
    - Smell ID (e.g., QUAL-002)
    - File and line number
    - Brief description of the issue
    - Suggested fix
-3. Focus on semantic issues, not syntax (Phase 1 handles syntax patterns)
-4. Return findings as JSON array
+4. Focus on semantic issues, not syntax (Phase 1 handles syntax patterns)
+5. Return findings as JSON array
 
 TIMEOUT: <TIMEOUT> seconds
 
@@ -381,16 +389,10 @@ RETURN FORMAT:
 Use the Task tool with `subagent_type: "explore"` for each scanner:
 
 ```
-Spawning Phase 2 sub-agents...
-- Hallucination Scanner: <N files>
-- Structure Scanner: <N files>
-- Quality Scanner: <N files>
-- Documentation Scanner: <N files>
-- Dependency Scanner: <N files>
-- Maintainability Scanner: <N files>
-- AI-Specific Scanner: <N files>
-- Performance Scanner: <N files>
-- Test Scanner: <N files>
+Spawning Phase 2 sub-agents with work-sharing...
+- Hallucination Scanner: Batch A (Files 1-20)
+- Structure Scanner: Batch B (Files 21-40)
+...
 ```
 
 ### Sub-Agent Timeout Handling
@@ -426,6 +428,7 @@ Suggestions:
 PHASE 2 COMPLETE
 ------------------------------------------------------------
 Sub-agents spawned: 9
+Work distribution: 100% file coverage achieved
 Successful: <N>
 Timed out: <N>
 Failed: <N>
@@ -438,12 +441,17 @@ Total findings: <M>
 
 > **Anti-Loop Protocol**: After Phase 2 sub-agents complete, proceed directly to aggregation. Do NOT re-summarize each scanner's findings in prose—go straight to combining and sorting findings below.
 
-### Aggregate Findings
+### Aggregate and Deduplicate Findings
 
-1. Combine Phase 1 and Phase 2 findings
-2. Sort by severity: CRITICAL > HIGH > MEDIUM > LOW
-3. Group by severity level
-4. Calculate summary statistics
+1. Combine Phase 1 and Phase 2 findings.
+2. **NOVELTY DETECTION AND DEDUPLICATION**:
+   - For findings in the same file:line with the same smell ID, merge into a single entry.
+   - Prefer Phase 2 (heuristic) description if available, as it typically provides more context.
+   - Cross-scanner deduplication: If multiple scanners report different issues on the same line, keep all (they may be different problems), but if they report the same problem, deduplicate.
+3. Sort by severity: CRITICAL > HIGH > MEDIUM > LOW
+4. Group by severity level
+5. Calculate summary statistics (Unique issue count per category)
+6. Calculate **Scanner Convergence**: Note if multiple scanners agreed on a specific finding (high-confidence).
 
 ### Text Report Format
 

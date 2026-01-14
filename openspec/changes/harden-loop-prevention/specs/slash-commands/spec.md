@@ -9,7 +9,7 @@ This delta adds loop prevention requirements to the slash-commands capability.
 Commands that perform analysis SHALL define explicit termination criteria before each phase transition, preventing infinite loops from ambiguous objectives.
 
 #### Scenario: Phase transition requires completion evidence
-- **GIVEN** a command with defined phases (e.g., Discovery, Mapping, Synthesis)
+- **GIVEN** a command with defined phases (e.g., DISCOVERY, MAPPING, SYNTHESIS)
 - **WHEN** transitioning from one phase to the next
 - **THEN** the command SHALL emit a checkpoint marker: `[GOOST:CHECKPOINT:PHASE_COMPLETE phase=<phase> findings=<count>]`
 - **AND** the checkpoint SHALL include evidence that the phase is actually complete (e.g., "All 15 requirements extracted")
@@ -67,13 +67,13 @@ Commands that spawn parallel sub-agents SHALL track which files each sub-agent p
 Commands with multi-phase analysis SHALL emit explicit convergence checkpoints that signal the transition between analysis states.
 
 #### Scenario: Discovery phase completion
-- **GIVEN** a command is in Discovery phase (e.g., parsing specs, extracting requirements)
+- **GIVEN** a command is in DISCOVERY phase (e.g., parsing specs, extracting requirements)
 - **WHEN** all required data has been collected
 - **THEN** the command SHALL emit: `[GOOST:CHECKPOINT:DISCOVERY_COMPLETE requirements=<count> scenarios=<count>]`
 - **AND** only then proceed to the next phase
 
 #### Scenario: Synthesis phase completion
-- **GIVEN** a command is in Synthesis phase (e.g., aggregating findings, cross-referencing)
+- **GIVEN** a command is in SYNTHESIS phase (e.g., aggregating findings, cross-referencing)
 - **WHEN** all findings have been aggregated and deduplicated
 - **THEN** the command SHALL emit: `[GOOST:CHECKPOINT:SYNTHESIS_COMPLETE findings=<count> duplicates=<count>]`
 - **AND** only then proceed to report generation
@@ -82,8 +82,15 @@ Commands with multi-phase analysis SHALL emit explicit convergence checkpoints t
 - **GIVEN** a command is waiting for a checkpoint
 - **WHEN** the expected checkpoint is not received
 - **THEN** the command SHALL continue waiting or timeout
-- **AND** NOT proceed to the next phase without the checkpoint
+- **AND** NOT proceed to the next phase without the checkpoint or timeout
 - **AND** note the missing checkpoint in output
+
+#### Scenario: Timeout fallback for missing checkpoint
+- **GIVEN** a command is waiting for a phase completion checkpoint
+- **WHEN** the timeout threshold is reached (default: 5 minutes) without checkpoint
+- **THEN** the command SHALL emit warning: "Phase <X> timed out, proceeding with available findings"
+- **AND** advance to the next phase with whatever findings are available
+- **AND** note the timeout in the report
 
 #### Scenario: Checkpoint validation
 - **GIVEN** a checkpoint marker is received

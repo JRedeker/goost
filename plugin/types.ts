@@ -37,6 +37,41 @@ export type GoostStatus =
   | "tdd_green"
 
 /**
+ * Analysis phase states for convergence tracking.
+ */
+export enum ConvergencePhase {
+  DISCOVERY = "DISCOVERY",
+  MAPPING = "MAPPING",
+  SYNTHESIS = "SYNTHESIS",
+  COMPLETE = "COMPLETE",
+}
+
+/**
+ * Convergence state for multi-phase analysis tracking.
+ */
+export interface ConvergenceState {
+  phase: ConvergencePhase
+  progress: number
+  checkpoints: string[]
+  pendingSubAgents: Set<string>
+  expectedFindings: number
+  receivedFindings: number
+  startTime: number
+  lastCheckpointTime?: number
+}
+
+/**
+ * Tracked work for a sub-agent/criterion.
+ */
+export interface SubAgentWork {
+  criterionId: string
+  files: Set<string>
+  findingsCount: number
+  status: "pending" | "complete" | "failed"
+  lastUpdated: number
+}
+
+/**
  * Contract state tracking structure
  */
 export interface ContractState {
@@ -65,6 +100,10 @@ export interface PluginState {
   contract: ContractState
   /** Sub-agent failure tracking per criterion (for doom loop detection) */
   subAgentFailures: Map<string, number>
+  /** Tracked work progress for sub-agents keyed by criterionId */
+  subAgentWork: Map<string, SubAgentWork>
+  /** Multi-phase analysis convergence state */
+  convergenceState: ConvergenceState | null
   /** Current OpenSpec change name (for tab title display) */
   openSpecChange: string | null
   /** Current session ID for abort calls */

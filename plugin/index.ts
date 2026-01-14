@@ -51,7 +51,14 @@ import {
   BashOutputSchema,
   TEST_FAILURE_PATTERNS,
 } from "./types"
-import { cleanupTerminal, getProjectName, updateTabColor, updateTitle, isTmux } from "./terminal"
+import {
+  cleanupTerminal,
+  getProjectName,
+  updateTabColor,
+  updateTitle,
+  isTmux,
+  emitAnomalyFeedback,
+} from "./terminal"
 import {
   createInitialState,
   createInitialAnomalyState,
@@ -254,7 +261,7 @@ async function checkForAnomaly(
   state: PluginState,
   ctx: EventHandlerContext
 ): Promise<PluginState> {
-  const { anomalyState, sessionID } = state
+  const { anomalyState } = state
 
   // Skip if already aborted this response (throttle)
   if (anomalyState.abortedThisResponse) {
@@ -304,23 +311,10 @@ async function checkForAnomaly(
     // Emit bell
     emitBell()
 
-    // Attempt abort
-    if (ctx.client && sessionID) {
-      try {
-        const abortResult = await ctx.client.session.abort({ path: { id: sessionID } })
-        if (abortResult.data) {
-          ctx.log(`  Session aborted successfully`)
-        } else {
-          ctx.log(`  Warning: Abort may have failed (returned false)`)
-        }
-      } catch (error) {
-        ctx.log(`  Warning: Abort threw error: ${error}`)
-      }
-    } else {
-      ctx.log(`  Warning: Cannot abort - client or sessionID not available`)
-    }
+    // Dispatch feedback via terminal
+    emitAnomalyFeedback(ctx.projectName, state.openSpecChange)
 
-    // Update state to doom_loop and mark as aborted
+    // Update state to doom_loop and mark as detected
     newAnomalyState = {
       ...newAnomalyState,
       abortedThisResponse: true,

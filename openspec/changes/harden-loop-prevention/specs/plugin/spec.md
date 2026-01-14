@@ -48,9 +48,11 @@ The plugin SHALL clear failure counters when a criterion succeeds, preventing sp
 
 #### Scenario: Clear failures on criterion completion
 - **GIVEN** a criterion has failure count > 0
-- **WHEN** the criterion is marked complete (`[x]`) in the contract
-- **THEN** the plugin SHALL reset the failure count to 0
+- **WHEN** the criterion is marked complete (`[x]`) in the contract status block
+- **THEN** the plugin SHALL detect the status transition from incomplete to complete
+- **AND** reset the failure count to 0
 - **AND** remove the criterion from the failure tracking map
+- **AND** log: "Cleared failure count for completed criterion: <criterionId>"
 
 #### Scenario: Clear failures on contract fulfillment
 - **GIVEN** a contract is fulfilled
@@ -69,6 +71,7 @@ The plugin SHALL clear failure counters when a criterion succeeds, preventing sp
 - **WHEN** the criterion is NOT complete
 - **THEN** the failure count SHALL persist across responses
 - **AND** be available for doom loop detection
+- **AND** be included in any doom loop warning message
 
 ### Requirement: Convergence State Management
 
@@ -81,6 +84,23 @@ The plugin SHALL maintain convergence state to track analysis phase progress and
   - Current phase: `DISCOVERY`
   - Phase progress: 0%
   - Checkpoints received: []
+  - Pending sub-agents: empty set
+  - Expected findings: 0
+  - Start time: current timestamp
+
+#### Scenario: Track pending sub-agents for phase
+- **GIVEN** a command spawns sub-agents for the current phase
+- **WHEN** sub-agents are spawned
+- **THEN** the plugin SHALL record each sub-agent in the pending set
+- **AND** track the expected finding count from the scope
+- **AND** update phase progress as responses arrive
+
+#### Scenario: Update progress on sub-agent response
+- **GIVEN** a sub-agent returns for the current phase
+- **WHEN** processing the response
+- **THEN** the plugin SHALL remove the sub-agent from pending set
+- **AND** increment received findings count
+- **AND** update phase progress percentage
 
 #### Scenario: Validate checkpoint for phase transition
 - **GIVEN** a command emits a checkpoint marker
@@ -107,6 +127,15 @@ The plugin SHALL maintain convergence state to track analysis phase progress and
   - SYNTHESIS -> COMPLETE
 - **AND** update convergence state with new phase
 - **AND** record checkpoint timestamp
+- **AND** clear pending sub-agents set
+
+#### Scenario: Timeout fallback for phase transition
+- **GIVEN** a command is in a phase waiting for sub-agents
+- **WHEN** the phase timeout is reached (default: 5 minutes) without checkpoint
+- **THEN** the plugin SHALL emit a timeout warning
+- **AND** allow the command to proceed with available findings
+- **AND** advance to the next phase
+- **AND** note the timeout in the convergence state history
 
 #### Scenario: Query current convergence state
 - **GIVEN** the plugin has convergence state
@@ -161,7 +190,7 @@ The plugin SHALL detect loop anomalies in agent responses and trigger user inter
 - **THEN** the plugin SHALL check for repetitive substrings (80+ chars appearing 3+ times)
 - **AND** emit anomaly detection result
 
-#### Scenario: Abort on loop detection
+#### Scenario: Suggest intervention on loop detection
 - **GIVEN** loop anomaly is detected in agent response
 - **WHEN** the detection threshold is reached
 - **THEN** the plugin SHALL:
@@ -181,3 +210,49 @@ The plugin SHALL detect loop anomalies in agent responses and trigger user inter
 - **WHEN** a new agent response begins
 - **THEN** the plugin SHALL reset anomaly detection state
 - **AND** prepare for fresh analysis
+
+#### Scenario: Structured logging for anomaly detection
+- **GIVEN** loop anomaly is detected
+- **WHEN** emitting detection result
+- **THEN** the plugin SHALL log structured event with:
+  - `event`: "loop_anomaly_detected"
+  - `responseSize`: character count
+  - `repeatedSubstring`: truncated sample (first 100 chars)
+  - `repeatCount`: number of occurrences
+  - `timestamp`: ISO 8601
+
+#### Scenario: Structured logging for convergence state changes
+- **GIVEN** convergence state changes (phase transition, checkpoint, timeout)
+- **WHEN** updating state
+- **THEN** the plugin SHALL log structured event with:
+  - `event`: "convergence_update"
+  - `previousPhase`: phase name
+  - `newPhase`: phase name
+  - `checkpointType`: type of checkpoint or "timeout"
+  - `findingsCount`: findings at transition
+  - `timestamp`: ISO 8601
+
+### Requirement: Plugin State Security
+
+The plugin SHALL validate and sanitize inputs when accessing or modifying state to prevent injection attacks.
+
+#### Scenario: Validate criterion ID format
+- **GIVEN** an event contains a criterion ID
+- **WHEN** accessing or modifying sub-agent work state
+- **THEN** the plugin SHALL validate the ID matches pattern `^[a-zA-Z0-9_-]+$`
+- **AND** reject IDs containing special characters or path traversal
+- **AND** log security event for invalid input attempt
+
+#### Scenario: Sanitize file paths in work records
+- **GIVEN** a sub-agent reports processed file paths
+- **WHEN** storing in work record
+- **THEN** the plugin SHALL sanitize paths to prevent path traversal
+- **AND** reject absolute paths outside project root
+- **AND** normalize path separators to forward slashes
+
+#### Scenario: Rate limit state mutations
+- **GIVEN** multiple rapid state mutation requests
+- **WHEN** processing events
+- **THEN** the plugin SHALL rate limit state updates to prevent abuse
+- **AND** emit warning when rate limit threshold exceeded
+- **AND** continue processing with oldest timestamp retained

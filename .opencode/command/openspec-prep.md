@@ -52,6 +52,14 @@ Read these files to understand current state:
 
 Analyze the spec across these dimensions, building a list of gaps to fix.
 
+**TERMINATION CRITERIA (Gap Analysis):**
+- Gap analysis is considered complete ONLY after:
+  1. All requirements in the spec have been checked for scenarios.
+  2. The codebase has been searched for at least 3 key terms from the spec (Phase 1.4).
+  3. At least 2 relevant libraries have been researched via Context7 (if applicable).
+  4. All deployed specs have been scanned for conflicts (Phase 1.6).
+- Record the count of gaps identified.
+
 > **Research Coordination Note**: If using sub-agents for parallel research (1.4-1.6), synthesize results into a **simple numbered list** of gaps. Do NOT attempt to hold all research details in working memory—extract only the actionable gaps.
 
 ### 1.1 Acceptance Criteria Completeness
@@ -277,6 +285,12 @@ After making all changes:
 ---
 
 ## Phase 5: Final Report
+
+**>>> FINAL ASSESSMENT CHECKPOINT <<<**
+Before fulfilling the contract, verify:
+- `openspec validate --strict` has passed in the previous turn.
+- All GAPS TO FIX from Phase 2 are marked `[x]`.
+- No new gaps were introduced during implementation.
 
 Generate the completion report:
 

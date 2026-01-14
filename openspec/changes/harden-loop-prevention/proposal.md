@@ -60,6 +60,15 @@ This change adds loop prevention infrastructure to the Goost plugin and command 
 ## Impact
 
 - **Affected specs**: `slash-commands`, `plugin`
+- **Affected code**:
+  - `plugin/types.ts` - Add SubAgentWork, ConvergenceState, PluginState interfaces
+  - `plugin/contract.ts` - Add clearSubAgentFailures function, convergence checkpoint handlers
+  - `plugin/index.ts` - Implement anomaly detection and feedback triggers
+  - `plugin/terminal.ts` - Add terminal feedback and anomaly indicators
+  - `.opencode/command/openspec-audit.md` - Add termination criteria, deduplication, fallback strategy
+  - `.opencode/command/openspec-review.md` - Add synthesis termination, deduplication
+  - `.opencode/command/goost-slop-scan.md` - Add coverage tracking, novelty detection
+  - `.opencode/command/openspec-prep.md` - Strengthen gap analysis termination
 - **Affected commands**: `openspec-audit`, `openspec-review`, `goost-slop-scan`, `openspec-prep`
 - **Breaking changes**: None - additive only
 - **Performance**: Minimal - adds lightweight state tracking
@@ -68,3 +77,12 @@ This change adds loop prevention infrastructure to the Goost plugin and command 
 
 - Analysis: `openspec/changes/harden-loop-prevention/design.md`
 - Implementation: `openspec/changes/harden-loop-prevention/tasks.md`
+
+## Spec Conflicts
+
+The Loop Anomaly Detection requirement differs from the deployed version in `openspec/specs/plugin/spec.md`:
+
+- **Deployed version**: Calls `client.session.abort()` to terminate response
+- **This change**: Suggests doom loop state to agent without forcibly aborting
+
+> **Intentional override**: This change makes loop detection less aggressive. The agent can self-correct when informed of the doom loop state, rather than being abruptly terminated. A future change proposal can update the deployed spec to match this behavior.

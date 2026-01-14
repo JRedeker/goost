@@ -58,6 +58,7 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 | `[GOOST:EARTH]` | 🌍 | Complete / awaiting user input |
 | `[GOOST:DOOM_LOOP]` | 🔄 | Stuck in retry cycle |
 | `[GOOST:MIC]` | 🎤 | Needs user approval |
+| `[GOOST:CHECKPOINT:<TYPE>]` | - | Convergence marker (PHASE_COMPLETE, etc.) |
 
 ### Sub-Agent Integration
 - Sub-agents spawned via OpenCode `task` tool
@@ -65,7 +66,8 @@ Goost is a contract-based task persistence protocol for OpenCode that prevents A
 - Parent agent must propagate contract context in sub-agent prompts
 - For implementation tasks, sub-agents should verify patterns via documentation tools
 - Plugin tracks active sub-agent count
-- Sub-agent failure tracking per criterion (doom loop detection after 3 failures)
+- Sub-agent failure tracking per criterion (doom loop detection after N failures, default N=3; analysis commands use N=2)
+- Convergence tracking for multi-phase analysis (DISCOVERY, MAPPING, SYNTHESIS)
 
 ## Important Constraints
 - Must work in non-interactive shell environments
