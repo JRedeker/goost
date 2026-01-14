@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Standardize question tool usage across all Goost commands using `mcp_question` for consistent UX (b09bbc2)
+- Add User Interaction Protocol section to goost_instructions.md with examples and fallback protocol
 - Add contract conversion mode to `/goost-search` - optionally convert fetched prompts into structured contracts with security scanning, behavioral extraction, and HITL confirmation
 - Add `/goost-search` command for curated prompt library discovery with security-first design (display-only mode, sanitization, warning banners)
 - Add `/goost-improve` command for architectural improvement analysis with evidence-based findings and hybrid `/goost-search` suggestions
