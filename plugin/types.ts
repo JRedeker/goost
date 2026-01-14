@@ -37,41 +37,6 @@ export type GoostStatus =
   | "tdd_green"
 
 /**
- * Analysis phase states for convergence tracking.
- */
-export enum ConvergencePhase {
-  DISCOVERY = "DISCOVERY",
-  MAPPING = "MAPPING",
-  SYNTHESIS = "SYNTHESIS",
-  COMPLETE = "COMPLETE",
-}
-
-/**
- * Convergence state for multi-phase analysis tracking.
- */
-export interface ConvergenceState {
-  phase: ConvergencePhase
-  progress: number
-  checkpoints: string[]
-  pendingSubAgents: Set<string>
-  expectedFindings: number
-  receivedFindings: number
-  startTime: number
-  lastCheckpointTime?: number
-}
-
-/**
- * Tracked work for a sub-agent/criterion.
- */
-export interface SubAgentWork {
-  criterionId: string
-  files: Set<string>
-  findingsCount: number
-  status: "pending" | "complete" | "failed"
-  lastUpdated: number
-}
-
-/**
  * Contract state tracking structure
  */
 export interface ContractState {
@@ -100,16 +65,8 @@ export interface PluginState {
   contract: ContractState
   /** Sub-agent failure tracking per criterion (for doom loop detection) */
   subAgentFailures: Map<string, number>
-  /** Tracked work progress for sub-agents keyed by criterionId */
-  subAgentWork: Map<string, SubAgentWork>
-  /** Multi-phase analysis convergence state */
-  convergenceState: ConvergenceState | null
   /** Current OpenSpec change name (for tab title display) */
   openSpecChange: string | null
-  /** Current session ID for abort calls */
-  sessionID: string | null
-  /** Anomaly detection state for current response */
-  anomalyState: AnomalyState
 }
 
 // =============================================================================
@@ -221,30 +178,8 @@ export const CONTRACT_STATUS_HEADER = "CONTRACT STATUS:"
  * Threshold for sub-agent failures before doom loop warning.
  * After this many consecutive failures for the same criterion,
  * the AI should be warned to consider alternative approaches.
- *
- * Configurable via GOOST_DOOM_LOOP_THRESHOLD environment variable.
  */
-export const getDoomLoopThreshold = (openSpecChange: string | null): number => {
-  // Use environment variable if set
-  const envThreshold = process.env.GOOST_DOOM_LOOP_THRESHOLD
-  if (envThreshold) {
-    const parsed = parseInt(envThreshold, 10)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-
-  // Analysis commands use a lower threshold (2)
-  if (openSpecChange?.match(/audit|review|slop-scan/i)) {
-    return 2
-  }
-
-  return 3 // Default
-}
-
-/**
- * Checkpoint marker pattern.
- * Matches [GOOST:CHECKPOINT:TYPE key=value ...]
- */
-export const CHECKPOINT_PATTERN = /\[GOOST:CHECKPOINT:([A-Z_]+)\s*([^\]]*)\]/g
+export const DOOM_LOOP_THRESHOLD = 3
 
 // =============================================================================
 // Zod Schemas for Runtime Validation
@@ -382,82 +317,3 @@ export const OPENSPEC_USER_REQUEST_PATTERN =
  */
 export const TEST_RUNNER_PATTERNS =
   /\b(npm test|yarn test|pnpm test|jest|mocha|pytest|vitest|go test|cargo test|rspec|bundle exec rspec|phpunit|npm run test|npm run spec|npm run coverage|pytest|tox|nox|nosetests)\b/i
-
-// =============================================================================
-// Loop Anomaly Detection
-// =============================================================================
-
-/**
- * Parse environment variable as integer with fallback to default.
- * Returns default if value is non-numeric or invalid.
- * Logs warning in debug mode when value is invalid.
- *
- * @internal Exported for testing only
- */
-export const parseEnvInt = (
-  value: string | undefined,
-  defaultValue: number,
-  envName?: string
-): number => {
-  if (!value) return defaultValue
-  const parsed = parseInt(value, 10)
-  if (Number.isNaN(parsed)) {
-    if (process.env.GOOST_DEBUG === "1" && envName) {
-      console.error(
-        `[Goost] Warning: Invalid value for ${envName}="${value}", using default ${defaultValue}`
-      )
-    }
-    return defaultValue
-  }
-  return parsed
-}
-
-/**
- * Parse environment variable as boolean (1/0 string).
- * Default is true (enabled).
- *
- * @internal Exported for testing only
- */
-export const parseEnvBool = (value: string | undefined, defaultValue: boolean): boolean => {
-  if (value === undefined) return defaultValue
-  return value !== "0"
-}
-
-/**
- * Anomaly detection configuration.
- * Loaded from environment variables with sensible defaults.
- */
-export const ANOMALY_CONFIG = {
-  /** Size threshold in characters before detection runs (default: 20000) */
-  SIZE_THRESHOLD: parseEnvInt(process.env.GOOST_ANOMALY_SIZE, 20000, "GOOST_ANOMALY_SIZE"),
-
-  /** Minimum substring length to check for repetition (80 chars ~= 10-15 words) */
-  REPETITION_MIN_LENGTH: 80,
-
-  /** Minimum occurrences to trigger detection */
-  REPETITION_MIN_COUNT: 3,
-
-  /** Interval between analysis checks during streaming (2000 chars) */
-  ANALYSIS_INTERVAL: 2000,
-
-  /** Whether to emit terminal bell on detection */
-  BELL_ENABLED: parseEnvBool(process.env.GOOST_ANOMALY_BELL, true),
-} as const
-
-/**
- * State for anomaly detection within a single response.
- * Reset when session status changes (new response starts).
- */
-export interface AnomalyState {
-  /** Length of content when last analysis was performed */
-  lastAnalyzedLength: number
-
-  /** Whether an abort has been triggered for the current response */
-  abortedThisResponse: boolean
-
-  /** Whether a tool is currently executing (prevents abort during tool) */
-  toolExecuting: boolean
-
-  /** Whether an abort is queued pending tool completion */
-  abortQueued: boolean
-}

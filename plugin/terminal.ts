@@ -437,24 +437,3 @@ export const updateTitle = (
   log(`updateTitle: FINAL title="${title}"`)
   setTitle(title)
 }
-
-/**
- * Emit visual feedback for loop anomaly detection.
- * Updates tab color and title with alert indicator.
- *
- * @param projectName - Current project name
- * @param openSpecChange - Current OpenSpec change name
- */
-export const emitAnomalyFeedback = (projectName: string, openSpecChange: string | null): void => {
-  log(`emitAnomalyFeedback: project=${projectName}, change=${openSpecChange}`)
-
-  // Set tab color to orange (warning)
-  updateTabColor("doom_loop")
-
-  // Update title with alert prefix
-  const alertPrefix = "\u{1F6A8} LOOP DETECTED" // Siren emoji
-  const changeInfo = openSpecChange ? `: ${openSpecChange}` : ""
-  const title = `${alertPrefix} ${projectName}${changeInfo}`
-
-  setTitle(title)
-}

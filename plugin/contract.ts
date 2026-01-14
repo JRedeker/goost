@@ -10,44 +10,18 @@ import {
   type PluginState,
   type GoostStatus,
   type TaskOutput,
-  type SubAgentWork,
-  ConvergencePhase,
   CONTRACT_DELIMITER_MIN_LENGTH,
   CONTRACT_PATTERNS,
   CONTRACT_STATUS_HEADER,
   GOOST_MARKERS,
   STATUS_EMOJIS,
   FAILURE_PATTERNS,
-  getDoomLoopThreshold,
+  DOOM_LOOP_THRESHOLD,
   OPENSPEC_COMMAND_PATTERN,
   OPENSPEC_CHANGE_PATH_PATTERN,
   OPENSPEC_USER_REQUEST_PATTERN,
   TEST_RUNNER_PATTERNS,
-  CHECKPOINT_PATTERN,
 } from "./types"
-
-// =============================================================================
-// Security & Validation
-// =============================================================================
-
-/**
- * Validate criterion ID format to prevent injection or malformed state keys.
- * Matches alphanumeric, underscores, and hyphens.
- */
-export const validateCriterionId = (id: string): boolean => {
-  return /^[a-zA-Z0-9_-]+$/.test(id)
-}
-
-/**
- * Sanitize file path to prevent path traversal and normalize separators.
- * Normalizes to forward slashes.
- */
-export const sanitizePath = (path: string): string => {
-  // Normalize separators
-  const normalized = path.replace(/\\/g, "/")
-  // Basic path traversal prevention - remove ../
-  return normalized.replace(/\.\.\//g, "")
-}
 
 // =============================================================================
 // Factory Functions
@@ -84,29 +58,6 @@ export const createActiveContract = (block: string): ContractState => ({
 })
 
 /**
- * Create initial anomaly detection state.
- */
-export const createInitialAnomalyState = () => ({
-  lastAnalyzedLength: 0,
-  abortedThisResponse: false,
-  toolExecuting: false,
-  abortQueued: false,
-})
-
-/**
- * Create initial convergence state.
- */
-export const createInitialConvergenceState = () => ({
-  phase: ConvergencePhase.DISCOVERY,
-  progress: 0,
-  checkpoints: [],
-  pendingSubAgents: new Set<string>(),
-  expectedFindings: 0,
-  receivedFindings: 0,
-  startTime: Date.now(),
-})
-
-/**
  * Create initial plugin state.
  * Use on plugin initialization.
  */
@@ -116,11 +67,7 @@ export const createInitialState = (): PluginState => ({
   activeSubAgents: 0,
   contract: createEmptyContract(),
   subAgentFailures: new Map<string, number>(),
-  subAgentWork: new Map<string, SubAgentWork>(),
-  convergenceState: null,
   openSpecChange: null,
-  sessionID: null,
-  anomalyState: createInitialAnomalyState(),
 })
 
 // =============================================================================
@@ -228,63 +175,6 @@ export const parseContractStatus = (text: string): string => {
     return `${match[1]}/${match[2]}`
   }
   return ""
-}
-
-/**
- * Process checkpoint markers in content.
- */
-export const processCheckpoints = (state: PluginState, content: string): PluginState => {
-  const matches = content.matchAll(CHECKPOINT_PATTERN)
-  let newState = { ...state }
-
-  for (const match of matches) {
-    const type = match[1]
-    const paramsStr = match[2]
-    const params: Record<string, string> = {}
-
-    // Parse key=value pairs
-    const paramMatches = paramsStr.matchAll(/(\w+)=([^\s\]]+)/g)
-    for (const pMatch of paramMatches) {
-      params[pMatch[1]] = pMatch[2]
-    }
-
-    if (process.env.GOOST_DEBUG === "1") {
-      console.error(`[Goost] Checkpoint detected: ${type}`, params)
-    }
-
-    // Update convergence state if active
-    if (newState.convergenceState) {
-      const { convergenceState } = newState
-      const checkpoints = [...convergenceState.checkpoints, type]
-
-      // Handle phase transitions
-      let { phase } = convergenceState
-      if (type === "PHASE_COMPLETE" || type.endsWith("_COMPLETE")) {
-        const nextPhaseMap: Record<string, ConvergencePhase> = {
-          [ConvergencePhase.DISCOVERY]: ConvergencePhase.MAPPING,
-          [ConvergencePhase.MAPPING]: ConvergencePhase.SYNTHESIS,
-          [ConvergencePhase.SYNTHESIS]: ConvergencePhase.COMPLETE,
-          [ConvergencePhase.COMPLETE]: ConvergencePhase.COMPLETE,
-        }
-        phase = nextPhaseMap[phase] || phase
-      }
-
-      newState = {
-        ...newState,
-        convergenceState: {
-          ...convergenceState,
-          phase,
-          checkpoints,
-          lastCheckpointTime: Date.now(),
-          receivedFindings: params.findings
-            ? parseInt(params.findings, 10)
-            : convergenceState.receivedFindings,
-        },
-      }
-    }
-  }
-
-  return newState
 }
 
 // =============================================================================
@@ -417,14 +307,7 @@ export const processMessageContent = (state: PluginState, content: string): Plug
 
   if (contractActivated) {
     newState = processContractActivation(newState, content)
-    // Initialize convergence state if it looks like an analysis command
-    if (newState.openSpecChange?.match(/audit|review|slop-scan/i)) {
-      newState.convergenceState = createInitialConvergenceState()
-    }
   }
-
-  // Process checkpoints
-  newState = processCheckpoints(newState, content)
 
   if (newState.contract.active) {
     newState = processStatusBlock(newState, content)
@@ -525,7 +408,6 @@ const processContractEnd = (state: PluginState): PluginState => ({
   contract: createEmptyContract(),
   subAgentFailures: new Map<string, number>(),
   openSpecChange: null,
-  convergenceState: null,
 })
 
 /**
@@ -595,7 +477,7 @@ export const isSubAgentEmpty = (output: TaskOutput): boolean => {
  */
 export const extractCriterionFromTask = (description: string | undefined): string => {
   const text = description?.trim() || "unknown"
-  // Normalize to kebab-case for safe Map keys and ID validation
+  // Normalize to kebab-case for safe Map keys
   return text
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
@@ -636,53 +518,6 @@ export const clearSubAgentFailures = (state: PluginState, criterionId: string): 
  * Check if a criterion has reached the doom loop threshold.
  */
 export const isDoomLoopReached = (state: PluginState, criterion: string): boolean => {
-  const threshold = getDoomLoopThreshold(state.openSpecChange)
   const failures = state.subAgentFailures.get(criterion) || 0
-  return failures >= threshold
-}
-
-/**
- * Record sub-agent work scope.
- */
-export const recordSubAgentWork = (
-  state: PluginState,
-  criterionId: string,
-  files: string[]
-): PluginState => {
-  const newWork = new Map(state.subAgentWork)
-  const sanitizedFiles = new Set(files.map(sanitizePath))
-
-  newWork.set(criterionId, {
-    criterionId,
-    files: sanitizedFiles,
-    findingsCount: 0,
-    status: "pending",
-    lastUpdated: Date.now(),
-  })
-
-  return { ...state, subAgentWork: newWork }
-}
-
-/**
- * Update sub-agent work on completion.
- */
-export const updateSubAgentWork = (
-  state: PluginState,
-  criterionId: string,
-  findingsCount: number,
-  status: "complete" | "failed"
-): PluginState => {
-  const newWork = new Map(state.subAgentWork)
-  const existing = newWork.get(criterionId)
-
-  if (existing) {
-    newWork.set(criterionId, {
-      ...existing,
-      findingsCount,
-      status,
-      lastUpdated: Date.now(),
-    })
-  }
-
-  return { ...state, subAgentWork: newWork }
+  return failures >= DOOM_LOOP_THRESHOLD
 }

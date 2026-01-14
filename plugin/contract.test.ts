@@ -1,125 +1,217 @@
 /**
- * Tests for contract.ts - Anomaly state factory functions
- *
- * Covers spec scenarios:
- * - Throttle reset on new response (createInitialAnomalyState)
- * - Initial state structure
+ * Tests for contract.ts - Contract state management
  */
 
 import { describe, it, expect } from "vitest"
-import { createInitialAnomalyState, createInitialState } from "./contract"
+import {
+  createInitialState,
+  createEmptyContract,
+  createActiveContract,
+  processMessageContent,
+  updateStateStatus,
+  extractCriterionFromTask,
+  recordSubAgentFailure,
+  clearSubAgentFailures,
+  isDoomLoopReached,
+} from "./contract"
 
-describe("createInitialAnomalyState", () => {
+describe("createInitialState", () => {
   it("creates state with all fields initialized to defaults", () => {
-    const state = createInitialAnomalyState()
+    const state = createInitialState()
 
-    expect(state).toEqual({
-      lastAnalyzedLength: 0,
-      abortedThisResponse: false,
-      toolExecuting: false,
-      abortQueued: false,
-    })
+    expect(state.status).toBe("idle")
+    expect(state.activeSubAgents).toBe(0)
+    expect(state.contract.active).toBe(false)
+    expect(state.subAgentFailures.size).toBe(0)
+    expect(state.openSpecChange).toBeNull()
   })
 
   it("returns a new object each time (not shared reference)", () => {
-    const state1 = createInitialAnomalyState()
-    const state2 = createInitialAnomalyState()
+    const state1 = createInitialState()
+    const state2 = createInitialState()
 
     expect(state1).not.toBe(state2)
-    expect(state1).toEqual(state2)
-  })
-
-  it("has immutable-friendly structure", () => {
-    const state = createInitialAnomalyState()
-
-    // Can be spread for updates (immutable pattern)
-    const updated = { ...state, abortedThisResponse: true }
-
-    expect(updated.abortedThisResponse).toBe(true)
-    expect(state.abortedThisResponse).toBe(false) // Original unchanged
+    expect(state1.subAgentFailures).not.toBe(state2.subAgentFailures)
   })
 })
 
-describe("createInitialState (plugin state)", () => {
-  it("includes anomalyState in initial plugin state", () => {
-    const state = createInitialState()
+describe("createEmptyContract", () => {
+  it("creates an inactive contract state", () => {
+    const contract = createEmptyContract()
 
-    expect(state.anomalyState).toBeDefined()
-    expect(state.anomalyState).toEqual({
-      lastAnalyzedLength: 0,
-      abortedThisResponse: false,
-      toolExecuting: false,
-      abortQueued: false,
-    })
-  })
-
-  it("creates complete plugin state structure", () => {
-    const state = createInitialState()
-
-    // Verify anomaly state is part of full state
-    expect(state).toHaveProperty("status")
-    expect(state).toHaveProperty("icon")
-    expect(state).toHaveProperty("contract")
-    expect(state).toHaveProperty("anomalyState")
+    expect(contract.active).toBe(false)
+    expect(contract.text).toBeNull()
+    expect(contract.objective).toBeNull()
+    expect(contract.criteriaStatus).toEqual([])
+    expect(contract.progress).toBe("")
   })
 })
 
-describe("anomaly state usage patterns", () => {
-  it("tracks analysis progress via lastAnalyzedLength", () => {
-    const initial = createInitialAnomalyState()
-    expect(initial.lastAnalyzedLength).toBe(0)
+describe("createActiveContract", () => {
+  it("parses contract block and extracts objective", () => {
+    const block = `========================================
+CONTRACT ACTIVE
+========================================
+OBJECTIVE: Complete the task
 
-    // After analyzing 25000 chars
-    const afterAnalysis = { ...initial, lastAnalyzedLength: 25000 }
-    expect(afterAnalysis.lastAnalyzedLength).toBe(25000)
+SUCCESS CRITERIA:
+- [ ] First criterion
+- [ ] Second criterion
+========================================`
+
+    const contract = createActiveContract(block)
+
+    expect(contract.active).toBe(true)
+    expect(contract.text).toBe(block)
+    expect(contract.objective).toBe("Complete the task")
   })
 
-  it("tracks abort status via abortedThisResponse", () => {
-    const initial = createInitialAnomalyState()
-    expect(initial.abortedThisResponse).toBe(false)
+  it("extracts criteria from contract block", () => {
+    const block = `========================================
+CONTRACT ACTIVE
+========================================
+OBJECTIVE: Test
 
-    // After an abort is triggered
-    const afterAbort = { ...initial, abortedThisResponse: true }
-    expect(afterAbort.abortedThisResponse).toBe(true)
+SUCCESS CRITERIA:
+- [ ] Unchecked item
+- [x] Checked item
+- [?] Unknown item
+========================================`
+
+    const contract = createActiveContract(block)
+
+    expect(contract.criteriaStatus).toEqual([
+      "[ ] Unchecked item",
+      "[x] Checked item",
+      "[?] Unknown item",
+    ])
+  })
+})
+
+describe("processMessageContent", () => {
+  it("detects CONTRACT ACTIVE and activates contract", () => {
+    const state = createInitialState()
+    const content = `========================================
+CONTRACT ACTIVE
+========================================
+OBJECTIVE: Test objective
+
+SUCCESS CRITERIA:
+- [ ] Do something
+========================================`
+
+    const newState = processMessageContent(state, content)
+
+    expect(newState.contract.active).toBe(true)
+    expect(newState.contract.objective).toBe("Test objective")
   })
 
-  it("tracks tool execution state", () => {
-    const initial = createInitialAnomalyState()
-    expect(initial.toolExecuting).toBe(false)
+  it("detects CONTRACT FULFILLED and deactivates contract", () => {
+    const state = {
+      ...createInitialState(),
+      contract: { ...createEmptyContract(), active: true },
+    }
+    const content = "CONTRACT FULFILLED - all criteria met"
 
-    // During tool execution
-    const duringTool = { ...initial, toolExecuting: true }
-    expect(duringTool.toolExecuting).toBe(true)
+    const newState = processMessageContent(state, content)
+
+    expect(newState.contract.active).toBe(false)
+    expect(newState.status).toBe("earth")
   })
 
-  it("tracks queued abort state", () => {
-    const initial = createInitialAnomalyState()
-    expect(initial.abortQueued).toBe(false)
+  it("detects CONTRACT VOIDED and deactivates contract", () => {
+    const state = {
+      ...createInitialState(),
+      contract: { ...createEmptyContract(), active: true },
+    }
+    const content = "CONTRACT VOIDED - user requested changes"
 
-    // When abort is queued during tool execution
-    const queued = { ...initial, toolExecuting: true, abortQueued: true }
-    expect(queued.abortQueued).toBe(true)
-    expect(queued.toolExecuting).toBe(true)
+    const newState = processMessageContent(state, content)
+
+    expect(newState.contract.active).toBe(false)
   })
 
-  it("resets all flags for new response (throttle reset scenario)", () => {
-    // Simulate state after an abort was triggered and tool completed
-    const afterActivity = {
-      lastAnalyzedLength: 30000,
-      abortedThisResponse: true,
-      toolExecuting: false,
-      abortQueued: false,
+  it("detects OpenSpec change from path references", () => {
+    const state = createInitialState()
+    const content = "Working on openspec/changes/add-feature/proposal.md"
+
+    const newState = processMessageContent(state, content)
+
+    expect(newState.openSpecChange).toBe("add-feature")
+  })
+})
+
+describe("updateStateStatus", () => {
+  it("updates status and icon", () => {
+    const state = createInitialState()
+
+    const newState = updateStateStatus(state, "work")
+
+    expect(newState.status).toBe("work")
+    expect(newState.icon).toBe("\u{1F680}") // Rocket emoji
+  })
+
+  it("preserves other state fields", () => {
+    const state = {
+      ...createInitialState(),
+      activeSubAgents: 2,
+      openSpecChange: "test-change",
     }
 
-    // On new response, reset to initial
-    const reset = createInitialAnomalyState()
+    const newState = updateStateStatus(state, "moon")
 
-    expect(reset.lastAnalyzedLength).toBe(0)
-    expect(reset.abortedThisResponse).toBe(false)
-    expect(reset.toolExecuting).toBe(false)
-    expect(reset.abortQueued).toBe(false)
+    expect(newState.activeSubAgents).toBe(2)
+    expect(newState.openSpecChange).toBe("test-change")
+  })
+})
 
-    // Verify it's different from the active state
-    expect(reset).not.toEqual(afterActivity)
+describe("extractCriterionFromTask", () => {
+  it("normalizes task description to kebab-case", () => {
+    expect(extractCriterionFromTask("Check the files")).toBe("check-the-files")
+    expect(extractCriterionFromTask("Run Tests")).toBe("run-tests")
+  })
+
+  it("handles undefined input", () => {
+    expect(extractCriterionFromTask(undefined)).toBe("unknown")
+  })
+
+  it("handles empty input", () => {
+    expect(extractCriterionFromTask("")).toBe("unknown")
+    expect(extractCriterionFromTask("   ")).toBe("unknown")
+  })
+})
+
+describe("sub-agent failure tracking", () => {
+  it("records failures for criterion", () => {
+    let state = createInitialState()
+
+    state = recordSubAgentFailure(state, "test-criterion")
+    expect(state.subAgentFailures.get("test-criterion")).toBe(1)
+
+    state = recordSubAgentFailure(state, "test-criterion")
+    expect(state.subAgentFailures.get("test-criterion")).toBe(2)
+  })
+
+  it("clears failures for criterion", () => {
+    let state = createInitialState()
+    state = recordSubAgentFailure(state, "test-criterion")
+    state = recordSubAgentFailure(state, "test-criterion")
+
+    state = clearSubAgentFailures(state, "test-criterion")
+
+    expect(state.subAgentFailures.has("test-criterion")).toBe(false)
+  })
+
+  it("detects doom loop threshold", () => {
+    let state = createInitialState()
+
+    // Below threshold
+    state = recordSubAgentFailure(state, "test-criterion")
+    state = recordSubAgentFailure(state, "test-criterion")
+    expect(isDoomLoopReached(state, "test-criterion")).toBe(false)
+
+    // At threshold (3)
+    state = recordSubAgentFailure(state, "test-criterion")
+    expect(isDoomLoopReached(state, "test-criterion")).toBe(true)
   })
 })

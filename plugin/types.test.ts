@@ -1,133 +1,168 @@
 /**
- * Tests for types.ts - Environment variable parsing and config
- *
- * Covers spec scenarios:
- * - Custom size threshold via GOOST_ANOMALY_SIZE
- * - Default thresholds when env vars not set
- * - Invalid size threshold value (debug warning)
- * - Bell enable/disable via GOOST_ANOMALY_BELL
+ * Tests for types.ts - Type definitions and constants
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
-import { parseEnvInt, parseEnvBool, ANOMALY_CONFIG } from "./types"
+import { describe, it, expect } from "vitest"
+import {
+  STATUS_EMOJIS,
+  TAB_COLORS,
+  GOOST_MARKERS,
+  CONTRACT_PATTERNS,
+  EVENT_TYPES,
+  TOOL_NAMES,
+  isTaskTool,
+  DOOM_LOOP_THRESHOLD,
+  SessionStatusPropsSchema,
+  MessageUpdatedPropsSchema,
+  TaskArgsSchema,
+  TaskOutputSchema,
+} from "./types"
 
-describe("parseEnvInt", () => {
-  let consoleErrorSpy: ReturnType<typeof vi.spyOn>
-  const originalDebug = process.env.GOOST_DEBUG
-
-  beforeEach(() => {
-    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+describe("STATUS_EMOJIS", () => {
+  it("has emojis for all statuses", () => {
+    expect(STATUS_EMOJIS.idle).toBeDefined()
+    expect(STATUS_EMOJIS.work).toBeDefined()
+    expect(STATUS_EMOJIS.moon).toBeDefined()
+    expect(STATUS_EMOJIS.earth).toBeDefined()
+    expect(STATUS_EMOJIS.mic).toBeDefined()
+    expect(STATUS_EMOJIS.doom_loop).toBeDefined()
+    expect(STATUS_EMOJIS.tdd_red).toBeDefined()
+    expect(STATUS_EMOJIS.tdd_green).toBeDefined()
   })
 
-  afterEach(() => {
-    consoleErrorSpy.mockRestore()
-    process.env.GOOST_DEBUG = originalDebug
+  it("work and rocket share the same icon", () => {
+    expect(STATUS_EMOJIS.work).toBe(STATUS_EMOJIS.rocket)
   })
 
-  it("returns default when value is undefined", () => {
-    expect(parseEnvInt(undefined, 100)).toBe(100)
-    expect(parseEnvInt(undefined, 20000)).toBe(20000)
-  })
-
-  it("returns default when value is empty string", () => {
-    expect(parseEnvInt("", 100)).toBe(100)
-  })
-
-  it("parses valid integer strings", () => {
-    expect(parseEnvInt("50000", 20000)).toBe(50000)
-    expect(parseEnvInt("100", 20000)).toBe(100)
-    expect(parseEnvInt("0", 20000)).toBe(0)
-  })
-
-  it("returns default for non-numeric strings", () => {
-    expect(parseEnvInt("abc", 20000)).toBe(20000)
-    expect(parseEnvInt("not-a-number", 100)).toBe(100)
-  })
-
-  it("returns default for partially numeric strings", () => {
-    // parseInt will parse "123abc" as 123, which is valid
-    expect(parseEnvInt("123abc", 20000)).toBe(123)
-    // But "abc123" will return NaN
-    expect(parseEnvInt("abc123", 20000)).toBe(20000)
-  })
-
-  it("handles negative numbers", () => {
-    expect(parseEnvInt("-100", 20000)).toBe(-100)
-  })
-
-  it("handles floating point by truncating", () => {
-    expect(parseEnvInt("123.456", 20000)).toBe(123)
-  })
-
-  describe("debug warning", () => {
-    it("logs warning when GOOST_DEBUG=1 and value is invalid", () => {
-      process.env.GOOST_DEBUG = "1"
-      parseEnvInt("invalid", 20000, "GOOST_ANOMALY_SIZE")
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[Goost] Warning: Invalid value for GOOST_ANOMALY_SIZE="invalid", using default 20000'
-      )
-    })
-
-    it("does not log warning when GOOST_DEBUG is not set", () => {
-      delete process.env.GOOST_DEBUG
-      parseEnvInt("invalid", 20000, "GOOST_ANOMALY_SIZE")
-      expect(consoleErrorSpy).not.toHaveBeenCalled()
-    })
-
-    it("does not log warning when envName is not provided", () => {
-      process.env.GOOST_DEBUG = "1"
-      parseEnvInt("invalid", 20000)
-      expect(consoleErrorSpy).not.toHaveBeenCalled()
-    })
-
-    it("does not log warning when value is valid", () => {
-      process.env.GOOST_DEBUG = "1"
-      parseEnvInt("50000", 20000, "GOOST_ANOMALY_SIZE")
-      expect(consoleErrorSpy).not.toHaveBeenCalled()
-    })
+  it("idle and earth share the same icon", () => {
+    expect(STATUS_EMOJIS.idle).toBe(STATUS_EMOJIS.earth)
   })
 })
 
-describe("parseEnvBool", () => {
-  it("returns default when value is undefined", () => {
-    expect(parseEnvBool(undefined, true)).toBe(true)
-    expect(parseEnvBool(undefined, false)).toBe(false)
-  })
-
-  it("returns false when value is '0'", () => {
-    expect(parseEnvBool("0", true)).toBe(false)
-    expect(parseEnvBool("0", false)).toBe(false)
-  })
-
-  it("returns true for any non-'0' value", () => {
-    expect(parseEnvBool("1", false)).toBe(true)
-    expect(parseEnvBool("true", false)).toBe(true)
-    expect(parseEnvBool("yes", false)).toBe(true)
-    expect(parseEnvBool("anything", false)).toBe(true)
-    expect(parseEnvBool("", false)).toBe(true) // empty string is not "0"
+describe("TAB_COLORS", () => {
+  it("has colors for all statuses", () => {
+    expect(TAB_COLORS.idle).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    expect(TAB_COLORS.work).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    expect(TAB_COLORS.moon).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    expect(TAB_COLORS.earth).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    expect(TAB_COLORS.mic).toMatch(/^#[0-9A-Fa-f]{6}$/)
+    expect(TAB_COLORS.doom_loop).toMatch(/^#[0-9A-Fa-f]{6}$/)
   })
 })
 
-describe("ANOMALY_CONFIG", () => {
-  it("has expected default values", () => {
-    // These are the defaults when env vars are not set
-    expect(ANOMALY_CONFIG.SIZE_THRESHOLD).toBe(20000)
-    expect(ANOMALY_CONFIG.REPETITION_MIN_LENGTH).toBe(80)
-    expect(ANOMALY_CONFIG.REPETITION_MIN_COUNT).toBe(3)
-    expect(ANOMALY_CONFIG.ANALYSIS_INTERVAL).toBe(2000)
-    // BELL_ENABLED defaults to true, but might be overridden by env
-    expect(typeof ANOMALY_CONFIG.BELL_ENABLED).toBe("boolean")
+describe("GOOST_MARKERS", () => {
+  it("has regex patterns for all statuses", () => {
+    expect(GOOST_MARKERS.moon.test("[GOOST:MOON]")).toBe(true)
+    expect(GOOST_MARKERS.earth.test("[GOOST:EARTH]")).toBe(true)
+    expect(GOOST_MARKERS.work.test("[GOOST:WORK]")).toBe(true)
+    expect(GOOST_MARKERS.doom_loop.test("[GOOST:DOOM_LOOP]")).toBe(true)
   })
 
-  it("config values are readonly", () => {
-    // TypeScript ensures this at compile time via `as const`
-    // At runtime, we verify the object structure exists
-    expect(Object.keys(ANOMALY_CONFIG)).toEqual([
-      "SIZE_THRESHOLD",
-      "REPETITION_MIN_LENGTH",
-      "REPETITION_MIN_COUNT",
-      "ANALYSIS_INTERVAL",
-      "BELL_ENABLED",
-    ])
+  it("does not match incorrect markers", () => {
+    expect(GOOST_MARKERS.moon.test("[GOOST:EARTH]")).toBe(false)
+    expect(GOOST_MARKERS.earth.test("[GOOST:MOON]")).toBe(false)
+  })
+})
+
+describe("CONTRACT_PATTERNS", () => {
+  it("matches CONTRACT ACTIVE", () => {
+    expect(CONTRACT_PATTERNS.ACTIVE.test("CONTRACT ACTIVE")).toBe(true)
+    expect(CONTRACT_PATTERNS.ACTIVE.test("Some text CONTRACT ACTIVE more text")).toBe(true)
+  })
+
+  it("matches CONTRACT FULFILLED", () => {
+    expect(CONTRACT_PATTERNS.FULFILLED.test("CONTRACT FULFILLED")).toBe(true)
+  })
+
+  it("matches CONTRACT VOIDED", () => {
+    expect(CONTRACT_PATTERNS.VOIDED.test("CONTRACT VOIDED")).toBe(true)
+  })
+})
+
+describe("EVENT_TYPES", () => {
+  it("has expected event type constants", () => {
+    expect(EVENT_TYPES.SESSION_STATUS).toBe("session.status")
+    expect(EVENT_TYPES.SESSION_DELETED).toBe("session.deleted")
+    expect(EVENT_TYPES.MESSAGE_UPDATED).toBe("message.updated")
+    expect(EVENT_TYPES.SESSION_COMPACTED).toBe("session.compacted")
+    expect(EVENT_TYPES.PERMISSION_UPDATED).toBe("permission.updated")
+    expect(EVENT_TYPES.PERMISSION_REPLIED).toBe("permission.replied")
+  })
+})
+
+describe("TOOL_NAMES and isTaskTool", () => {
+  it("has task tool constants", () => {
+    expect(TOOL_NAMES.TASK).toBe("task")
+    expect(TOOL_NAMES.TASK_ALT).toBe("mcp_task")
+  })
+
+  it("isTaskTool identifies task tools", () => {
+    expect(isTaskTool("task")).toBe(true)
+    expect(isTaskTool("mcp_task")).toBe(true)
+    expect(isTaskTool("bash")).toBe(false)
+  })
+})
+
+describe("DOOM_LOOP_THRESHOLD", () => {
+  it("has a reasonable default threshold", () => {
+    expect(DOOM_LOOP_THRESHOLD).toBe(3)
+  })
+})
+
+describe("Zod schemas", () => {
+  describe("SessionStatusPropsSchema", () => {
+    it("validates correct structure", () => {
+      const valid = {
+        sessionID: "abc-123",
+        status: { type: "idle" },
+      }
+      expect(SessionStatusPropsSchema.safeParse(valid).success).toBe(true)
+    })
+
+    it("rejects missing fields", () => {
+      const invalid = { status: { type: "idle" } }
+      expect(SessionStatusPropsSchema.safeParse(invalid).success).toBe(false)
+    })
+  })
+
+  describe("MessageUpdatedPropsSchema", () => {
+    it("validates correct structure", () => {
+      const valid = {
+        info: {
+          role: "assistant",
+          parts: [{ type: "text", text: "Hello" }],
+        },
+      }
+      expect(MessageUpdatedPropsSchema.safeParse(valid).success).toBe(true)
+    })
+
+    it("allows optional info", () => {
+      const valid = { info: undefined }
+      expect(MessageUpdatedPropsSchema.safeParse(valid).success).toBe(true)
+    })
+  })
+
+  describe("TaskArgsSchema", () => {
+    it("validates task arguments", () => {
+      const valid = {
+        description: "Test task",
+        prompt: "Do something",
+      }
+      expect(TaskArgsSchema.safeParse(valid).success).toBe(true)
+    })
+
+    it("allows empty object", () => {
+      expect(TaskArgsSchema.safeParse({}).success).toBe(true)
+    })
+  })
+
+  describe("TaskOutputSchema", () => {
+    it("validates task output", () => {
+      const valid = {
+        title: "Task completed",
+        output: "Results here",
+      }
+      expect(TaskOutputSchema.safeParse(valid).success).toBe(true)
+    })
   })
 })
