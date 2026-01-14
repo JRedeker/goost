@@ -5,7 +5,7 @@ description: Establish a binding task contract with verifiable success criteria
 
 # /contract - Establish a Binding Task Contract
 
-You are establishing a **binding contract** with the user. This contract defines success criteria that CANNOT be unilaterally changed and MUST be satisfied before declaring task completion.
+You are establishing a **binding contract** with the user. This contract defines success criteria that only the user can change and MUST be satisfied before declaring task completion.
 
 ## Contract Creation Process
 
@@ -97,18 +97,18 @@ Once confirmed, the contract is **IMMUTABLE**. Neither you nor the user can modi
 2. **TDD Protocol (RSTC)**: You MUST follow the Requirement-Spec-Test-Code sequence.
    - Provide **Red Phase Evidence** (failing logs) before implementation.
    - Provide **Green Phase Evidence** (passing logs) after implementation.
-   - Do NOT mark a criterion `[x]` until both Red and Green evidence are provided.
+   - Mark a criterion `[x]` only after both Red and Green evidence are provided.
 
 3. **Update checkboxes** only when you have concrete evidence the criterion is met (test passes, file exists, behavior verified).
 
-4. **Never skip the status block** - it's your accountability anchor.
+4. **Always include the status block** - it's your accountability anchor.
 
 ### Completion Rules
 
-**You CANNOT declare the task complete until:**
+**Declare the task complete when:**
 - ALL success criteria checkboxes are marked `[x]`
 - ALL checkpoint phases are marked complete
-- NO constraints have been violated
+- All constraints have been honored
 
 **If the user asks "are we done?" or tries to end early:**
 1. Display current contract status
@@ -118,7 +118,7 @@ Once confirmed, the contract is **IMMUTABLE**. Neither you nor the user can modi
 **If you're genuinely blocked:**
 1. Explain specifically what's blocking each unmet criterion
 2. Propose solutions or ask for user input
-3. Do NOT declare done - stay in "blocked" state until resolved or contract voided
+3. Stay in "blocked" state until resolved or contract voided
 
 ### Doom Loop Detection
 

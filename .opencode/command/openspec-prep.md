@@ -6,7 +6,7 @@ agent: general
 
 # OpenSpec Pre-Implementation Preparation
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are performing **pre-implementation preparation** on the OpenSpec change: `$ARGUMENTS`
 
@@ -60,7 +60,7 @@ Analyze the spec across these dimensions, building a list of gaps to fix.
   4. All deployed specs have been scanned for conflicts (Phase 1.6).
 - Record the count of gaps identified.
 
-> **Research Coordination Note**: If using sub-agents for parallel research (1.4-1.6), synthesize results into a **simple numbered list** of gaps. Do NOT attempt to hold all research details in working memory—extract only the actionable gaps.
+> **Research Coordination Note**: If using sub-agents for parallel research (1.4-1.6), synthesize results into a **simple numbered list** of gaps. Extract only the actionable gaps—keep research details in sub-agent outputs, not working memory.
 
 ### 1.1 Acceptance Criteria Completeness
 
@@ -192,9 +192,9 @@ GAPS TO FIX:
 > After displaying the contract above, you MUST:
 > 1. Output exactly: `>>> SYNTHESIS COMPLETE - EXECUTING GAP FIXES <<<`
 > 2. **Immediately** emit your first tool call (Read or Edit) in the same response
-> 3. Do NOT output additional planning, summarization, or "I will now..." statements
+> 3. Proceed directly to action—skip additional planning or "I will now..." statements
 >
-> **WARNING**: If you find yourself repeating phrases like "Actually, I'll...", "Let me now...", or re-stating the plan, you are in a **planning loop**. Stop immediately and emit a tool call.
+> **Loop check**: If you're writing "Actually, I'll...", "Let me now...", or re-stating the plan, you're in a planning loop. Emit a tool call immediately.
 
 ---
 
@@ -207,7 +207,7 @@ Work through gaps **ONE AT A TIME**, making actual edits to the spec files.
 > - Make the edit (one tool call)
 > - Mark it complete in your tracking
 > - Move to the next gap
-> - Do NOT batch multiple gap fixes in your head before acting
+> - Process gaps one at a time—act immediately on each before considering the next
 
 ### For Missing Scenarios
 
@@ -343,7 +343,7 @@ Phase: 3 of 5 | Gaps: N/M fixed
 ---
 ```
 
-Do NOT output CONTRACT FULFILLED until:
+Output CONTRACT FULFILLED only when:
 - ALL gaps are fixed
 - `openspec validate --strict` passes
 - All success criteria are `[x]`

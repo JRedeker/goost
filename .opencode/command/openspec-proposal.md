@@ -12,7 +12,7 @@ The user has requested the following change proposal. Use the openspec instructi
 
 **Proposal-Specific Rules:**
 - Identify vague or ambiguous details and ask follow-up questions before editing files.
-- Do NOT write any code during the proposal stage. Only create design documents (proposal.md, tasks.md, design.md, and spec deltas). Implementation happens in the apply stage after approval.
+- Create only design documents during the proposal stage (proposal.md, tasks.md, design.md, and spec deltas). Save code implementation for the apply stage after approval.
 
 **Steps**
 1. Review `openspec/project.md`, run `openspec list` and `openspec list --specs`, and inspect related code or docs (e.g., via `rg`/`ls`) to ground the proposal in current behaviour; note any gaps that require clarification.

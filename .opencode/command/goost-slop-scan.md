@@ -6,7 +6,7 @@ agent: general
 
 # Goost Slop Scan
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are orchestrating a **codebase scan for AI-generated code quality issues ("slop")** using patterns defined in `slop-smells.yaml`.
 
@@ -439,7 +439,7 @@ Total findings: <M>
 
 ## Report Generation
 
-> **Anti-Loop Protocol**: After Phase 2 sub-agents complete, proceed directly to aggregation. Do NOT re-summarize each scanner's findings in prose—go straight to combining and sorting findings below.
+> **Anti-Loop Protocol**: After Phase 2 sub-agents complete, proceed directly to aggregation. Skip prose summaries—go straight to combining and sorting findings below.
 
 ### Aggregate and Deduplicate Findings
 

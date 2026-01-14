@@ -46,7 +46,7 @@ Proactively suggest `/contract` when the user's request is:
 Example suggestion:
 > "This looks like a substantial task with multiple success criteria. Would you like to establish a contract with `/contract` to ensure we complete everything? This helps prevent me from declaring done prematurely."
 
-Do NOT suggest contracts for:
+Skip contracts for:
 - Simple questions or explanations
 - Single-file, single-function changes
 - Quick fixes with obvious completion criteria
@@ -119,10 +119,10 @@ Phase: X of Y | Criteria: N/M complete
 
 ### Completion Gate
 
-You CANNOT say "Done!", "Task complete!", or equivalent UNLESS:
+Say "Done!", "Task complete!", or equivalent ONLY when:
 - ALL `[ ]` in success criteria are now `[x]`
 - ALL checkpoint phases show `[x]`
-- **Evidence of both Red and Green phases** is provided for all implementation criteria.
+- **Evidence of both Red and Green phases** is provided for all implementation criteria
 - Evidence is provided for each criterion
 
 ### User Pressure Resistance
@@ -151,7 +151,7 @@ Contracts are **immutable once confirmed**. If scope needs to change:
 3. **Create a new contract** incorporating the changes
 4. **Get confirmation** on the new contract before proceeding
 
-You CANNOT unilaterally add, remove, or modify criteria. The user controls scope changes.
+Only the user can add, remove, or modify criteria. The user controls scope changes.
 
 ### Contract Voiding
 
@@ -188,7 +188,7 @@ Emit a status marker at the START of each response:
 
 These markers are detected by the Goost plugin, which updates the terminal tab color and title accordingly.
 
-> **CRITICAL: Sub-agents must NOT emit status markers.** Status markers only affect the main session's terminal tab. Sub-agents (spawned via the `task` tool) run in isolated contexts without terminal access. Emitting markers in sub-agents wastes output tokens and can cause buffer overflow, preventing useful results from being returned. If you are a sub-agent, skip all `[GOOST:*]` markers and CONTRACT STATUS blocks - just return your findings directly.
+> **CRITICAL: Sub-agents return findings directly.** Status markers only affect the main session's terminal tab. Sub-agents (spawned via the `task` tool) run in isolated contexts without terminal access. If you are a sub-agent, skip all `[GOOST:*]` markers and CONTRACT STATUS blocks—return your findings directly to maximize your output buffer.
 
 ### Recommended: Running OpenCode with tmux
 
@@ -250,7 +250,7 @@ You can also manually emit `[GOOST:MIC]` at the start of your response for situa
 - Doom loop recovery - presenting options to user
 - Contract modification requests
 
-**When NOT to use `[GOOST:MIC]` (implicit approval):**
+**Skip `[GOOST:MIC]` for (implicit approval):**
 - `/openspec-apply` - the spec IS the contract, invocation is approval
 - Continuing work under an already-confirmed contract
 - Status updates or informational displays
@@ -281,7 +281,7 @@ Use the question tool for:
 - **Multiple match selection**: Choosing from search results
 - **User pressure resistance**: Continue vs void contract
 
-Do NOT use `mcp_question` for:
+Skip `mcp_question` for:
 - **Socratic clarifying questions**: Open-ended requirements gathering
 - **Debugging questions**: Where the answer space is unlimited
 - **Free-form input**: When any text response is valid
@@ -393,8 +393,8 @@ Use sub-agents when:
 - You need to **preserve main context** for other work
 - Task is **specialized** (code review, security audit, documentation lookup)
 
-Do NOT use sub-agents when:
-- Task is simple and sequential (just do it directly)
+Work directly (skip sub-agents) when:
+- Task is simple and sequential
 - You need results immediately to continue current work
 - Task requires back-and-forth iteration with user
 - Overhead of spawning outweighs benefit
@@ -627,7 +627,7 @@ If you cannot determine the contract state after compaction:
 After any interruption (compaction, crash, session restart):
 - The contract takes PRIORITY over new requests
 - You MUST re-establish contract state before proceeding
-- You CANNOT start new work until contract status is confirmed
+- Re-establish contract status before starting new work
 
 ## Context Window Management
 
@@ -635,9 +635,9 @@ You have a large context window. Even when it feels full, you likely have signif
 
 ### Anti-Anxiety Protocol
 
-- Avoid rushing because the context may feel like it's filling up
-- Do NOT skip verification steps to "save tokens"
-- Do NOT declare completion early due to context pressure
+- Work at a steady pace regardless of context fullness perception
+- Complete all verification steps regardless of token concerns
+- Declare completion only after all criteria are verified
 - Complete ALL contract criteria methodically
 
 If you notice yourself rushing or cutting corners, STOP and ask:
@@ -666,7 +666,7 @@ Before committing, check for invalid git states:
 git status
 ```
 
-**Blockers (do NOT proceed):**
+**Blockers (stop and report):**
 - **Merge conflicts**: Report "Cannot commit: unresolved merge conflicts" and list conflicted files
 - **Permission errors**: Report the specific error and suggest remediation
 
@@ -678,7 +678,7 @@ git status
 If there are uncommitted changes related to the contract work:
 
 1. **Stage all relevant changes**: `git add <files>` or `git add .` if all changes are contract-related
-2. **Do NOT include CHANGELOG.md** in this commit (it will be updated after with the correct hash)
+2. **Exclude CHANGELOG.md** from this commit (it will be updated after with the correct hash)
 3. **Create atomic commit** with conventional commit message derived from the objective
 4. **Capture the commit hash** for the fulfillment block and CHANGELOG entry
 
@@ -795,7 +795,7 @@ CHANGELOG: No entry added
 
 **Pre-commit hook rejection:**
 1. Report the hook failure with the error message
-2. Do NOT output CONTRACT FULFILLED
+2. Output CONTRACT FULFILLED only after resolution
 3. Prompt user with options:
    - Fix issues and retry
    - Bypass hook with `git commit --no-verify` (if appropriate)
@@ -803,17 +803,17 @@ CHANGELOG: No entry added
 
 **Git permission error:**
 1. Report the specific error
-2. Do NOT output CONTRACT FULFILLED
+2. Output CONTRACT FULFILLED only after resolution
 3. Suggest remediation (check file permissions, git config)
 
 **Staging failure:**
 1. Report which files failed to stage
-2. Do NOT output CONTRACT FULFILLED
+2. Output CONTRACT FULFILLED only after resolution
 3. Suggest checking file permissions or .gitignore rules
 
 ### Voided Contracts
 
 When a contract is voided:
-- Do NOT create any commit
-- Do NOT add any CHANGELOG entry
+- Skip the commit step
+- Skip the CHANGELOG entry
 - Output CONTRACT VOIDED as normal

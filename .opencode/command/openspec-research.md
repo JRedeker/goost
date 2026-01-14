@@ -174,9 +174,9 @@ Then make N Task tool calls in the same response.
 > After receiving sub-agent results, you MUST:
 > 1. Output exactly: `>>> SYNTHESIS COMPLETE - GENERATING REPORT <<<`
 > 2. **Immediately** write the structured report below
-> 3. Do NOT re-explain what sub-agents found in prose before the report
+> 3. Proceed directly to the report—skip prose summaries of sub-agent findings
 >
-> **WARNING**: If you find yourself repeating "I received results from..." or re-stating the synthesis plan, STOP and write the report structure directly.
+> **Loop check**: If you're writing "I received results from..." or re-stating the synthesis plan, you're in a planning loop. Write the report structure directly.
 
 After all sub-agents complete, synthesize their findings into a comprehensive research report:
 

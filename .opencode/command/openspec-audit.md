@@ -6,7 +6,7 @@ agent: general
 
 # OpenSpec Project Audit
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are orchestrating a **project-wide spec/implementation audit** for: `$ARGUMENTS`
 
@@ -445,7 +445,7 @@ Sub-agents may fail or return partial results. Handle each case with specific fa
 | Partial data | Missing expected fields in response | Use available fields; note gaps | Fill missing fields with empty arrays/zero counts |
 | Error message | Response contains error instead of data | Log error; attempt fallback | Spec Parser: read files directly. Code Mapper: use glob patterns. Others: mark INCOMPLETE |
 
-**Retry Policy**: Retry at most once per sub-agent to avoid doom loops. If retry fails, proceed without that dimension's data.
+**Retry Policy**: Retry at most once per sub-agent (prevents doom loops). If retry fails, proceed without that dimension's data.
 
 **HARD FALLBACK POLICY (No-Evidence Loop Prevention):**
 - If a sub-agent fails and fallback provides no evidence (e.g., Code Mapper finds 0 files, Spec Parser finds 0 requirements):
@@ -521,7 +521,7 @@ Build orphan list:
 > **>>> SYNTHESIS CHECKPOINT <<<**
 > Verify that all findings from all active sub-agents have been collected. If any dimension is missing or incomplete, ensure it is clearly marked in the internal state before proceeding.
 > 
-> Do NOT re-summarize what each sub-agent returned in prose—go straight to the structured synthesis steps below.
+> Proceed directly to the structured synthesis steps below. Skip prose summaries of sub-agent findings.
 
 ### Step 1: Merge All Findings
 

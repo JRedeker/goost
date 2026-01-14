@@ -95,8 +95,24 @@ The plugin follows a modular architecture:
 - For multi-phase commands with sub-agents, include **Anti-Loop Protocol** sections at phase transitions:
   - Add explicit state markers (e.g., `>>> SYNTHESIS COMPLETE <<<`)
   - Require immediate tool calls after synthesis phases
-  - Warn against re-stating plans in prose before acting
+  - Include loop detection checks as secondary warnings
   - See existing commands for examples (openspec-prep.md has the most comprehensive protections)
+
+### Positive Framing Guidance
+
+When writing instructions, **prefer positive framing over negative framing**. Research shows LLMs follow positive instructions more reliably because negation tokens have limited effect on statistical representations.
+
+**Transformation patterns:**
+| Negative (less effective) | Positive (more effective) |
+|---------------------------|---------------------------|
+| "Do NOT emit markers" | "Return findings directly" |
+| "CANNOT declare complete until X" | "Declare complete when X" |
+| "Never skip the status block" | "Always include a status block" |
+| "Avoid multi-paragraph explanations" | "Pair intent with immediate tool call" |
+
+**Exceptions** (keep as negative):
+- Safety constraints in CONSTRAINTS sections (e.g., "MUST NOT: delete production data")
+- Hard boundaries that define failure modes
 
 ### If modifying the plugin:
 - Add types to `types.ts`, keep Zod schemas in sync

@@ -6,11 +6,11 @@ agent: general
 
 # OpenSpec Status
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are providing a **fast, formatted status overview** of the OpenSpec project.
 
-> **IMPORTANT**: This command prioritizes speed. Do NOT spawn sub-agents. Do NOT perform deep file analysis. Complete within 2-3 seconds.
+> **IMPORTANT**: This command prioritizes speed. Work directly without sub-agents. Keep file analysis shallow. Complete within 2-3 seconds.
 
 ## Step 1: Check OpenSpec Directory
 
@@ -175,7 +175,7 @@ If `openspec show --json` returns invalid JSON:
 If some changes load successfully and others fail:
 - Display successful changes with full progress
 - Display failed changes with "Unable to load details" note
-- Do NOT abort the entire report
+- Continue generating the rest of the report despite individual failures
 
 ## Performance Notes
 

@@ -138,7 +138,7 @@ rules:
 
   P19:
     name: simplicity
-    rule: Keep code simple, clear, and well-named; prefer simple over complex, complex over complicated; avoid over-engineering.
+    rule: Keep code simple, clear, and well-named; prefer simple over complex, complex over complicated; start with minimal solutions.
     tags: [clean, simplicity, design]
     hint: keep_it_simple
     priority: 5
@@ -166,7 +166,7 @@ rules:
 
   P23:
     name: campsite-rule
-    rule: Leave the codebase better than you found it; opportunistically fix clear pre-existing issues nearby when safe and quick, but avoid scope creep.
+    rule: Leave the codebase better than you found it; opportunistically fix clear pre-existing issues nearby when safe and quick; keep changes focused.
     tags: [quality, refactoring, debt]
     hint: leave_it_better
     priority: 6

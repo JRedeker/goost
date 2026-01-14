@@ -6,7 +6,7 @@ agent: general
 
 # OpenSpec Hardening Analysis
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are orchestrating a **post-implementation hardening analysis** on the OpenSpec change: `$ARGUMENTS`
 
@@ -139,7 +139,7 @@ TASK:
 
 4. Check if tests can be run:
    - Look for test scripts in package.json, Makefile, or similar
-   - Do NOT run tests, just report if test runner is available
+   - Report test runner availability only (skip actual test execution)
 
 RETURN FORMAT:
 ```json
@@ -411,7 +411,7 @@ TASK:
    - Check for files with similar names in different directories that might be duplicates
    - Search for identical function signatures in multiple files
 
-IMPORTANT: Do NOT flag these as cleanup candidates (HIGH FALSE POSITIVE RISK):
+**Preserve these (HIGH FALSE POSITIVE RISK)**:
 - fix-*.sh, migrate-*.py, patch-*.* (legitimate permanent tools use these names)
 - Files in scripts/ or tools/ directories (usually permanent utilities)
 - Database migration files (Alembic, Rails, Django patterns)
@@ -492,7 +492,9 @@ Wait for all 5 sub-agents to return. Parse their JSON outputs and aggregate:
 
 **Goal**: YOU (the orchestrator) analyze the aggregated findings, cross-reference with documentation and specs, and identify root causes.
 
-> **Anti-Loop Protocol**: After receiving sub-agent results, immediately begin aggregation. Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you find yourself writing "Sub-agent 1 found..." or "The test coverage scanner reported...", STOP and proceed directly to the aggregation logic.
+> **Anti-Loop Protocol**: After receiving sub-agent results, begin aggregation immediately. Proceed directly to Step 1—skip prose summaries of sub-agent findings.
+>
+> **Loop check**: If you're writing "Sub-agent 1 found..." or "The test coverage scanner reported...", you're in a planning loop. Proceed to aggregation immediately.
 
 ### Step 1: Aggregate Issues
 
@@ -647,7 +649,7 @@ CONTEXT:
 
 CONSTRAINTS:
 - Make minimal, targeted changes
-- Do NOT change unrelated code
+- Limit changes to the specific issue being fixed
 - Follow existing code style
 - Add tests if fixing implementation issues
 - Update docs if fixing documentation issues

@@ -111,7 +111,7 @@ Use mcp_question with:
 
 Proceed with implementation only if user selects "Begin work". If user cancels, output "Contract cancelled. No changes made." and stop. If user selects "Modify criteria", ask the user what specific criteria need adjustment, then regenerate the contract with the requested changes, and re-present the updated contract for confirmation.
 
-> **Intent Statement Protocol**: After confirmation, emit a single-line intent statement describing the next action, followed immediately by a tool call (Read, Edit, Write, Bash, etc.). Example: "Starting implementation" + [Read tool]. Avoid multi-paragraph explanations without tool calls.
+> **Intent Statement Protocol**: After confirmation, emit a single-line intent statement describing the next action, followed immediately by a tool call (Read, Edit, Write, Bash, etc.). Example: "Starting implementation" + [Read tool]. Pair each intent with an immediate tool call.
 
 **Step 3: Implement Under Contract (RSTC Protocol)**
 
@@ -135,7 +135,7 @@ With the contract established:
 - Work through tasks sequentially from `tasks.md`
 - For EACH task: implement → verify → mark complete
 - End every response with a CONTRACT STATUS block
-- Avoid declaring completion until ALL criteria are `[x]`
+- Declare completion only when ALL criteria are `[x]`
 
 **Guardrails**
 - Favor straightforward, minimal implementations first

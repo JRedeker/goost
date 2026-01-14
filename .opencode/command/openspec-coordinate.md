@@ -6,7 +6,7 @@ agent: general
 
 # OpenSpec Coordinate
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are orchestrating a **cross-agent coordination and conflict audit** for all active OpenSpec changes.
 
@@ -152,7 +152,7 @@ Categorize results:
 
 ## Phase 4: Generate Report
 
-> **Anti-Loop Protocol**: After Phase 3 analysis, immediately run the report command below. Do NOT summarize findings in prose first—let the report generator do that.
+> **Anti-Loop Protocol**: After Phase 3 analysis, immediately run the report command below. Skip prose summaries—let the report generator handle that.
 
 Run the built-in report generator:
 

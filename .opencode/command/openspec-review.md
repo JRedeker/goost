@@ -6,7 +6,7 @@ agent: general
 
 # OpenSpec Code Review
 
-> **SUB-AGENT CONTEXT**: You are running as a sub-agent. Do NOT emit `[GOOST:*]` status markers or CONTRACT STATUS blocks - these only work in the main session and waste your output buffer. Focus on returning useful results directly.
+> **SUB-AGENT CONTEXT**: Return findings directly. Status markers and CONTRACT STATUS blocks are for main sessions only—omit them to maximize your output buffer.
 
 You are orchestrating a **post-implementation code review** on the OpenSpec change: `$ARGUMENTS`
 
@@ -430,7 +430,9 @@ Stop execution.
 > - If < 4 scanners reported, ensure the missing dimensions are explicitly noted in the final report.
 > - Heuristic Check: If the change affects > 100 lines but total findings across all scanners is 0, perform a secondary spot check of the most modified file before declaring "APPROVED".
 > 
-> Do NOT re-explain each sub-agent's findings in prose before starting Step 1. If you catch yourself writing "The requirement traceability scanner found..." or similar summaries, STOP and proceed directly to grouping issues by severity.
+> Proceed directly to grouping issues by severity. Skip prose summaries of sub-agent findings.
+>
+> **Loop check**: If you're writing "The requirement traceability scanner found..." or similar summaries, you're in a planning loop. Proceed to Step 1 immediately.
 
 ### Step 1: Aggregate Issues
 
@@ -548,7 +550,7 @@ CONTEXT:
 
 CONSTRAINTS:
 - Make minimal, targeted changes
-- Do NOT change unrelated code
+- Limit changes to the specific issue being fixed
 - Follow existing code style
 - Preserve all existing functionality
 
