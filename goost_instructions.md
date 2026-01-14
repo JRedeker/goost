@@ -359,6 +359,15 @@ If `mcp_question` fails (error, timeout, or unavailable):
 2. **Accept flexible input**: Parse number, option label, or free text
 3. **Log warning**: Note that structured question tool was unavailable
 
+### Unexpected Response Handling
+
+If `mcp_question` succeeds but returns an unexpected response format:
+
+1. **Validate response**: Check if response is array of labels or structured object
+2. **Handle gracefully**: Accept any valid selection from presented options
+3. **Log anomaly**: Note unexpected format for debugging
+4. **Continue execution**: Don't block on format issues
+
 ## Sub-Agent Contract Propagation
 
 When spawning sub-agents (via the `task` tool) while a contract is active, you SHOULD propagate the contract context. This is advisory - sub-agents will still work without it, but context helps ensure aligned work.

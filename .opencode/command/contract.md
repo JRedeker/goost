@@ -65,7 +65,7 @@ Use mcp_question with:
   header: "Confirm"
   question: "Contract ready. Do you accept these terms?"
   options:
-    - label: "Accept contract"
+    - label: "Accept contract (Recommended)"
       description: "Lock the contract and begin work"
     - label: "Suggest changes"
       description: "Modify criteria before locking"
