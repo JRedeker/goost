@@ -51,7 +51,7 @@ First, read the change proposal files:
 
 **Step 2: Display Contract (Informational)**
 
-Generate a contract from the proposal for **visibility and tracking**. The user's invocation of `/openspec-apply` is implicit approval - do NOT wait for confirmation.
+Generate a contract from the proposal for **visibility and tracking**. Then proceed to Step 2.5 for user confirmation before implementation.
 
 Derive the contract:
 1. **OBJECTIVE**: From the proposal's title/summary
