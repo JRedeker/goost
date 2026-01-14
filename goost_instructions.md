@@ -577,50 +577,7 @@ When in a doom loop state, use:
 
 The doom loop state persists until the user provides new direction or you identify a genuinely different approach.
 
-## Loop Anomaly Detection (Automatic)
 
-The Goost plugin automatically detects and terminates **runaway AI responses** that contain repetitive content. This catches generation-level failures where the model outputs the same phrase repeatedly (common with some models like Gemini).
-
-### How It Works
-
-Detection triggers when BOTH conditions are met:
-1. Response exceeds **20,000 characters** (configurable via `GOOST_ANOMALY_SIZE`)
-2. Any **80+ character substring** appears **3 or more times**
-
-When detected:
-- The plugin calls `client.session.abort()` to terminate the response
-- Status changes to `doom_loop` (orange tab)
-- Terminal bell sounds (if enabled)
-- Debug logs record the repeated substring
-
-### Configuration
-
-Environment variables (set before starting OpenCode):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GOOST_ANOMALY_SIZE` | `20000` | Size threshold in characters before detection runs |
-| `GOOST_ANOMALY_BELL` | `1` | Enable terminal bell (`1`) or disable (`0`) |
-
-Example:
-```bash
-GOOST_ANOMALY_SIZE=30000 GOOST_ANOMALY_BELL=0 opencode
-```
-
-### Safety Features
-
-- **State-based throttle**: Only one abort per response (prevents rapid repeated aborts)
-- **Tool execution protection**: Won't abort during tool execution (waits for completion)
-- **Throttle reset**: Resets when session status changes (new response starts)
-
-### This is Different From Behavioral Doom Loops
-
-| Type | Detection | Scope |
-|------|-----------|-------|
-| **Loop Anomaly** (automatic) | Repetitive text within single response | Plugin-level, terminates response |
-| **Behavioral Doom Loop** (manual) | Same approach tried 3+ times across responses | AI-level, requires user direction |
-
-Loop anomaly detection catches generation failures before they consume your context window. Behavioral doom loop detection (the `[GOOST:DOOM_LOOP]` marker) catches higher-level strategic failures where you need to change approach.
 
 ## Compaction Recovery
 
