@@ -72,6 +72,9 @@ import {
   recordSubAgentFailure,
   isDoomLoopReached,
   isTestRunner,
+  recordSubAgentWork,
+  updateSubAgentWork,
+  validateCriterionId,
 } from "./contract"
 import { shouldAnalyze, detectRepetition, emitBell } from "./anomaly"
 
@@ -417,12 +420,26 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
   // Initialize state
   let state = createInitialState()
 
-  /** Last bash command executed, used to detect test runners in .after hook */
-  let lastBashCommand: string | null = null
+  // Rate limiting for state updates
+  let lastUpdateTimestamp = 0
+  const MIN_UPDATE_INTERVAL_MS = 100 // 10 FPS max
 
   // Helper to update state and UI
   const setState = (newState: PluginState): void => {
+    const now = Date.now()
+    // Skip update if too rapid, unless it's a critical status change
+    if (
+      now - lastUpdateTimestamp < MIN_UPDATE_INTERVAL_MS &&
+      newState.status === state.status &&
+      newState.activeSubAgents === state.activeSubAgents
+    ) {
+      trace("Throttling state update")
+      state = newState // Still update state but skip UI refresh
+      return
+    }
+
     state = newState
+    lastUpdateTimestamp = now
     updateUI(state, projectName)
   }
 
@@ -524,9 +541,28 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
         const taskParams = parsedArgs.success ? parsedArgs.data : {}
 
         const description = taskParams.description || "Unknown"
+        const criterionId = extractCriterionFromTask(description)
+
+        // Security: Validate criterion ID format
+        if (!validateCriterionId(criterionId)) {
+          log(`SECURITY: Invalid criterion ID format detected: "${criterionId}"`)
+        }
+
         log(`=== SUB-AGENT STARTING: ${description} ===`)
         log(`Before: activeSubAgents=${state.activeSubAgents}`)
         trace(`Setting status to MOON for task: ${description}`)
+
+        // Record sub-agent work scope
+        const files = taskParams.prompt
+          ? Array.from(
+              taskParams.prompt.matchAll(
+                /([a-zA-Z0-9._\-/]+\.(?:ts|tsx|js|jsx|py|go|rs|md|yaml|json))/g
+              ),
+              (m) => m[1]
+            )
+          : []
+
+        let newState = recordSubAgentWork(state, criterionId, files)
 
         // Warn if contract active but prompt lacks context (debug only)
         if (state.contract.active && taskParams.prompt) {
@@ -539,9 +575,9 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
           }
         }
 
-        const newState = updateStateStatus(
+        newState = updateStateStatus(
           {
-            ...state,
+            ...newState,
             activeSubAgents: state.activeSubAgents + 1,
           },
           "moon"
@@ -629,6 +665,8 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
         const taskOutput = parsedOutput.success ? parsedOutput.data : {}
 
         const taskTitle = taskOutput.title || "Unknown"
+        const criterionId = extractCriterionFromTask(taskTitle)
+
         log(`=== SUB-AGENT FINISHED: ${taskTitle} ===`)
         log(`Before: activeSubAgents=${state.activeSubAgents}`)
 
@@ -637,15 +675,27 @@ const GoostStatusPlugin: Plugin = async ({ directory, client }) => {
           activeSubAgents: Math.max(0, state.activeSubAgents - 1),
         }
 
+        // Update work tracking
+        const findingsCount =
+          taskOutput.output?.match(/findings?:\s*(\d+)/i)?.[1] ||
+          taskOutput.output?.match(/"findingsCount":\s*(\d+)/)?.[1] ||
+          "0"
+
+        newState = updateSubAgentWork(
+          newState,
+          criterionId,
+          parseInt(findingsCount, 10),
+          isSubAgentFailure(taskOutput) ? "failed" : "complete"
+        )
+
         // Track failures for doom loop detection
         if (isSubAgentFailure(taskOutput)) {
-          const criterion = extractCriterionFromTask(taskTitle)
-          newState = recordSubAgentFailure(newState, criterion)
+          newState = recordSubAgentFailure(newState, criterionId)
           log(`Sub-agent may have failed: ${taskTitle}`)
           log("  Reason: Output contains failure indicator")
 
-          if (isDoomLoopReached(newState, criterion)) {
-            log(`Doom loop threshold reached for: ${criterion}`)
+          if (isDoomLoopReached(newState, criterionId)) {
+            log(`Doom loop threshold reached for: ${criterionId}`)
           }
         } else if (isSubAgentEmpty(taskOutput)) {
           log(`Sub-agent returned empty output: ${taskTitle}`)

@@ -221,8 +221,30 @@ export const CONTRACT_STATUS_HEADER = "CONTRACT STATUS:"
  * Threshold for sub-agent failures before doom loop warning.
  * After this many consecutive failures for the same criterion,
  * the AI should be warned to consider alternative approaches.
+ *
+ * Configurable via GOOST_DOOM_LOOP_THRESHOLD environment variable.
  */
-export const DOOM_LOOP_THRESHOLD = 3
+export const getDoomLoopThreshold = (openSpecChange: string | null): number => {
+  // Use environment variable if set
+  const envThreshold = process.env.GOOST_DOOM_LOOP_THRESHOLD
+  if (envThreshold) {
+    const parsed = parseInt(envThreshold, 10)
+    if (!Number.isNaN(parsed)) return parsed
+  }
+
+  // Analysis commands use a lower threshold (2)
+  if (openSpecChange?.match(/audit|review|slop-scan/i)) {
+    return 2
+  }
+
+  return 3 // Default
+}
+
+/**
+ * Checkpoint marker pattern.
+ * Matches [GOOST:CHECKPOINT:TYPE key=value ...]
+ */
+export const CHECKPOINT_PATTERN = /\[GOOST:CHECKPOINT:([A-Z_]+)\s*([^\]]*)\]/g
 
 // =============================================================================
 // Zod Schemas for Runtime Validation

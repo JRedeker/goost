@@ -11,18 +11,43 @@ import {
   type GoostStatus,
   type TaskOutput,
   type SubAgentWork,
+  ConvergencePhase,
   CONTRACT_DELIMITER_MIN_LENGTH,
   CONTRACT_PATTERNS,
   CONTRACT_STATUS_HEADER,
   GOOST_MARKERS,
   STATUS_EMOJIS,
   FAILURE_PATTERNS,
-  DOOM_LOOP_THRESHOLD,
+  getDoomLoopThreshold,
   OPENSPEC_COMMAND_PATTERN,
   OPENSPEC_CHANGE_PATH_PATTERN,
   OPENSPEC_USER_REQUEST_PATTERN,
   TEST_RUNNER_PATTERNS,
+  CHECKPOINT_PATTERN,
 } from "./types"
+
+// =============================================================================
+// Security & Validation
+// =============================================================================
+
+/**
+ * Validate criterion ID format to prevent injection or malformed state keys.
+ * Matches alphanumeric, underscores, and hyphens.
+ */
+export const validateCriterionId = (id: string): boolean => {
+  return /^[a-zA-Z0-9_-]+$/.test(id)
+}
+
+/**
+ * Sanitize file path to prevent path traversal and normalize separators.
+ * Normalizes to forward slashes.
+ */
+export const sanitizePath = (path: string): string => {
+  // Normalize separators
+  const normalized = path.replace(/\\/g, "/")
+  // Basic path traversal prevention - remove ../
+  return normalized.replace(/\.\.\//g, "")
+}
 
 // =============================================================================
 // Factory Functions
@@ -60,13 +85,25 @@ export const createActiveContract = (block: string): ContractState => ({
 
 /**
  * Create initial anomaly detection state.
- * Reset when session status changes (new response starts).
  */
 export const createInitialAnomalyState = () => ({
   lastAnalyzedLength: 0,
   abortedThisResponse: false,
   toolExecuting: false,
   abortQueued: false,
+})
+
+/**
+ * Create initial convergence state.
+ */
+export const createInitialConvergenceState = () => ({
+  phase: ConvergencePhase.DISCOVERY,
+  progress: 0,
+  checkpoints: [],
+  pendingSubAgents: new Set<string>(),
+  expectedFindings: 0,
+  receivedFindings: 0,
+  startTime: Date.now(),
 })
 
 /**
@@ -119,12 +156,10 @@ const STATUS_BLOCK_REGEX = new RegExp(`${CONTRACT_STATUS_HEADER}[\\s\\S]*?(?=\\n
  * @returns Contract block text or null if not found
  */
 const extractContractBlock = (text: string): string | null => {
-  // Match the full contract block - greedy match until closing delimiter
   const contractMatch = text.match(CONTRACT_BLOCK_REGEX)
   if (contractMatch) {
     return contractMatch[0]
   }
-  // Fallback: match until end of text if no closing delimiter
   const fallbackMatch = text.match(CONTRACT_FALLBACK_REGEX)
   return fallbackMatch ? fallbackMatch[0] : null
 }
@@ -151,7 +186,6 @@ const extractCriteria = (text: string): string[] => {
   const criteria: string[] = []
   const criteriaMatches = text.matchAll(/- \[([ xX?])\] (.+)/g)
   for (const match of criteriaMatches) {
-    // Normalize: lowercase x for checked, space for unchecked, ? for conflict
     const checkChar = match[1].toLowerCase() === "x" ? "x" : match[1] === "?" ? "?" : " "
     criteria.push(`[${checkChar}] ${match[2]}`)
   }
@@ -196,6 +230,63 @@ export const parseContractStatus = (text: string): string => {
   return ""
 }
 
+/**
+ * Process checkpoint markers in content.
+ */
+export const processCheckpoints = (state: PluginState, content: string): PluginState => {
+  const matches = content.matchAll(CHECKPOINT_PATTERN)
+  let newState = { ...state }
+
+  for (const match of matches) {
+    const type = match[1]
+    const paramsStr = match[2]
+    const params: Record<string, string> = {}
+
+    // Parse key=value pairs
+    const paramMatches = paramsStr.matchAll(/(\w+)=([^\s\]]+)/g)
+    for (const pMatch of paramMatches) {
+      params[pMatch[1]] = pMatch[2]
+    }
+
+    if (process.env.GOOST_DEBUG === "1") {
+      console.error(`[Goost] Checkpoint detected: ${type}`, params)
+    }
+
+    // Update convergence state if active
+    if (newState.convergenceState) {
+      const { convergenceState } = newState
+      const checkpoints = [...convergenceState.checkpoints, type]
+
+      // Handle phase transitions
+      let { phase } = convergenceState
+      if (type === "PHASE_COMPLETE" || type.endsWith("_COMPLETE")) {
+        const nextPhaseMap: Record<string, ConvergencePhase> = {
+          [ConvergencePhase.DISCOVERY]: ConvergencePhase.MAPPING,
+          [ConvergencePhase.MAPPING]: ConvergencePhase.SYNTHESIS,
+          [ConvergencePhase.SYNTHESIS]: ConvergencePhase.COMPLETE,
+          [ConvergencePhase.COMPLETE]: ConvergencePhase.COMPLETE,
+        }
+        phase = nextPhaseMap[phase] || phase
+      }
+
+      newState = {
+        ...newState,
+        convergenceState: {
+          ...convergenceState,
+          phase,
+          checkpoints,
+          lastCheckpointTime: Date.now(),
+          receivedFindings: params.findings
+            ? parseInt(params.findings, 10)
+            : convergenceState.receivedFindings,
+        },
+      }
+    }
+  }
+
+  return newState
+}
+
 // =============================================================================
 // OpenSpec Detection
 // =============================================================================
@@ -212,19 +303,16 @@ export const parseContractStatus = (text: string): string => {
  * @returns Change name or null if not found
  */
 export const extractOpenSpecChange = (text: string): string | null => {
-  // Primary: Check for expanded slash command template <UserRequest>change-id</UserRequest>
   const userRequestMatch = text.match(OPENSPEC_USER_REQUEST_PATTERN)
   if (userRequestMatch) {
     return userRequestMatch[1]
   }
 
-  // Secondary: Check for direct command usage: /openspec-xxx <change-id>
   const commandMatch = text.match(OPENSPEC_COMMAND_PATTERN)
   if (commandMatch) {
     return commandMatch[1]
   }
 
-  // Tertiary: Check for openspec/changes/<id>/ path references
   const pathMatch = text.match(OPENSPEC_CHANGE_PATH_PATTERN)
   if (pathMatch) {
     return pathMatch[1]
@@ -239,18 +327,8 @@ export const extractOpenSpecChange = (text: string): string | null => {
 
 /**
  * Detect status from response text based on markers and contract state.
- *
- * Priority order:
- * 1. Explicit GOOST markers (doom_loop and mic take highest priority)
- * 2. Contract end markers (FULFILLED/VOIDED)
- * 3. Inference from contract state
- *
- * @param text - Message content to analyze
- * @param contractActive - Whether a contract is currently active
- * @returns Detected GoostStatus
  */
 export const detectStatus = (text: string, contractActive: boolean): GoostStatus => {
-  // Debug: trace which markers we're checking
   const DEBUG = process.env.GOOST_DEBUG === "1"
   if (DEBUG) {
     const hasDoom = GOOST_MARKERS.doom_loop.test(text)
@@ -267,7 +345,6 @@ export const detectStatus = (text: string, contractActive: boolean): GoostStatus
     }
   }
 
-  // Check for explicit goost markers first (doom_loop and mic take priority)
   if (GOOST_MARKERS.doom_loop.test(text)) return "doom_loop"
   if (GOOST_MARKERS.mic.test(text)) return "mic"
   if (GOOST_MARKERS.moon.test(text)) return "moon"
@@ -276,12 +353,10 @@ export const detectStatus = (text: string, contractActive: boolean): GoostStatus
   if (GOOST_MARKERS.work.test(text)) return "work"
   if (GOOST_MARKERS.idle.test(text)) return "idle"
 
-  // Infer from contract state
   if (CONTRACT_PATTERNS.FULFILLED.test(text) || CONTRACT_PATTERNS.VOIDED.test(text)) {
     return "earth"
   }
 
-  // Default to work if contract is active
   if (contractActive) {
     return "work"
   }
@@ -295,11 +370,6 @@ export const detectStatus = (text: string, contractActive: boolean): GoostStatus
 
 /**
  * Get descriptive status text based on current state.
- *
- * @param status - Current Goost status
- * @param activeSubAgents - Number of active sub-agents
- * @param contractActive - Whether contract is active
- * @returns Human-readable status text
  */
 export const getStatusText = (
   status: GoostStatus,
@@ -332,42 +402,37 @@ export const getStatusText = (
 
 /**
  * Process message content for contract state changes.
- * Handles contract activation, status updates, OpenSpec tracking, and contract end.
- *
- * @param state - Current plugin state
- * @param content - Message content to process
- * @returns Updated plugin state
  */
 export const processMessageContent = (state: PluginState, content: string): PluginState => {
   let newState = { ...state }
 
-  // Cache pattern match results to avoid redundant regex execution
   const contractActivated = CONTRACT_PATTERNS.ACTIVE.test(content)
   const contractEnded =
     CONTRACT_PATTERNS.FULFILLED.test(content) || CONTRACT_PATTERNS.VOIDED.test(content)
 
-  // Detect OpenSpec change name (only update if we find one, preserve existing)
   const openSpecChange = extractOpenSpecChange(content)
   if (openSpecChange) {
     newState = { ...newState, openSpecChange }
   }
 
-  // Check for contract activation
   if (contractActivated) {
     newState = processContractActivation(newState, content)
+    // Initialize convergence state if it looks like an analysis command
+    if (newState.openSpecChange?.match(/audit|review|slop-scan/i)) {
+      newState.convergenceState = createInitialConvergenceState()
+    }
   }
 
-  // Update criteria status from status blocks
+  // Process checkpoints
+  newState = processCheckpoints(newState, content)
+
   if (newState.contract.active) {
     newState = processStatusBlock(newState, content)
 
-    // Update TDD phase from status block
     const phase = extractTestPhase(content)
     if (phase) {
       const status: GoostStatus = phase === "red" ? "tdd_red" : "tdd_green"
       newState = updateStateStatus(newState, status)
-
-      // Update contract state with phases seen
       if (phase === "red") {
         newState.contract.redPhaseSeen = true
       } else if (phase === "green") {
@@ -376,12 +441,10 @@ export const processMessageContent = (state: PluginState, content: string): Plug
     }
   }
 
-  // Check for contract end
   if (contractEnded) {
     newState = processContractEnd(newState)
   }
 
-  // Parse progress
   const progress = parseContractStatus(content)
   if (progress) {
     newState = {
@@ -390,22 +453,11 @@ export const processMessageContent = (state: PluginState, content: string): Plug
     }
   }
 
-  // Detect and apply status
-  // Priority: Explicit markers > Contract state changes > Current state
   const detectedStatus = detectStatus(content, newState.contract.active)
   const isTerminalState = newState.status === "earth" || newState.status === "idle"
   const hasExplicitMarker = Object.values(GOOST_MARKERS).some((pattern) => pattern.test(content))
 
-  // Always update status if there's an explicit marker
-  // Also update if contract ended
-  // Also update if not in terminal state (allows status inference from message content)
   if (hasExplicitMarker || contractEnded || !isTerminalState) {
-    const DEBUG = process.env.GOOST_DEBUG === "1"
-    if (DEBUG) {
-      console.error(
-        `[Goost:processMessageContent] Applying status: ${detectedStatus} (explicit=${hasExplicitMarker}, ended=${contractEnded}, terminal=${isTerminalState})`
-      )
-    }
     newState = updateStateStatus(newState, detectedStatus)
   }
 
@@ -414,10 +466,6 @@ export const processMessageContent = (state: PluginState, content: string): Plug
 
 /**
  * Process contract activation from message content.
- *
- * @param state - Current plugin state
- * @param content - Message content containing CONTRACT ACTIVE
- * @returns Updated plugin state with active contract
  */
 const processContractActivation = (state: PluginState, content: string): PluginState => {
   const contractBlock = extractContractBlock(content)
@@ -428,11 +476,9 @@ const processContractActivation = (state: PluginState, content: string): PluginS
         ...createActiveContract(contractBlock),
         progress: parseContractStatus(content) || state.contract.progress,
       },
-      // Reset failure tracking for new contract
       subAgentFailures: new Map<string, number>(),
     }
   }
-  // Fallback: mark active but couldn't parse block
   return {
     ...state,
     contract: { ...state.contract, active: true },
@@ -441,22 +487,17 @@ const processContractActivation = (state: PluginState, content: string): PluginS
 
 /**
  * Process status block updates in message content.
- *
- * @param state - Current plugin state
- * @param content - Message content potentially containing status block
- * @returns Updated plugin state with new criteria status
  */
 const processStatusBlock = (state: PluginState, content: string): PluginState => {
   const statusBlockMatch = content.match(STATUS_BLOCK_REGEX)
   if (statusBlockMatch) {
     const newCriteria = extractCriteria(statusBlockMatch[0])
     if (newCriteria.length > 0) {
-      // Find criteria that were just completed (transition from [ ] to [x])
       const newlyCompleted = newCriteria.filter((c) => {
         if (!c.startsWith("[x]")) return false
         const criterionText = c.substring(4)
         return state.contract.criteriaStatus.some(
-          (old) => old.startsWith("[ ]") && old.substring(4) === criterionText
+          (old) => !old.startsWith("[x]") && old.substring(4) === criterionText
         )
       })
 
@@ -465,7 +506,6 @@ const processStatusBlock = (state: PluginState, content: string): PluginState =>
         contract: { ...state.contract, criteriaStatus: newCriteria },
       }
 
-      // Clear failures for newly completed criteria
       for (const criterion of newlyCompleted) {
         const criterionId = criterion.substring(4)
         newState = clearSubAgentFailures(newState, criterionId)
@@ -479,25 +519,17 @@ const processStatusBlock = (state: PluginState, content: string): PluginState =>
 
 /**
  * Process contract end (fulfilled or voided).
- *
- * @param state - Current plugin state
- * @returns Updated plugin state with empty contract
  */
 const processContractEnd = (state: PluginState): PluginState => ({
   ...state,
   contract: createEmptyContract(),
-  // Clear failure tracking
   subAgentFailures: new Map<string, number>(),
-  // Clear OpenSpec change tracking
   openSpecChange: null,
+  convergenceState: null,
 })
 
 /**
  * Update state with new status.
- *
- * @param state - Current plugin state
- * @param status - New status to set
- * @returns Updated plugin state with new status and icon
  */
 export const updateStateStatus = (state: PluginState, status: GoostStatus): PluginState => ({
   ...state,
@@ -511,10 +543,6 @@ export const updateStateStatus = (state: PluginState, status: GoostStatus): Plug
 
 /**
  * Build preservation context for session compaction.
- * This content is injected into the compaction to preserve contract state.
- *
- * @param contract - Current contract state
- * @returns Formatted preservation context string, or empty if no contract
  */
 export const buildPreservationContext = (contract: ContractState): string => {
   if (!contract.text) return ""
@@ -542,18 +570,11 @@ ${contract.objective ? `OBJECTIVE: ${contract.objective}` : ""}
 }
 
 // =============================================================================
-// Sub-Agent Failure Tracking
+// Sub-Agent Tracking & Failure Management
 // =============================================================================
 
 /**
  * Check if sub-agent output indicates a failure.
- *
- * A result is considered a failure if:
- * - Output contains failure patterns (error:, cannot proceed, etc.)
- * - Output is empty (though this may be legitimate for some tasks)
- *
- * @param output - Task tool output
- * @returns true if output indicates failure
  */
 export const isSubAgentFailure = (output: TaskOutput): boolean => {
   const taskOutput = output.output || ""
@@ -562,10 +583,6 @@ export const isSubAgentFailure = (output: TaskOutput): boolean => {
 
 /**
  * Check if sub-agent output is empty.
- * Empty output is logged as a warning but not always a failure.
- *
- * @param output - Task tool output
- * @returns true if output is empty or whitespace only
  */
 export const isSubAgentEmpty = (output: TaskOutput): boolean => {
   const taskOutput = output.output || ""
@@ -574,21 +591,19 @@ export const isSubAgentEmpty = (output: TaskOutput): boolean => {
 
 /**
  * Extract criterion identifier from task description.
- * Used for tracking failures per criterion.
- *
- * @param description - Task description string
- * @returns Criterion identifier (description or "unknown")
+ * Normalizes to a safe ID format (kebab-case).
  */
 export const extractCriterionFromTask = (description: string | undefined): string => {
-  return description?.trim() || "unknown"
+  const text = description?.trim() || "unknown"
+  // Normalize to kebab-case for safe Map keys and ID validation
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
 /**
  * Record a sub-agent failure for a criterion.
- *
- * @param state - Current plugin state
- * @param criterion - Criterion identifier that failed
- * @returns Updated state with incremented failure count
  */
 export const recordSubAgentFailure = (state: PluginState, criterion: string): PluginState => {
   const newFailures = new Map(state.subAgentFailures)
@@ -602,11 +617,6 @@ export const recordSubAgentFailure = (state: PluginState, criterion: string): Pl
 
 /**
  * Clear sub-agent failures for a specific criterion.
- * Call when a criterion is successfully completed.
- *
- * @param state - Current plugin state
- * @param criterionId - Criterion identifier to clear
- * @returns Updated state with failure count reset
  */
 export const clearSubAgentFailures = (state: PluginState, criterionId: string): PluginState => {
   const newFailures = new Map(state.subAgentFailures)
@@ -624,12 +634,55 @@ export const clearSubAgentFailures = (state: PluginState, criterionId: string): 
 
 /**
  * Check if a criterion has reached the doom loop threshold.
- *
- * @param state - Current plugin state
- * @param criterion - Criterion identifier to check
- * @returns true if failures >= DOOM_LOOP_THRESHOLD
  */
 export const isDoomLoopReached = (state: PluginState, criterion: string): boolean => {
+  const threshold = getDoomLoopThreshold(state.openSpecChange)
   const failures = state.subAgentFailures.get(criterion) || 0
-  return failures >= DOOM_LOOP_THRESHOLD
+  return failures >= threshold
+}
+
+/**
+ * Record sub-agent work scope.
+ */
+export const recordSubAgentWork = (
+  state: PluginState,
+  criterionId: string,
+  files: string[]
+): PluginState => {
+  const newWork = new Map(state.subAgentWork)
+  const sanitizedFiles = new Set(files.map(sanitizePath))
+
+  newWork.set(criterionId, {
+    criterionId,
+    files: sanitizedFiles,
+    findingsCount: 0,
+    status: "pending",
+    lastUpdated: Date.now(),
+  })
+
+  return { ...state, subAgentWork: newWork }
+}
+
+/**
+ * Update sub-agent work on completion.
+ */
+export const updateSubAgentWork = (
+  state: PluginState,
+  criterionId: string,
+  findingsCount: number,
+  status: "complete" | "failed"
+): PluginState => {
+  const newWork = new Map(state.subAgentWork)
+  const existing = newWork.get(criterionId)
+
+  if (existing) {
+    newWork.set(criterionId, {
+      ...existing,
+      findingsCount,
+      status,
+      lastUpdated: Date.now(),
+    })
+  }
+
+  return { ...state, subAgentWork: newWork }
 }
