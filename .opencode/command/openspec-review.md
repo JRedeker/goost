@@ -502,11 +502,11 @@ OVERALL VERDICT: [APPROVED | CHANGES_REQUESTED | BLOCKED]
 
 ## Phase 3: Remediation (Targeted Fixes)
 
-**Goal**: If issues exist, optionally spawn targeted sub-agents to fix specific problems.
+**Goal**: If issues exist, optionally spawn targeted sub-agents to fix specific problems under contract tracking.
 
 ### Decision Point
 
-**If APPROVED**: Skip to Final Report. No fixes needed.
+**If APPROVED**: Skip to Final Report. No fixes needed. Emit completion banner directly.
 
 **If CHANGES_REQUESTED or BLOCKED**: Use `mcp_question` to prompt user:
 
@@ -526,6 +526,28 @@ Use mcp_question with:
 ```
 
 Wait for user selection before proceeding.
+
+### Establish Fix Contract
+
+**If user selects "Fix critical only" or "Fix critical and major"**, establish a contract:
+
+```
+============================================================
+                    CONTRACT ACTIVE
+============================================================
+
+OBJECTIVE: Fix identified issues in <change-id>
+
+SUCCESS CRITERIA:
+- [ ] (F1) <issue 1 description> - <file:line>
+- [ ] (F2) <issue 2 description> - <file:line>
+- [ ] (FN) <issue N description> - <file:line>
+- [ ] All fixes verified (build passes, issue resolved)
+
+============================================================
+```
+
+Track each fix as a criterion. Mark complete only when verified.
 
 ### Spawn Fix Sub-Agents
 
@@ -672,6 +694,37 @@ REMAINING ACTIONS:
 ...
 
 After fixes, re-run: /openspec-review $ARGUMENTS
+============================================================
+```
+
+### Contract Completion (If Fixes Applied)
+
+After all fixes are verified, emit CONTRACT FULFILLED:
+
+```
+============================================================
+                  CONTRACT FULFILLED
+============================================================
+
+OBJECTIVE: Fix identified issues in <change-id>
+
+ALL CRITERIA MET:
+- [x] (F1) <issue 1> - VERIFIED
+- [x] (F2) <issue 2> - VERIFIED
+...
+
+============================================================
+```
+
+### Completion Banner
+
+After the final report (and CONTRACT FULFILLED if fixes were applied), emit:
+
+```
+============================================================
+      /openspec-review <change-id> COMPLETE
+============================================================
+Result: <APPROVED | N issues fixed | Report only>
 ============================================================
 ```
 

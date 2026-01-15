@@ -30,6 +30,7 @@ The following commands integrate OpenSpec with Goost contract enforcement:
 |---------|-------------|
 | `/openspec-prep` | Prepare spec by adding missing AC, scenarios, and tasks (auto-approved) |
 | `/openspec-apply` | Implement an OpenSpec change under contract enforcement (auto-approved) |
+| `/openspec-ralph` | Implement an OpenSpec change with autonomous retry on failures (walk-away mode) |
 | `/openspec-archive` | Archive a completed OpenSpec change |
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
 
@@ -817,3 +818,34 @@ When a contract is voided:
 - Skip the commit step
 - Skip the CHANGELOG entry
 - Output CONTRACT VOIDED as normal
+
+### Step 6: Output Command Completion Banner
+
+After CONTRACT FULFILLED (or after report for non-contract commands), emit a completion banner:
+
+**Full Banner** (for contract-based commands):
+```
+============================================================
+      /<command-name> <target> COMPLETE
+============================================================
+Duration: ~N minutes (omit if < 30 seconds)
+Result: CONTRACT FULFILLED
+============================================================
+```
+
+**Minimal Banner** (for read-only commands):
+```
+============================================================
+           /<command-name> COMPLETE
+============================================================
+```
+
+**Placement Rules:**
+- Contract-based commands: One blank line after CONTRACT FULFILLED, then banner
+- Read-only commands: Banner at end of output
+- Voided contracts: Banner with result "CONTRACT VOIDED - partial changes may be applied"
+
+**Banner Elements:**
+- **Header**: Command name + target + "COMPLETE" (e.g., `/openspec-apply add-feature-x COMPLETE`)
+- **Duration**: Approximate time (omit if quick)
+- **Result**: Outcome summary

@@ -600,7 +600,7 @@ Store this list - you'll compare it after remediation to identify session artifa
 
 ## Phase 3: Remediation (Targeted Fixes)
 
-**Goal**: If issues exist, spawn targeted sub-agents to fix specific problems.
+**Goal**: If issues exist, spawn targeted sub-agents to fix specific problems under contract tracking.
 
 ### Decision Point
 
@@ -624,6 +624,28 @@ Use mcp_question with:
     - label: "Accept current state"
       description: "Skip fixes and proceed"
 ```
+
+### Establish Fix Contract
+
+**If user selects "Fix all issues" or "Fix blockers and high only"**, establish a contract:
+
+```
+============================================================
+                    CONTRACT ACTIVE
+============================================================
+
+OBJECTIVE: Fix hardening issues in <change-id>
+
+SUCCESS CRITERIA:
+- [ ] (H1) <issue 1 description> - <file:line>
+- [ ] (H2) <issue 2 description> - <file:line>
+- [ ] (HN) <issue N description> - <file:line>
+- [ ] All fixes verified (build passes, issue resolved)
+
+============================================================
+```
+
+Track each fix as a criterion. Mark complete only when verified.
 
 ### Spawn Fix Sub-Agents
 
@@ -944,6 +966,46 @@ REMAINING ACTIONS:
 2. [HIGH] Fix: <description> (<file:line>)
 3. [MEDIUM] Address: <description>
 ...
+============================================================
+```
+
+### Contract Completion (If Fixes Applied)
+
+After all fixes are verified, emit CONTRACT FULFILLED:
+
+```
+============================================================
+                  CONTRACT FULFILLED
+============================================================
+
+OBJECTIVE: Fix hardening issues in <change-id>
+
+ALL CRITERIA MET:
+- [x] (H1) <issue 1> - VERIFIED
+- [x] (H2) <issue 2> - VERIFIED
+...
+
+============================================================
+```
+
+### Completion Banner
+
+After the final report (and CONTRACT FULFILLED if fixes were applied), emit:
+
+```
+============================================================
+      /openspec-harden <change-id> COMPLETE
+============================================================
+Result: <READY | N issues fixed | Report only>
+============================================================
+```
+
+**If contract was voided mid-remediation:**
+```
+============================================================
+      /openspec-harden <change-id> COMPLETE
+============================================================
+Result: CONTRACT VOIDED - partial changes may be applied
 ============================================================
 ```
 

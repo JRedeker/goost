@@ -122,6 +122,7 @@ Restart OpenCode and type `/contract`. If you see the contract interview, you're
 | Command | Purpose |
 |---------|---------|
 | `/openspec-apply` | Implement under contract enforcement |
+| `/openspec-ralph` | Implement with autonomous retry (walk-away) |
 | `/openspec-review` | Post-implementation code review |
 | `/openspec-harden` | Production-readiness analysis |
 | `/openspec-audit` | Detect spec/code drift |

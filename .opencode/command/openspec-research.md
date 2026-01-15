@@ -381,9 +381,73 @@ Created change proposal: openspec/changes/harden-contract-system/
 - SIMPLIFIED: Replaced custom state serialization with built-in JSON.stringify (reduces code by 40 lines)
 ```
 
+**Step 10: Contract-Based Update Flow**
+
+**If research identified issues requiring updates**, establish a contract before applying changes:
+
+### Establish Update Contract
+
+```
+============================================================
+                    CONTRACT ACTIVE
+============================================================
+
+OBJECTIVE: Apply research findings to <target>
+
+SUCCESS CRITERIA:
+- [ ] (R1) <validated decision - document in design.md>
+- [ ] (R2) <concern - update spec requirement>
+- [ ] (R3) <anti-pattern - revise implementation approach>
+- [ ] (RN) <simplification - reduce complexity>
+- [ ] All updates verified and sources cited
+
+============================================================
+```
+
+Track each research finding as a criterion. Mark complete only when applied and verified.
+
+### Apply Updates
+
+Apply the updates as described in Steps 8-9 above, tracking progress against contract criteria.
+
+### Contract Completion
+
+After all updates are applied, emit CONTRACT FULFILLED:
+
+```
+============================================================
+                  CONTRACT FULFILLED
+============================================================
+
+OBJECTIVE: Apply research findings to <target>
+
+ALL CRITERIA MET:
+- [x] (R1) <decision> - documented in design.md
+- [x] (R2) <concern> - spec updated
+- [x] (R3) <anti-pattern> - approach revised
+...
+
+============================================================
+```
+
+### Completion Banner
+
+After CONTRACT FULFILLED (or after report if no updates needed), emit:
+
+```
+============================================================
+      /openspec-research <target> COMPLETE
+============================================================
+Result: <N findings applied | All decisions validated | Report only>
+============================================================
+```
+
+---
+
 **Output:**
 
 1. Present the synthesized research report to the user
 2. Show which files were updated and why
 3. Highlight any critical concerns requiring immediate attention
-4. Provide clear next steps for the user
+4. Emit completion banner
+5. Provide clear next steps for the user

@@ -712,14 +712,143 @@ Show full detailed report with findings and recommendations.
 
 ---
 
+## Phase 4: Remediation (Targeted Fixes)
+
+**Goal**: If issues exist, optionally spawn targeted sub-agents to fix specific problems under contract tracking.
+
+### Decision Point
+
+**If ALIGNED**: Skip to Final Report. No fixes needed. Emit completion banner directly.
+
+**If DRIFT_DETECTED or MAJOR_DRIFT**: Use `mcp_question` to prompt user:
+
+```
+Use mcp_question with:
+  header: "Fix Issues"
+  question: "Found <N> drift issues. How would you like to proceed?"
+  options:
+    - label: "Fix all issues"
+      description: "Apply fixes for all drift issues automatically"
+    - label: "Fix high severity only"
+      description: "Apply fixes for HIGH severity issues only"
+    - label: "Show report only"
+      description: "Display detailed report for manual fixing"
+    - label: "Accept current state"
+      description: "Skip fixes and proceed"
+```
+
+Wait for user selection before proceeding.
+
+### Establish Fix Contract
+
+**If user selects "Fix all issues" or "Fix high severity only"**, establish a contract:
+
+```
+============================================================
+                    CONTRACT ACTIVE
+============================================================
+
+OBJECTIVE: Fix spec/implementation drift in <scope>
+
+SUCCESS CRITERIA:
+- [ ] (D1) <drift issue 1> - <spec:line> vs <code:line>
+- [ ] (D2) <drift issue 2> - <spec:line> vs <code:line>
+- [ ] (DN) <drift issue N> - <description>
+- [ ] All fixes verified (specs and code aligned)
+
+============================================================
+```
+
+Track each fix as a criterion. Mark complete only when verified.
+
+### Spawn Fix Sub-Agents
+
+Based on user choice, spawn targeted fix sub-agents with `subagent_type: "general"`:
+
+#### Fix Sub-Agent Template
+
+```
+You are fixing a spec/implementation drift issue.
+
+ISSUE TO FIX:
+- Type: <constraint_drift | missing_implementation | stale_reference>
+- Severity: <HIGH | MEDIUM | LOW>
+- Spec: <spec location and text>
+- Code: <code location and current value>
+- Expected: <what spec says>
+- Actual: <what code does>
+
+TASK:
+1. Determine if spec or code should be updated:
+   - If code is wrong, fix the code
+   - If spec is outdated, update the spec
+   - If ambiguous, prefer updating code to match spec
+
+2. Make the fix
+3. Verify alignment
+
+RETURN FORMAT:
+```json
+{
+  "issue_id": "<type>:<file>:<line>",
+  "status": "FIXED|PARTIAL|UNABLE",
+  "fix_type": "code|spec",
+  "changes_made": ["<description>"],
+  "files_modified": ["<file>"],
+  "verification": "<how you verified alignment>"
+}
+```
+```
+
+### Validate Fixes
+
+After fix sub-agents complete:
+1. Verify changes were made
+2. Re-check alignment between spec and code
+3. Mark each fix as VERIFIED, UNVERIFIED, or PROBLEMATIC
+
+### Contract Completion (If Fixes Applied)
+
+After all fixes are verified, emit CONTRACT FULFILLED:
+
+```
+============================================================
+                  CONTRACT FULFILLED
+============================================================
+
+OBJECTIVE: Fix spec/implementation drift in <scope>
+
+ALL CRITERIA MET:
+- [x] (D1) <issue 1> - VERIFIED
+- [x] (D2) <issue 2> - VERIFIED
+...
+
+============================================================
+```
+
+### Completion Banner
+
+After the final report (and CONTRACT FULFILLED if fixes were applied), emit:
+
+```
+============================================================
+      /openspec-audit <scope> COMPLETE
+============================================================
+Result: <ALIGNED | N drift issues fixed | Report only>
+============================================================
+```
+
+---
+
 ## Execution
 
 Now execute the project audit.
 
 1. Run pre-flight checks
-2. Spawn analysis sub-agents in parallel
+2. Spawn analysis sub-agents in parallel (Stage 1 → Stage 2 → Stage 3)
 3. Perform orphan detection
 4. Synthesize findings
-5. Generate and display final report
+5. Phase 4: Remediation (if issues found and user confirms)
+6. Generate and display final report with completion banner
 
 Begin with Step 1: Validate Specs Directory.

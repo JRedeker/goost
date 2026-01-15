@@ -207,3 +207,15 @@ Run `openspec new <change-name>` to add a new change.
 ## Execution
 
 Now execute the steps above and render the roadmap dashboard for this project.
+
+---
+
+## Completion Banner
+
+After the roadmap dashboard, emit:
+
+```
+============================================================
+      /openspec-roadmap COMPLETE
+============================================================
+```

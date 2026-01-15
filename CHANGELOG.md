@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Add Positive Framing guidance section to AGENTS.md
 
 ### Added
+- Add `/openspec-ralph` command for autonomous implementation with retry on failures - implements "Ralph Wiggum Loop" protocol with 3-retry budget for semantic errors, error classification (SEMANTIC/TRANSIENT/ENVIRONMENTAL), and mandatory global verification
 - Add Smart Target Resolution for OpenSpec commands - two-priority algorithm (explicit > structured selection) with risk-based confirmation via mcp_question
 - Standardize question tool usage across all Goost commands using `mcp_question` for consistent UX (b09bbc2)
 - Add User Interaction Protocol section to goost_instructions.md with examples and fallback protocol

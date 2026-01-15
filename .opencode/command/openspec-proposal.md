@@ -23,6 +23,18 @@ The user has requested the following change proposal. Use the openspec instructi
 6. Draft `tasks.md` as an ordered list of small, verifiable work items that deliver user-visible progress, include validation (tests, tooling), and highlight dependencies or parallelizable work.
 7. Validate with `openspec validate <id> --strict` and resolve every issue before sharing the proposal.
 
+**Completion Banner**
+
+After the proposal is created and validated, emit:
+
+```
+============================================================
+      /openspec-proposal <change-id> COMPLETE
+============================================================
+Result: Proposal created and validated
+============================================================
+```
+
 **Reference**
 - Use `openspec show <id> --json --deltas-only` or `openspec show <spec> --type spec` to inspect details when validation fails.
 - Search existing requirements with `rg -n "Requirement:|Scenario:" openspec/specs` before writing new ones.

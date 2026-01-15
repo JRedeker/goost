@@ -62,3 +62,17 @@ Structure your questions to guide the user toward their own conclusions:
 4. End with an invitation to answer and continue the dialogue
 
 Focus on questions that, when answered, will produce concrete, testable acceptance criteria. Avoid yes/no questions—prefer open-ended questions that reveal requirements and help the user think through implications they may not have considered.
+
+---
+
+**Completion Banner**
+
+After presenting your clarifying questions, emit:
+
+```
+============================================================
+      /openspec-clarify COMPLETE
+============================================================
+Result: <N> clarifying questions presented
+============================================================
+```

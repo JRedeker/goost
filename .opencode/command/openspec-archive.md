@@ -46,6 +46,18 @@ Determine the target change ID:
 3. Review the command output to confirm the target specs were updated and the change landed in `changes/archive/`.
 4. Validate with `openspec validate --strict` and inspect with `openspec show <id>` if anything looks off.
 
+**Completion Banner**
+
+After archive completes successfully, emit:
+
+```
+============================================================
+      /openspec-archive <change-id> COMPLETE
+============================================================
+Result: Change archived and specs updated
+============================================================
+```
+
 **Reference**
 - Use `openspec list` to confirm change IDs before archiving.
 - Inspect refreshed specs with `openspec list --specs` and address any validation issues before handing off.

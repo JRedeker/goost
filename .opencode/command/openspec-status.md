@@ -184,3 +184,15 @@ This command MUST be fast:
 - No file content analysis beyond what CLI provides
 - No network requests
 - Target completion: 2-3 seconds
+
+---
+
+## Completion Banner
+
+After the status report, emit:
+
+```
+============================================================
+      /openspec-status COMPLETE
+============================================================
+```

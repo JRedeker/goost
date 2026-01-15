@@ -329,3 +329,17 @@ Now analyze the codebase:
 6. Assign severity and sort
 7. Generate hybrid search queries
 8. Output the IMPROVEMENT OPPORTUNITIES report
+
+---
+
+## Completion Banner
+
+After the report is generated, emit:
+
+```
+============================================================
+      /goost-improve COMPLETE
+============================================================
+Result: <N improvement opportunities | No significant gaps>
+============================================================
+```

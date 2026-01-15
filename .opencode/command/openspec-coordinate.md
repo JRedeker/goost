@@ -253,3 +253,17 @@ If some analysis commands fail:
 - Continue with available results
 - Note which dimensions are incomplete in the report
 - Suggest manual investigation for failed dimensions
+
+---
+
+## Completion Banner
+
+After the coordination report is generated, emit:
+
+```
+============================================================
+      /openspec-coordinate COMPLETE
+============================================================
+Result: <N active changes analyzed | No coordination needed>
+============================================================
+```

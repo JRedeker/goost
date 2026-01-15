@@ -152,6 +152,18 @@ Before declaring CONTRACT FULFILLED:
 
 Follow the standard contract completion protocol (commit, changelog update).
 
+### Completion Banner
+
+After CONTRACT FULFILLED, emit:
+
+```
+============================================================
+      /openspec-apply <change-id> COMPLETE
+============================================================
+Result: CONTRACT FULFILLED
+============================================================
+```
+
 **Reference**
 - Use `openspec show <id> --json --deltas-only` for additional proposal context
 <!-- OPENSPEC:END -->

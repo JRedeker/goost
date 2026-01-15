@@ -649,3 +649,17 @@ Now execute the slop scan.
 6. Output in requested format (text or JSON)
 
 Begin with argument parsing.
+
+---
+
+## Completion Banner
+
+After the report is generated, emit:
+
+```
+============================================================
+      /goost-slop-scan COMPLETE
+============================================================
+Result: <N findings | No slop detected>
+============================================================
+```

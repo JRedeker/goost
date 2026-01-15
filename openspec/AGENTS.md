@@ -56,6 +56,12 @@ Track these steps as TODOs and complete them one by one.
 6. **Update checklist** - After all work is done, set every task to `- [x]` so the list reflects reality
 7. **Approval gate** - Do not start implementation until the proposal is reviewed and approved
 
+**Implementation Commands:**
+- `/openspec-apply <change-id>` - Standard implementation with contract enforcement
+- `/openspec-ralph <change-id>` - Autonomous implementation with automatic retry on failures (walk-away mode)
+
+Use `/openspec-ralph` when you want hands-off implementation. It will automatically retry up to 3 times on verification failures (tests, builds) before asking for help. This reduces "babysitting" for complex changes.
+
 ### Stage 3: Archiving Changes
 After deployment, create separate PR to:
 - Move `changes/[name]/` → `changes/archive/YYYY-MM-DD-[name]/`

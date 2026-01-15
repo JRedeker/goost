@@ -127,3 +127,26 @@ If the request is:
 Say: "This request needs more detail. Let me walk through the full contract flow..."
 
 Then invoke the standard `/contract` behavior.
+
+---
+
+## Completion Banner
+
+After CONTRACT FULFILLED (or CONTRACT VOIDED), emit:
+
+```
+============================================================
+      /contract-quick COMPLETE
+============================================================
+Result: CONTRACT FULFILLED
+============================================================
+```
+
+**If voided:**
+```
+============================================================
+      /contract-quick COMPLETE
+============================================================
+Result: CONTRACT VOIDED - X of Y criteria completed
+============================================================
+```

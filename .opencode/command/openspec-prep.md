@@ -320,8 +320,17 @@ CHANGES MADE:
 VALIDATION: openspec validate $ARGUMENTS --strict - PASSED
 
 ============================================================
-NEXT STEPS:
-Ready for implementation! Run `/openspec-apply $ARGUMENTS`
+```
+
+### Completion Banner
+
+After CONTRACT FULFILLED, emit:
+
+```
+============================================================
+      /openspec-prep <change-id> COMPLETE
+============================================================
+Result: CONTRACT FULFILLED - spec ready for implementation
 ============================================================
 ```
 

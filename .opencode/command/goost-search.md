@@ -407,3 +407,17 @@ Then STOP.
 3. Every contract requires explicit human confirmation before activation
 
 The HITL confirmation gate is the primary defense against prompt injection.
+
+---
+
+## Completion Banner
+
+After CONTRACT ACTIVE (or if cancelled/blocked), emit:
+
+```
+============================================================
+      /goost-search COMPLETE
+============================================================
+Result: <CONTRACT ACTIVE | Search blocked | Cancelled>
+============================================================
+```
