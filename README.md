@@ -113,8 +113,9 @@ Restart OpenCode and type `/contract`. If you see the contract interview, you're
 | `/openspec-proposal` | Create a change proposal |
 | `/openspec-clarify` | Socratic questions for requirements |
 | `/openspec-research` | Validate architecture with docs/web |
-| `/openspec-prep` | Fill gaps in acceptance criteria |
-| `/openspec-status` | Quick project overview |
+| `/openspec-prep` | Pre-implementation preparation |
+| `/openspec-refactor` | Refresh stale change proposals via Bidirectional Reconciliation |
+| `/openspec-status` | Fast overview of OpenSpec project state |
 | `/openspec-roadmap` | Visual progress dashboard |
 
 ### Implementation & Quality

@@ -26,7 +26,8 @@ Goost provides 19 slash commands across four categories:
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
 | `/openspec-clarify` | Socratic questions for requirements clarification |
 | `/openspec-research` | Validate architecture decisions with docs/web research |
-| `/openspec-prep` | Prepare spec by adding missing AC, scenarios, and tasks |
+| `/openspec-prep` | Pre-implementation preparation - analyze spec gaps and add missing acceptance criteria, scenarios, and tasks under contract enforcement. |
+| `/openspec-refactor` | Refresh stale change proposals by aligning them with the current codebase via Bidirectional Reconciliation. |
 | `/openspec-status` | Fast overview of OpenSpec project state |
 | `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
 | `/openspec-coordinate` | Synchronize multiple active changes and detect conflicts |

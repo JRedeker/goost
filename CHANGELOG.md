@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Add `/openspec-refactor` command for refreshing stale change proposals via **Bidirectional Reconciliation** - implements tiered staleness detection (SHA-256/TLSH drift, Context7 dependency research, capability-based conflict pruning), Intent Verification Gate (Approval state) for behavioral shifts, and auto-fix with reasoning snippets.
 - Add standardized completion banners to all 19 slash commands for better session visibility and grepability
   - Contract-based commands emit full banner after CONTRACT FULFILLED
   - Analysis commands (`/openspec-review`, `/openspec-harden`, `/openspec-audit`, `/openspec-research`) now use contract tracking when applying fixes
