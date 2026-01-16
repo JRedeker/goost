@@ -171,6 +171,18 @@ export const isTaskTool = (toolName: string): boolean =>
   toolName === TOOL_NAMES.TASK || toolName === TOOL_NAMES.TASK_ALT
 
 /**
+ * Question tool patterns - tools that ask user for input.
+ * These should trigger mic status since the AI is waiting for user response.
+ * Uses regex to match various naming conventions (mcp_question, question, ask, etc.)
+ */
+export const QUESTION_TOOL_PATTERN = /^(mcp_)?question$|^ask$/i
+
+/**
+ * Check if a tool name is a Question tool (requires user input).
+ */
+export const isQuestionTool = (toolName: string): boolean => QUESTION_TOOL_PATTERN.test(toolName)
+
+/**
  * Contract status block patterns.
  */
 export const CONTRACT_STATUS_HEADER = "CONTRACT STATUS:"

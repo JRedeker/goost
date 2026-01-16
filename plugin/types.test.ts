@@ -11,6 +11,8 @@ import {
   EVENT_TYPES,
   TOOL_NAMES,
   isTaskTool,
+  isQuestionTool,
+  QUESTION_TOOL_PATTERN,
   DOOM_LOOP_THRESHOLD,
   SessionStatusPropsSchema,
   MessageUpdatedPropsSchema,
@@ -100,6 +102,40 @@ describe("TOOL_NAMES and isTaskTool", () => {
     expect(isTaskTool("task")).toBe(true)
     expect(isTaskTool("mcp_task")).toBe(true)
     expect(isTaskTool("bash")).toBe(false)
+  })
+})
+
+describe("QUESTION_TOOL_PATTERN and isQuestionTool", () => {
+  it("identifies mcp_question tool", () => {
+    expect(isQuestionTool("mcp_question")).toBe(true)
+  })
+
+  it("identifies question tool", () => {
+    expect(isQuestionTool("question")).toBe(true)
+  })
+
+  it("identifies ask tool", () => {
+    expect(isQuestionTool("ask")).toBe(true)
+  })
+
+  it("is case insensitive", () => {
+    expect(isQuestionTool("MCP_QUESTION")).toBe(true)
+    expect(isQuestionTool("Question")).toBe(true)
+    expect(isQuestionTool("ASK")).toBe(true)
+  })
+
+  it("rejects non-question tools", () => {
+    expect(isQuestionTool("bash")).toBe(false)
+    expect(isQuestionTool("task")).toBe(false)
+    expect(isQuestionTool("read")).toBe(false)
+    expect(isQuestionTool("mcp_task")).toBe(false)
+  })
+
+  it("has pattern that matches expected formats", () => {
+    expect(QUESTION_TOOL_PATTERN.test("mcp_question")).toBe(true)
+    expect(QUESTION_TOOL_PATTERN.test("question")).toBe(true)
+    expect(QUESTION_TOOL_PATTERN.test("ask")).toBe(true)
+    expect(QUESTION_TOOL_PATTERN.test("mcp_ask")).toBe(false) // Only "ask" without mcp_ prefix
   })
 })
 

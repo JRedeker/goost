@@ -42,6 +42,7 @@ import {
   type GoostStatus,
   EVENT_TYPES,
   isTaskTool,
+  isQuestionTool,
   SessionStatusPropsSchema,
   SessionUpdatedPropsSchema,
   MessageUpdatedPropsSchema,
@@ -375,8 +376,8 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
       }
     },
 
-    // Watch for task tool calls (sub-agent spawning)
-    // Before: show moon because sub-agent is about to run (we'll be waiting)
+    // Watch for task tool calls (sub-agent spawning) and question tools (user input)
+    // Before: show moon for sub-agents, mic for questions
     "tool.execute.before": async (input, toolArgs): Promise<void> => {
       // Log ALL tool executions when DEBUG is enabled
       log(`tool.execute.before: tool="${input.tool}"`)
@@ -384,6 +385,13 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
       // Track bash commands for test runner detection in .after
       if (input.tool === "bash" && toolArgs.args && "command" in toolArgs.args) {
         lastBashCommand = String(toolArgs.args.command)
+      }
+
+      // Question tools require user input - show mic status
+      if (isQuestionTool(input.tool)) {
+        log("Question tool detected - switching to mic state")
+        setState(updateStateStatus(state, "mic"))
+        return
       }
 
       if (!isTaskTool(input.tool)) {
@@ -427,7 +435,16 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
     },
 
     // After task tool completes, sub-agent is done
+    // After question tool completes, user has answered
     "tool.execute.after": async (input, output): Promise<void> => {
+      // Question tool completed - user answered, return to appropriate state
+      if (isQuestionTool(input.tool)) {
+        log("Question tool completed - returning from mic state")
+        const newStatus: GoostStatus = state.contract.active ? "work" : "idle"
+        setState(updateStateStatus(state, newStatus))
+        return
+      }
+
       // Check for test runner execution
       if (input.tool === "bash" && lastBashCommand) {
         if (isTestRunner(lastBashCommand)) {
