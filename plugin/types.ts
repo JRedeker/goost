@@ -150,7 +150,8 @@ export const EVENT_TYPES = {
   SESSION_UPDATED: "session.updated",
   MESSAGE_UPDATED: "message.updated",
   SESSION_COMPACTED: "session.compacted",
-  PERMISSION_UPDATED: "permission.updated",
+  PERMISSION_UPDATED: "permission.updated", // v1 SDK
+  PERMISSION_ASKED: "permission.asked", // v2 SDK
   PERMISSION_REPLIED: "permission.replied",
 } as const
 

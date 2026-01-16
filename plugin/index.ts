@@ -270,7 +270,8 @@ const eventHandlers: Partial<Record<string, EventHandler>> = {
   [EVENT_TYPES.SESSION_DELETED]: handleSessionDeleted,
   [EVENT_TYPES.MESSAGE_UPDATED]: handleMessageUpdated,
   [EVENT_TYPES.SESSION_COMPACTED]: handleSessionCompacted,
-  [EVENT_TYPES.PERMISSION_UPDATED]: handlePermissionUpdated,
+  [EVENT_TYPES.PERMISSION_UPDATED]: handlePermissionUpdated, // v1 SDK
+  [EVENT_TYPES.PERMISSION_ASKED]: handlePermissionUpdated, // v2 SDK (same handler)
   [EVENT_TYPES.PERMISSION_REPLIED]: handlePermissionReplied,
 }
 
@@ -520,6 +521,17 @@ const GoostStatusPlugin: Plugin = async ({ directory }) => {
         }
       } catch (error) {
         log(`Error in experimental.session.compacting: ${error}`)
+      }
+    },
+
+    // Primary mechanism for permission detection (more reliable than events)
+    // This hook fires when OpenCode requests permission for an action
+    "permission.ask": async (_input, _output): Promise<void> => {
+      try {
+        log("permission.ask hook triggered - switching to mic state")
+        setState(updateStateStatus(state, "mic"))
+      } catch (error) {
+        log(`Error in permission.ask hook: ${error}`)
       }
     },
   }
