@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Add standardized completion banners to all 19 slash commands for better session visibility and grepability
+  - Contract-based commands emit full banner after CONTRACT FULFILLED
+  - Analysis commands (`/openspec-review`, `/openspec-harden`, `/openspec-audit`, `/openspec-research`) now use contract tracking when applying fixes
+  - Read-only commands emit minimal banner at completion
+  - Banner format: 58-char delimiters with centered `/<command> COMPLETE` header
+
 ### Changed
 - Refactor negative instructions to positive framing across all commands and documentation (494ba50)
   - Convert "Do NOT emit markers" → "Return findings directly" pattern across 12 sub-agent contexts

@@ -10,29 +10,45 @@ Goost enforces a strict **Test-Driven Development (TDD)** workflow using the **R
 
 ## Available Commands
 
-Goost provides these slash commands:
+Goost provides 19 slash commands across four categories:
+
+### Core Contracts
 
 | Command | Description |
 |---------|-------------|
 | `/contract` | Establish a formal contract with success criteria |
 | `/contract-quick` | Quick contract for simpler tasks |
-| `/openspec-coordinate` | Synchronize multiple active OpenSpec changes, detect conflicts, and align task lists |
-| `/goost-slop-scan` | Scan codebase for AI-generated code quality issues ("slop") |
-| `/openspec-audit` | Project-wide audit to detect spec/implementation drift, identify unspecified code, and find conflicting requirements |
-| `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
-| `/openspec-review` | Post-implementation code review for correctness, logic, security, and architecture |
-| `/openspec-harden` | Post-implementation hardening analysis for production-readiness |
-| `/openspec-status` | Fast overview of OpenSpec project state - changes, specs, dependencies |
 
-The following commands integrate OpenSpec with Goost contract enforcement:
+### OpenSpec Planning
 
 | Command | Description |
 |---------|-------------|
-| `/openspec-prep` | Prepare spec by adding missing AC, scenarios, and tasks (auto-approved) |
-| `/openspec-apply` | Implement an OpenSpec change under contract enforcement (auto-approved) |
-| `/openspec-ralph` | Implement an OpenSpec change with autonomous retry on failures (walk-away mode) |
-| `/openspec-archive` | Archive a completed OpenSpec change |
 | `/openspec-proposal` | Create a new OpenSpec change proposal |
+| `/openspec-clarify` | Socratic questions for requirements clarification |
+| `/openspec-research` | Validate architecture decisions with docs/web research |
+| `/openspec-prep` | Prepare spec by adding missing AC, scenarios, and tasks |
+| `/openspec-status` | Fast overview of OpenSpec project state |
+| `/openspec-roadmap` | Display tiered progress dashboard for OpenSpec changes |
+| `/openspec-coordinate` | Synchronize multiple active changes and detect conflicts |
+
+### OpenSpec Implementation & Quality
+
+| Command | Description |
+|---------|-------------|
+| `/openspec-apply` | Implement an OpenSpec change under contract enforcement |
+| `/openspec-ralph` | Implement with autonomous retry on failures (walk-away mode) |
+| `/openspec-review` | Post-implementation code review (correctness, logic, security) |
+| `/openspec-harden` | Post-implementation hardening for production-readiness |
+| `/openspec-audit` | Detect spec/implementation drift across the project |
+| `/openspec-archive` | Archive a completed OpenSpec change |
+
+### Code Quality Tools
+
+| Command | Description |
+|---------|-------------|
+| `/goost-slop-scan` | Scan codebase for AI-generated code quality issues |
+| `/goost-improve` | Find architectural improvement opportunities |
+| `/goost-search` | Search curated prompt libraries with security scanning |
 
 ## When to Suggest a Contract
 

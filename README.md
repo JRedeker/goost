@@ -49,7 +49,7 @@ Goost is an OpenCode plugin that adds:
 | Feature | Description |
 |---------|-------------|
 | **Contract System** | Immutable success criteria with verification gates |
-| **17 Slash Commands** | Planning, implementation, review, and quality tools |
+| **19 Slash Commands** | Planning, implementation, review, and quality tools |
 | **OpenSpec Integration** | Full spec-driven development workflow |
 | **Terminal Status** | Real-time progress in your terminal tab |
 | **Loop Detection** | Auto-terminates runaway responses |
