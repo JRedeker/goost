@@ -5,6 +5,10 @@
 <h1 align="center">Goost</h1>
 
 <p align="center">
+  <em>"Talk to me Goost..."</em>
+</p>
+
+<p align="center">
   <strong>Contract-Based Persistence for OpenCode</strong>
 </p>
 
