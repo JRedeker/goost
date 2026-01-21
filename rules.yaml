@@ -177,3 +177,10 @@ rules:
     tags: [testing, tdd, quality]
     hint: tdd_mandatory
     priority: 9
+
+  P25:
+    name: related-scan
+    rule: When fixing a bug or issue, scan for related potential issues using similar patterns, functions, or logic. If you fix fuzzy matching in one function, check all other fuzzy matching functions for the same class of bug.
+    tags: [quality, bugs, thoroughness]
+    hint: scan_related_issues
+    priority: 8
