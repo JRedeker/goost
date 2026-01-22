@@ -21,6 +21,7 @@ This document maps current OpenSpec slash commands to their ADV equivalents, doc
 | `/openspec-audit` | `/adv-audit` | Queries `adv.db` for completeness metrics |
 | `/openspec-roadmap` | `/adv-roadmap` | Uses `adv roadmap` CLI command |
 | `/openspec-ralph` | `/adv-ralph` | **Unchanged** — exploratory review pattern stays the same |
+| `/openspec-refactor` | `/adv-refactor` | Uses `adv change refactor` with SQLite-powered staleness detection |
 | `/goost-search` | `/adv-search` | Queries SQLite FTS5 instead of ripgrep |
 | `/goost-improve` | `/adv-improve` | Pattern stays the same |
 | `/goost-slop-scan` | `/adv-slop-scan` | Pattern stays the same |
@@ -33,6 +34,7 @@ This document maps current OpenSpec slash commands to their ADV equivalents, doc
 | `/adv-validate` | Validate change against existing specs (specs as laws) |
 | `/adv-docs` | Generate/preview documentation from specs |
 | `/adv-migrate` | Migrate from OpenSpec v1 to ADV format |
+| `/adv-refactor` | Refresh stale change proposals via Bidirectional Reconciliation |
 
 ## Detailed Command Specifications
 
@@ -268,6 +270,63 @@ add-auth-abc123  changes/add-auth-abc123/change.json
 
 ---
 
+### `/adv-refactor [change-id]`
+
+**Purpose**: Refresh stale change proposals via Bidirectional Reconciliation
+
+**ADV Improvement**: Uses SQLite for fast staleness detection and cross-reference analysis
+
+**Flags**:
+- `--execute`: Apply changes (default is dry-run)
+- `--interactive`: Approve each fix category
+- `--force`: Skip recent-modification warnings
+
+**Workflow**:
+1. **Staleness Analysis**: Spawn parallel sub-agents for 5 detection dimensions:
+   - Codebase Drift Scanner (file moves, renames)
+   - Dependency Scanner (outdated libraries)
+   - Conflict Scanner (overlaps with archived changes)
+   - Task Validator (orphaned task references)
+   - Obsolescence Detector (requirements already implemented)
+2. **Synthesis**: Aggregate findings, classify by severity
+3. **Intent Verification**: If code contradicts requirement, ask user to clarify
+4. **Refactoring**: Update spec deltas, tasks, metadata (under contract)
+5. **Validation**: Run `adv change validate` on updated proposal
+
+**CLI**:
+```bash
+adv change refactor add-auth-abc123
+adv change refactor add-auth-abc123 --execute
+```
+
+**Output**:
+```
+============================================================
+          REFACTOR REPORT: add-auth-abc123
+============================================================
+STALENESS SUMMARY:
+  - Age: 14 days since creation
+  - Drift: 3 files moved/renamed
+  - Obsolescence: 1 requirement implemented elsewhere
+
+CHANGES:
+✅ HIGH CONFIDENCE
+  - Updated src/auth.ts reference (content hash match)
+  - Corrected task 3.1 file path
+
+⚠️ MANUAL REVIEW
+  - Requirement rq-xyz789 may conflict with recent rq-abc123
+
+ROLLBACK:
+  git restore .
+
+============================================================
+      /adv-refactor add-auth-abc123 COMPLETE
+============================================================
+```
+
+---
+
 ## Contract Integration
 
 All `/adv-*` commands that modify state integrate with the contract system:
@@ -303,6 +362,7 @@ SUCCESS CRITERIA:
 | `/adv-docs` | `adv docs preview/generate` |
 | `/adv-migrate` | `adv migrate from-openspec` |
 | `/adv-search` | `adv search` |
+| `/adv-refactor` | `adv change refactor` |
 
 ## Migration Path
 

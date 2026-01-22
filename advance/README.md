@@ -123,6 +123,18 @@ NanoID(8) gives 50% collision probability at ~51 million IDs.
 - [ ] Slash command updates (`/adv-*`)
 - [ ] TypeScript plugin integration
 
+## Learnings from Goost v1 (January 2026)
+
+Recent Goost development yielded important patterns to incorporate:
+
+| Learning | Implication for ADV |
+|----------|---------------------|
+| Instructions condensed 72% (886→244 lines) | ADV instructions should be terse; use tables, bullet points, inline code |
+| `/openspec-refactor` command added | Add `/adv-refactor` for stale proposal reconciliation |
+| P25 related-scan rule | Bug fixes trigger sibling-pattern scanning |
+| Auto-detect question tools (MIC state) | Plugin should detect question-like MCP calls automatically |
+| Permission.ask hook | Track approval states via plugin hooks |
+
 ## Open Questions
 
 1. **Compaction**: Should archived changes be compacted/summarized?

@@ -539,12 +539,26 @@ Based on research and refinement:
 - ✅ **Generated docs** — Archive + preview workflow
 - ✅ **TypeScript plugin** — Terminal integration (exists)
 - ✅ **Slash commands** — User workflows (adapted from current)
+- ✅ **Refactor command** — `/adv-refactor` for stale proposal reconciliation
+- ✅ **Condensed instructions** — Terse format (tables, bullets, inline code)
 
 **Defer to v2.1+**:
 - ⏸️ **Daemon** — On-demand sync is sufficient initially
 - ⏸️ **MCP server** — External tool integration
 - ⏸️ **Branch workflow enforcement** — Document as best practice
 - ⏸️ **Advanced contradiction detection** — LLM-assisted validation
+
+## Goost v1 Learnings (January 2026)
+
+Additional patterns validated during Goost development:
+
+| Learning | Implication |
+|----------|-------------|
+| Instructions can be condensed 72% | Use terse format: tables, bullet points, inline code |
+| Refactor command needed | Add `/adv-refactor` for Bidirectional Reconciliation of stale proposals |
+| P25 related-scan rule | When fixing bugs, scan for sibling patterns |
+| Question tool auto-detection | Plugin should detect MCP question calls for MIC state |
+| Permission hooks needed | Track approval states via `permission.ask` hook |
 
 ## References
 

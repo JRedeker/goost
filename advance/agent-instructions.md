@@ -31,6 +31,7 @@ These rules are mandatory for all AI agents. Higher priority rules take preceden
 | P08 | Clarify | If requirements are ambiguous or incomplete, ask clarifying questions before proceeding |
 | P09 | Rule Resolution | Resolve rule conflicts using hint + priority; higher priority wins. Document exceptions |
 | P10 | Idempotence | Design operations to be idempotent and safely retriable with exponential backoff |
+| P25 | Related Scan | When fixing a bug, scan for related potential issues using similar patterns, functions, or logic |
 
 ### Priority 7 (Standard)
 
@@ -358,6 +359,18 @@ Every 3-5 responses, ask:
 > "Is my current work advancing the objective, or have I drifted?"
 
 If drifted, acknowledge and course-correct.
+
+---
+
+## Related Issue Scanning (P25)
+
+When fixing a bug:
+1. Identify the pattern (e.g., fuzzy matching, null checks, error handling)
+2. Search for siblings using the same pattern
+3. Check each for the same class of bug
+4. Fix or document
+
+**Example**: Fix fuzzy matching in `searchUsers()` → check `searchProducts()`, `searchOrders()`, similar logic.
 
 ---
 
