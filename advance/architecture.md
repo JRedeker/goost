@@ -26,29 +26,19 @@ This document provides a high-level overview of the Advance system architecture.
 │  │                      INTERACTION LAYER                                │   │
 │  ├──────────────────────────────────────────────────────────────────────┤   │
 │  │                                                                       │   │
-│  │   ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────┐  │   │
-│  │   │   Slash     │    │  Go CLI     │    │    TypeScript Plugin    │  │   │
-│  │   │  Commands   │───▶│   `adv`     │    │      (OpenCode)         │  │   │
-│  │   │   (.md)     │    │             │    │                         │  │   │
-│  │   └─────────────┘    └──────┬──────┘    └────────────┬────────────┘  │   │
-│  │                             │                        │               │   │
-│  └─────────────────────────────┼────────────────────────┼───────────────┘   │
-│                                │                        │                    │
-│                                ▼                        ▼                    │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                        DATA LAYER                                     │   │
-│  ├──────────────────────────────────────────────────────────────────────┤   │
+│  │   ┌─────────────┐    ┌───────────────────────────────────────────┐   │   │
+│  │   │   Slash     │    │         TypeScript Plugin (Primary)       │   │   │
+│  │   │  Commands   │───▶│                                           │   │   │
+│  │   │   (.md)     │    │  ┌─────────┐ ┌─────────┐ ┌─────────────┐  │   │   │
+│  │   └─────────────┘    │  │AI Tools │ │ Storage │ │  Terminal   │  │   │   │
+│  │                      │  │ tool()  │ │ SQLite  │ │  Tab/Title  │  │   │   │
+│  │   ┌─────────────┐    │  └─────────┘ └─────────┘ └─────────────┘  │   │   │
+│  │   │ CLI Wrapper │    │                                           │   │   │
+│  │   │ (Optional)  │───▶│  Tools: adv_spec_*, adv_change_*,        │   │   │
+│  │   │             │    │         adv_task_*, adv_status            │   │   │
+│  │   └─────────────┘    └───────────────────────────────────────────┘   │   │
 │  │                                                                       │   │
-│  │   ┌─────────────────────────────┐    ┌───────────────────────────┐   │   │
-│  │   │       JSON Files            │    │      SQLite Cache         │   │   │
-│  │   │    (Source of Truth)        │───▶│      (.advdb/adv.db)      │   │   │
-│  │   │                             │    │                           │   │   │
-│  │   │  specs/*.json               │    │  - Indexed queries        │   │   │
-│  │   │  changes/*.json             │    │  - FTS5 search            │   │   │
-│  │   │  proposal.md, design.md     │    │  - Cross-spec joins       │   │   │
-│  │   └─────────────────────────────┘    └───────────────────────────┘   │   │
-│  │                                                                       │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │                       OUTPUT LAYER                                    │   │
@@ -185,39 +175,42 @@ JSON Files (Git-tracked)
 
 ## Component Architecture
 
-### Go CLI
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         GO CLI                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│   │   Commands  │  │   Storage   │  │      Validation         │ │
-│   ├─────────────┤  ├─────────────┤  ├─────────────────────────┤ │
-│   │ spec        │  │ JSON R/W    │  │ Schema validation       │ │
-│   │ change      │  │ SQLite sync │  │ Conflict detection      │ │
-│   │ task        │  │ FTS5 search │  │ Dependency cycles       │ │
-│   │ db          │  │             │  │ Contradiction check     │ │
-│   └─────────────┘  └─────────────┘  └─────────────────────────┘ │
-│                                                                  │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
-│   │   Archive   │  │  Doc Gen    │  │        ID Gen           │ │
-│   ├─────────────┤  ├─────────────┤  ├─────────────────────────┤ │
-│   │ Apply delta │  │ JSON → MD   │  │ NanoID(8)               │ │
-│   │ Version inc │  │ Index gen   │  │ Prefix routing          │ │
-│   │ Move to arc │  │ Preview     │  │ Collision-resistant     │ │
-│   └─────────────┘  └─────────────┘  └─────────────────────────┘ │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### TypeScript Plugin
+### TypeScript Plugin (Primary)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    TYPESCRIPT PLUGIN                             │
+│                    (Primary Interface)                           │
 ├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   AI Tools (tool())                      │   │
+│   ├─────────────────────────────────────────────────────────┤   │
+│   │ adv_spec_list    → List capabilities with filtering     │   │
+│   │ adv_spec_show    → Get spec details by ID               │   │
+│   │ adv_spec_search  → Full-text search (FTS5)              │   │
+│   │ adv_change_*     → Create, validate, archive changes    │   │
+│   │ adv_task_*       → List, ready, update tasks            │   │
+│   │ adv_status       → Project status overview              │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   Storage Layer                          │   │
+│   ├─────────────────────────────────────────────────────────┤   │
+│   │ JSON R/W        → Read/write spec.json, change.json     │   │
+│   │ SQLite          → bun:sqlite for fast queries           │   │
+│   │ Auto-sync       → JSON → SQLite on modification         │   │
+│   │ FTS5            → Full-text search across specs         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   Validation Engine                      │   │
+│   ├─────────────────────────────────────────────────────────┤   │
+│   │ Schema validation  → Zod schemas for all JSON           │   │
+│   │ Conflict detection → Contradicting requirements         │   │
+│   │ Dependency cycles  → Task blocking validation           │   │
+│   │ Completeness       → Missing scenarios, acceptance      │   │
+│   └─────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │                   Event Handlers                         │   │
@@ -235,13 +228,27 @@ JSON Files (Git-tracked)
 │   │ OSC escapes  → Cross-terminal compatibility             │   │
 │   └─────────────────────────────────────────────────────────┘   │
 │                                                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                   State Management                       │   │
-│   ├─────────────────────────────────────────────────────────┤   │
-│   │ Contract state (active/fulfilled/voided)                 │   │
-│   │ Sub-agent tracking                                       │   │
-│   │ Doom loop detection                                      │   │
-│   └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### CLI Wrapper (Optional)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CLI WRAPPER (Optional)                        │
+│              For CI/CD and human debugging                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Built with: bun build --compile                                │
+│   Uses: Same core library as plugin                              │
+│                                                                  │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│   │   Commands  │  │   Output    │  │      Use Cases          │ │
+│   ├─────────────┤  ├─────────────┤  ├─────────────────────────┤ │
+│   │ adv status  │  │ --json      │  │ CI/CD pipelines         │ │
+│   │ adv validate│  │ --table     │  │ Human debugging         │ │
+│   │ adv export  │  │ --quiet     │  │ Scripting               │ │
+│   └─────────────┘  └─────────────┘  └─────────────────────────┘ │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -316,25 +323,29 @@ project/
 │                   OPENCODE INTEGRATION                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   User: /spec-apply add-feature                                  │
+│   User: /adv-apply add-feature                                   │
 │         │                                                        │
 │         ▼                                                        │
 │   ┌─────────────────┐                                            │
-│   │  Slash Command  │  Reads change.json via CLI                 │
+│   │  Slash Command  │  Invokes plugin tools directly             │
 │   │  (Markdown)     │  Displays contract                         │
 │   └────────┬────────┘  Guides implementation                     │
 │            │                                                     │
 │            ▼                                                     │
 │   ┌─────────────────┐                                            │
-│   │    Go CLI       │  Queries ready tasks                       │
-│   │    `adv`        │  Updates task status                       │
-│   └────────┬────────┘  Validates changes                         │
+│   │   Plugin Tools  │  adv_change_show → load change             │
+│   │   (In-process)  │  adv_task_ready → get unblocked tasks      │
+│   │                 │  adv_task_update → mark complete           │
+│   │                 │  adv_change_validate → check specs         │
+│   └────────┬────────┘                                            │
 │            │                                                     │
 │            ▼                                                     │
 │   ┌─────────────────┐                                            │
-│   │   TS Plugin     │  Detects [ADV:*] markers                   │
-│   │   (Runtime)     │  Updates terminal state                    │
+│   │  Event Handlers │  Detects [ADV:*] markers                   │
+│   │  + Terminal UI  │  Updates tab color/title                   │
 │   └─────────────────┘  Tracks contract progress                  │
+│                                                                  │
+│   Key advantage: No subprocess overhead, session context         │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```

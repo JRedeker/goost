@@ -5,7 +5,9 @@
 An optimized spec-driven development system using **hybrid storage** where:
 - **JSON** stores all structured data (specs, tasks, deltas) with SQLite caching for fast queries
 - **Markdown** stores prose content (proposals, designs) for human readability
-- **Specs become laws** — requirements are enforced during change validation, not just documented
+- **Specs become laws** — requirements are enforced during change validation
+
+**Architecture shift (January 2026)**: After research comparing CLI, MCP servers, and OpenCode plugins, we've chosen a **plugin-first architecture**. The plugin exposes native tools to AI agents, eliminating subprocess overhead and enabling session-aware operations.
 
 This builds on the original hybrid storage proposal with key optimizations informed by Beads' production-tested patterns.
 
@@ -452,20 +454,110 @@ This mirrors current OpenSpec: specs in `changes/` are proposals, specs in `spec
 
 ## Tooling Architecture
 
-See **[tooling.md](tooling.md)** for complete tooling documentation.
+### Plugin-First Design
 
-**Components**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ADVANCE TOOLKIT                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              TypeScript Plugin (Primary)                 │    │
+│  │                                                          │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │    │
+│  │  │  AI Tools    │  │   Storage    │  │  UI/Terminal │   │    │
+│  │  │  (tool())    │  │   (SQLite)   │  │  (Tab color) │   │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘   │    │
+│  │                                                          │    │
+│  │  Tools exposed:                                          │    │
+│  │  • adv_spec_list, adv_spec_show, adv_spec_search        │    │
+│  │  • adv_change_create, adv_change_validate               │    │
+│  │  • adv_task_ready, adv_task_update                      │    │
+│  │  • adv_archive                                          │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              CLI Wrapper (Optional)                      │    │
+│  │              For CI/CD and human debugging               │    │
+│  │                                                          │    │
+│  │  adv status     →  wraps adv_spec_list                  │    │
+│  │  adv validate   →  wraps adv_change_validate            │    │
+│  │  adv export     →  exports for external tools           │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              Slash Commands (.md)                        │    │
+│  │              User workflows invoking plugin tools        │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why Plugin-First?
+
+| Aspect | CLI | Plugin |
+|--------|-----|--------|
+| **Token cost** | ~1-2k/op | ~1k/op |
+| **Latency** | ~100-200ms (spawn) | <5ms (in-process) |
+| **Session context** | None (stateless) | Full access |
+| **Contract integration** | Manual | Native |
+| **Structured I/O** | Requires --json | Native JSON |
+| **AI tool discovery** | Manual | Automatic |
+
+### Component Responsibilities
+
 | Component | Implementation | Responsibility |
 |-----------|----------------|----------------|
-| **CLI** | Go binary | Spec/change/task management, SQLite, validation |
-| **Plugin** | TypeScript | Terminal integration, status detection |
-| **Instructions** | Markdown | TDD protocol, contract enforcement |
-| **Slash Commands** | Markdown | User-invokable workflows |
+| **Plugin** | TypeScript | All spec/change/task operations, SQLite, validation, UI |
+| **CLI** | TypeScript (Bun) | CI validation, human debugging (optional) |
+| **Instructions** | Markdown | TDD protocol, contract enforcement, agent guidance |
+| **Slash Commands** | Markdown | User workflows invoking plugin tools |
 
-**Installation**:
-```bash
-curl -fsSL https://advance.dev/install.sh | bash
+See **[tooling.md](tooling.md)** for complete tooling documentation.
+
+## Plugin Tools
+
+The plugin exposes tools that AI agents can call directly:
+
+```typescript
+// Example plugin tool registration
+return {
+  tool: {
+    adv_spec_list: tool({
+      description: "List all specifications",
+      args: { capability: z.string().optional() },
+      async execute({ capability }) {
+        const specs = await db.query("SELECT * FROM specs WHERE ...");
+        return JSON.stringify(specs);
+      }
+    }),
+    
+    adv_change_validate: tool({
+      description: "Validate change against specs (laws)",
+      args: { changeId: z.string() },
+      async execute({ changeId }) {
+        const result = await validator.validate(changeId);
+        return JSON.stringify(result);
+      }
+    }),
+  }
+}
 ```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `adv_spec_list` | List capabilities with optional filtering |
+| `adv_spec_show` | Get spec details by ID |
+| `adv_spec_search` | Full-text search across specs (FTS5) |
+| `adv_change_create` | Create new change proposal |
+| `adv_change_validate` | Validate against existing specs |
+| `adv_change_archive` | Apply deltas, generate docs |
+| `adv_task_list` | List tasks for a change |
+| `adv_task_ready` | Get unblocked tasks |
+| `adv_task_update` | Update task status |
+| `adv_status` | Project status overview |
 
 ## Risks and Mitigations
 

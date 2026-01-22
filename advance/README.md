@@ -8,6 +8,28 @@ Advance is a complete redesign of the spec-driven development system using:
 - **JSON** for structured data (specs, tasks, deltas) with SQLite caching
 - **Markdown** for prose content (proposals, designs)
 - **Enforcement** — changes validated against existing specs
+- **Plugin-first** — AI tools exposed directly, no CLI subprocess overhead
+
+## Architecture
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                TypeScript Plugin (Primary)                      │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
+│  │  AI Tools    │  │   Storage    │  │  Terminal UI         │  │
+│  │  tool()      │  │   SQLite     │  │  Tab colors/titles   │  │
+│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
+│                                                                 │
+│  Tools: adv_spec_*, adv_change_*, adv_task_*, adv_status       │
+└────────────────────────────────────────────────────────────────┘
+         │                                      │
+         ▼                                      ▼
+┌─────────────────┐                  ┌─────────────────────────┐
+│  Slash Commands │                  │  CLI Wrapper (optional) │
+│  /adv-apply     │                  │  For CI/CD, debugging   │
+└─────────────────┘                  └─────────────────────────┘
+```
 
 ## Documents
 
@@ -17,36 +39,35 @@ Advance is a complete redesign of the spec-driven development system using:
 | [architecture.md](architecture.md) | System diagrams, component overview |
 | [schemas.md](schemas.md) | JSON schema definitions (spec.json, change.json) |
 | [sqlite-cache.md](sqlite-cache.md) | Cache architecture, tables, queries, sync rules |
-| [cli-reference.md](cli-reference.md) | CLI command reference (`adv` binary) |
-| [tooling.md](tooling.md) | Component breakdown (CLI, plugin, commands) |
+| [tool-reference.md](tool-reference.md) | Plugin tool reference |
+| [tooling.md](tooling.md) | Component breakdown (plugin, CLI wrapper, commands) |
 | [entity-relationships.md](entity-relationships.md) | Data model diagrams and relationships |
 | [multi-capability-changes.md](multi-capability-changes.md) | Handling changes affecting multiple specs |
 | [token-analysis.md](token-analysis.md) | Token cost comparison (20-30% reduction) |
 | [agent-instructions.md](agent-instructions.md) | Agent behavioral rules, contract protocol |
 | [rules.yaml](rules.yaml) | Core rules in YAML format |
 | [slash-commands.md](slash-commands.md) | Slash command mapping (v1 → ADV) |
-| [cli-implementation.md](cli-implementation.md) | Go CLI implementation plan |
+| [plugin-implementation.md](plugin-implementation.md) | TypeScript plugin implementation plan |
 
 ## Quick Start (Planned)
 
+Within OpenCode, the AI agent calls plugin tools directly:
+
+```typescript
+// AI calls these tools (no shell commands needed)
+adv_spec_list()                           // List capabilities
+adv_change_create({ summary: "..." })     // Create change
+adv_task_ready({ changeId: "..." })       // Get unblocked tasks
+adv_change_validate({ changeId: "..." })  // Validate against specs
+adv_change_archive({ changeId: "..." })   // Archive (becomes law)
+```
+
+For CI/CD or human debugging, an optional CLI wrapper:
+
 ```bash
-# Initialize a project
-adv init
-
-# Create a new change
-adv change new "Add user authentication"
-
-# List pending changes
-adv change list --status=pending
-
-# Validate a change against specs
-adv change validate auth-abc123
-
-# Archive a completed change (becomes law)
-adv change archive auth-abc123
-
-# Search across specs
-adv search "authentication"
+adv status                    # Project overview
+adv validate add-feature      # Validate a change
+adv export --format=json      # Export for external tools
 ```
 
 ## Key Concepts
@@ -116,12 +137,13 @@ NanoID(8) gives 50% collision probability at ~51 million IDs.
 
 ## Implementation Status
 
-- [ ] Go CLI skeleton (`adv` binary)
+- [ ] Plugin tool registration (adv_spec_*, adv_change_*, adv_task_*)
 - [ ] JSON schemas (Zod validation)
-- [ ] SQLite schema implementation
-- [ ] Migration tool (`adv migrate from-openspec`)
+- [ ] SQLite storage layer (bun:sqlite)
+- [ ] Validation engine (specs as laws)
 - [ ] Slash command updates (`/adv-*`)
-- [ ] TypeScript plugin integration
+- [ ] Migration tool (OpenSpec → ADV)
+- [ ] CLI wrapper (optional, for CI/CD)
 
 ## Learnings from Goost v1 (January 2026)
 

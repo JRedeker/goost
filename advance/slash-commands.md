@@ -8,21 +8,21 @@ This document maps current OpenSpec slash commands to their ADV equivalents, doc
 |--------------|----------------|---------|
 | `/contract` | `/contract` | **Unchanged** — core contract mechanics stay the same |
 | `/contract-quick` | `/contract-quick` | **Unchanged** |
-| `/openspec-proposal` | `/adv-proposal` | Uses `adv change new` instead of `openspec` CLI |
-| `/openspec-prep` | `/adv-prep` | JSON-aware analysis, validates against `spec.json` |
-| `/openspec-apply` | `/adv-apply` | Reads `change.json` for tasks, updates task status in JSON |
-| `/openspec-archive` | `/adv-archive` | Uses `adv change archive`, triggers doc generation |
-| `/openspec-status` | `/adv-status` | Queries SQLite for fast status, no file parsing |
-| `/openspec-review` | `/adv-review` | Validates implementation against `spec.json` laws |
+| `/openspec-proposal` | `/adv-proposal` | Uses `adv_change_create` tool instead of `openspec` CLI |
+| `/openspec-prep` | `/adv-prep` | JSON-aware analysis via `adv_change_show` + `adv_spec_search` |
+| `/openspec-apply` | `/adv-apply` | Uses `adv_task_ready` and `adv_task_update` for task tracking |
+| `/openspec-archive` | `/adv-archive` | Uses `adv_change_archive` tool, triggers doc generation |
+| `/openspec-status` | `/adv-status` | Uses `adv_status` tool for fast SQLite-backed status |
+| `/openspec-review` | `/adv-review` | Uses `adv_change_validate` against spec laws |
 | `/openspec-research` | `/adv-research` | **Unchanged** — parallel research pattern stays the same |
-| `/openspec-clarify` | `/adv-clarify` | Targets `change.json` instead of markdown specs |
-| `/openspec-coordinate` | `/adv-coordinate` | Queries SQLite for cross-spec dependencies |
+| `/openspec-clarify` | `/adv-clarify` | Uses `adv_change_show` to target structured JSON |
+| `/openspec-coordinate` | `/adv-coordinate` | Uses `adv_spec_search` for cross-spec dependencies |
 | `/openspec-harden` | `/adv-harden` | **Unchanged** — prompt hardening pattern stays the same |
-| `/openspec-audit` | `/adv-audit` | Queries `adv.db` for completeness metrics |
-| `/openspec-roadmap` | `/adv-roadmap` | Uses `adv roadmap` CLI command |
+| `/openspec-audit` | `/adv-audit` | Uses `adv_status` for completeness metrics |
+| `/openspec-roadmap` | `/adv-roadmap` | Uses `adv_spec_list` and `adv_change_list` |
 | `/openspec-ralph` | `/adv-ralph` | **Unchanged** — exploratory review pattern stays the same |
-| `/openspec-refactor` | `/adv-refactor` | Uses `adv change refactor` with SQLite-powered staleness detection |
-| `/goost-search` | `/adv-search` | Queries SQLite FTS5 instead of ripgrep |
+| `/openspec-refactor` | `/adv-refactor` | Uses `adv_change_validate` with staleness detection |
+| `/goost-search` | `/adv-search` | Uses `adv_spec_search` (FTS5) instead of ripgrep |
 | `/goost-improve` | `/adv-improve` | Pattern stays the same |
 | `/goost-slop-scan` | `/adv-slop-scan` | Pattern stays the same |
 
@@ -31,7 +31,7 @@ This document maps current OpenSpec slash commands to their ADV equivalents, doc
 | Command | Purpose |
 |---------|---------|
 | `/adv-init` | Initialize project with `project.json` and `.advdb/` |
-| `/adv-validate` | Validate change against existing specs (specs as laws) |
+| `/adv-validate` | Validate change via `adv_change_validate` (specs as laws) |
 | `/adv-docs` | Generate/preview documentation from specs |
 | `/adv-migrate` | Migrate from OpenSpec v1 to ADV format |
 | `/adv-refactor` | Refresh stale change proposals via Bidirectional Reconciliation |
@@ -43,18 +43,20 @@ This document maps current OpenSpec slash commands to their ADV equivalents, doc
 **Purpose**: Create a new change proposal
 
 **Workflow**:
-1. Run `adv change new "<description>"` to scaffold files
+1. Call `adv_change_create({ summary: "<description>" })` to scaffold files
 2. Generate unique change ID (verb-led, e.g., `add-auth`, `fix-validation`)
 3. Create:
    - `changes/{id}/proposal.md` — prose description
    - `changes/{id}/change.json` — structured metadata
-4. Validate against existing specs (check for conflicts)
+4. Call `adv_change_validate({ changeId })` to check for conflicts
 5. Present draft for user confirmation
 
-**CLI Integration**:
-```bash
-adv change new "Add user authentication"
-# Creates: changes/add-auth-abc123/
+**Tool Integration**:
+```typescript
+const { changeId, path } = await adv_change_create({ 
+  summary: "Add user authentication" 
+});
+// Creates: changes/add-auth-abc123/
 ```
 
 **Output**:
@@ -77,21 +79,19 @@ Files:
 
 **Workflow**:
 1. Resolve change ID (prompt if ambiguous)
-2. Read `change.json` for tasks and acceptance criteria
+2. Call `adv_change_show({ changeId })` for tasks and acceptance criteria
 3. Generate contract from structured data
-4. Work through tasks, updating `change.json` status:
-   ```json
-   "tasks": [
-     {"id": "tk-abc123", "content": "...", "status": "completed"}
-   ]
+4. Call `adv_task_ready({ changeId })` to get unblocked tasks
+5. Work through tasks, calling `adv_task_update` as tasks complete:
+   ```typescript
+   await adv_task_update({ 
+     taskId: "tk-abc123", 
+     status: "completed",
+     notes: "Implemented with tests"
+   });
    ```
-5. Run `adv change validate <id>` before completion
-6. Mark change as `implemented` when all tasks done
-
-**Task Status Updates**:
-```bash
-adv task update tk-abc123 --status=completed
-```
+6. Call `adv_change_validate({ changeId })` before completion
+7. Mark change as `implemented` when all tasks done
 
 ---
 
@@ -100,17 +100,18 @@ adv task update tk-abc123 --status=completed
 **Purpose**: Archive a completed change, promoting deltas to specs
 
 **Workflow**:
-1. Validate all tasks completed
-2. Run `adv change archive <id>`
+1. Validate all tasks completed via `adv_task_list({ changeId })`
+2. Call `adv_change_archive({ changeId })`
 3. Deltas from `change.json` become requirements in `specs/{cap}/spec.json`
 4. Change moves to `archive/{date}-{id}/`
-5. Generate documentation: `docs/specs/{cap}.md`
-6. Update SQLite cache
+5. Documentation generated: `docs/specs/{cap}.md`
+6. SQLite cache updated
 
-**Triggers**:
-- Spec promotion (deltas → requirements)
-- Documentation generation
-- Cache sync
+**Tool Integration**:
+```typescript
+const result = await adv_change_archive({ changeId: "add-auth-abc123" });
+// → { success: true, specsUpdated: ["auth"], docsGenerated: ["docs/specs/auth.md"] }
+```
 
 ---
 
@@ -118,16 +119,16 @@ adv task update tk-abc123 --status=completed
 
 **Purpose**: Fast project status overview
 
-**ADV Improvement**: Queries SQLite instead of parsing files
+**ADV Improvement**: Uses `adv_status` tool (SQLite-backed) instead of parsing files
 
 **Workflow**:
-```bash
-adv status
-# Returns JSON with:
-# - Active changes and progress
-# - Spec counts
-# - Dependency warnings
-# - Recommendations
+```typescript
+const status = await adv_status();
+// Returns:
+// - Active changes and progress
+// - Spec counts
+// - Dependency warnings
+// - Recommendations
 ```
 
 **Output Format**:
@@ -170,9 +171,13 @@ RECOMMENDATIONS
 3. **Schema validation**: JSON structure is valid
 4. **Completeness**: All required fields present
 
-**Workflow**:
-```bash
-adv change validate add-auth-abc123
+**Tool Integration**:
+```typescript
+const result = await adv_change_validate({ 
+  changeId: "add-auth-abc123",
+  strict: true 
+});
+// → { passed: false, errors: [...], warnings: [...] }
 ```
 
 **Output**:
@@ -204,12 +209,11 @@ RECOMMENDATIONS
 **Purpose**: Generate or preview documentation from specs
 
 **Workflow**:
-```bash
-# Preview (don't commit)
-adv docs preview
+```typescript
+// Preview (don't write files)
+const preview = await adv_docs_preview();
 
-# Generate (during archive)
-adv docs generate
+// Generate (during archive - handled by adv_change_archive)
 ```
 
 **Output**: Markdown files in `docs/specs/`:
@@ -229,9 +233,10 @@ adv docs generate
 4. Initialize SQLite cache
 5. Validate migration
 
-**CLI**:
-```bash
-adv migrate from-openspec
+**Tool Integration**:
+```typescript
+// Migration is a one-time operation, typically via plugin tool
+const result = await adv_migrate({ source: "openspec" });
 ```
 
 ---
@@ -240,11 +245,14 @@ adv migrate from-openspec
 
 **Purpose**: Full-text search across specs and changes
 
-**ADV Improvement**: Uses SQLite FTS5 instead of ripgrep
+**ADV Improvement**: Uses `adv_spec_search` (SQLite FTS5) instead of ripgrep
 
-**Workflow**:
-```bash
-adv search "authentication"
+**Tool Integration**:
+```typescript
+const results = await adv_spec_search({ 
+  query: "authentication",
+  limit: 20 
+});
 ```
 
 **Output**:
@@ -291,12 +299,17 @@ add-auth-abc123  changes/add-auth-abc123/change.json
 2. **Synthesis**: Aggregate findings, classify by severity
 3. **Intent Verification**: If code contradicts requirement, ask user to clarify
 4. **Refactoring**: Update spec deltas, tasks, metadata (under contract)
-5. **Validation**: Run `adv change validate` on updated proposal
+5. **Validation**: Call `adv_change_validate({ changeId })` on updated proposal
 
-**CLI**:
-```bash
-adv change refactor add-auth-abc123
-adv change refactor add-auth-abc123 --execute
+**Tool Integration**:
+```typescript
+// Load change and validate
+const change = await adv_change_show({ changeId: "add-auth-abc123" });
+const validation = await adv_change_validate({ changeId: "add-auth-abc123" });
+
+// Update tasks as needed
+await adv_task_update({ taskId: "tk-old", status: "cancelled", notes: "Obsolete" });
+await adv_task_add({ changeId, content: "New task based on current state" });
 ```
 
 **Output**:
@@ -331,9 +344,9 @@ ROLLBACK:
 
 All `/adv-*` commands that modify state integrate with the contract system:
 
-1. **Before work**: Generate contract from `change.json`
-2. **During work**: Update task status in `change.json`
-3. **After work**: Validate via `adv change validate`
+1. **Before work**: Generate contract from `change.json` (via `adv_change_show`)
+2. **During work**: Update task status via `adv_task_update`
+3. **After work**: Validate via `adv_change_validate`
 4. **Completion**: Standard contract fulfillment protocol
 
 The contract format remains unchanged from the original Goost:
@@ -350,29 +363,29 @@ SUCCESS CRITERIA:
 ============================================================
 ```
 
-## CLI Integration Summary
+## Tool Integration Summary
 
-| Slash Command | CLI Command |
-|---------------|-------------|
-| `/adv-proposal` | `adv change new` |
-| `/adv-apply` | `adv task update` |
-| `/adv-archive` | `adv change archive` |
-| `/adv-status` | `adv status` |
-| `/adv-validate` | `adv change validate` |
-| `/adv-docs` | `adv docs preview/generate` |
-| `/adv-migrate` | `adv migrate from-openspec` |
-| `/adv-search` | `adv search` |
-| `/adv-refactor` | `adv change refactor` |
+| Slash Command | Plugin Tools |
+|---------------|--------------|
+| `/adv-proposal` | `adv_change_create`, `adv_change_validate` |
+| `/adv-apply` | `adv_change_show`, `adv_task_ready`, `adv_task_update` |
+| `/adv-archive` | `adv_task_list`, `adv_change_archive` |
+| `/adv-status` | `adv_status` |
+| `/adv-validate` | `adv_change_validate` |
+| `/adv-docs` | `adv_docs_preview`, (or via `adv_change_archive`) |
+| `/adv-migrate` | `adv_migrate` |
+| `/adv-search` | `adv_spec_search` |
+| `/adv-refactor` | `adv_change_show`, `adv_change_validate`, `adv_task_update`, `adv_task_add` |
 
 ## Migration Path
 
-1. **Phase 1**: Implement Go CLI with core commands
-2. **Phase 2**: Create new `/adv-*` slash commands that call CLI
+1. **Phase 1**: Implement plugin with core tools
+2. **Phase 2**: Create new `/adv-*` slash commands that call plugin tools
 3. **Phase 3**: Deprecate `/openspec-*` commands with warning
 4. **Phase 4**: Remove deprecated commands after migration period
 
 During migration, both command sets work:
 - `/openspec-*` — reads/writes markdown (legacy)
-- `/adv-*` — reads/writes JSON (ADV)
+- `/adv-*` — reads/writes JSON via plugin tools (ADV)
 
-The `adv migrate from-openspec` command handles the one-time conversion.
+The `adv_migrate` tool handles the one-time conversion.
