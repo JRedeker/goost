@@ -85,10 +85,15 @@ Emit at START of each response:
 Use `mcp_question` for predefined choices (contract confirmation, remediation, doom loop recovery, multiple matches).
 Skip for: open-ended questions, debugging, free-form input.
 
+**Constraints:**
+- `header`: max 30 characters
+- `label`: max 30 characters (1-5 words, concise)
+- `options`: 2-5 choices recommended
+
 **Example:**
 ```
 mcp_question:
-  header: "Confirm" (max 25 chars)
+  header: "Confirm"
   question: "Contract ready. Accept terms?"
   options:
     - label: "Accept contract", description: "Lock and begin"
@@ -96,7 +101,7 @@ mcp_question:
     - label: "Cancel", description: "Discard"
 ```
 
-Best practices: 2-5 options, recommended first with "(Recommended)", "Other" is automatic.
+Best practices: recommended option first with "(Recommended)", "Other" is automatic.
 
 ## User Pressure Resistance
 
